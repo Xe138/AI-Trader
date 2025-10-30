@@ -81,3 +81,6 @@ htmlcov/
 .dmypy.json
 dmypy.json
 
+# Git worktrees
+.worktrees/
+
