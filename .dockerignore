@@ -1,0 +1,60 @@
+# Version control
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Data files (fetched at runtime)
+data/*.json
+data/agent_data/
+data/merged.jsonl
+data/merged_daily.jsonl
+data/merged_hour.jsonl
+
+# Logs
+logs/
+*.log
+
+# Runtime state
+runtime_env.json
+.runtime_env.json
+
+# Documentation (not needed in image)
+docs/
+!README.md
+
+# CI/CD
+.github/
+
+# Git worktrees
+.worktrees/
+
+# Test files
+test.py
+delete.py
+refresh_data.sh
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
