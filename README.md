@@ -323,6 +323,52 @@ python3 -m http.server 8000
 # Visit http://localhost:8000
 ```
 
+## 🐳 Docker Deployment
+
+### Using Docker Compose (Recommended)
+
+The easiest way to run AI-Trader is with Docker Compose:
+
+```bash
+# 1. Clone and setup
+git clone https://github.com/HKUDS/AI-Trader.git
+cd AI-Trader
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your API keys:
+# - OPENAI_API_KEY
+# - ALPHAADVANTAGE_API_KEY
+# - JINA_API_KEY
+
+# 3. Run with Docker Compose
+docker-compose up
+```
+
+The container automatically:
+- Fetches latest NASDAQ 100 price data
+- Starts all MCP services
+- Runs AI trading agents
+
+### Using Pre-built Images
+
+Pull and run pre-built images from GitHub Container Registry:
+
+```bash
+# Pull latest version
+docker pull ghcr.io/hkuds/ai-trader:latest
+
+# Run container
+docker run --env-file .env \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/logs:/app/logs \
+  ghcr.io/hkuds/ai-trader:latest
+```
+
+**📖 See [docs/DOCKER.md](docs/DOCKER.md) for detailed Docker usage, troubleshooting, and advanced configuration.**
+
+---
+
 ## 📈 Performance Analysis
 
 ### 🏆 Competition Rules
