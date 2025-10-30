@@ -48,6 +48,51 @@ cd ..
 # - GETPRICE_HTTP_PORT (default: 8003)
 ```
 
+### Docker Deployment
+
+```bash
+# Build Docker image
+docker-compose build
+
+# Run with Docker Compose
+docker-compose up
+
+# Run in background
+docker-compose up -d
+
+# Run with custom config
+docker-compose run ai-trader configs/my_config.json
+
+# View logs
+docker-compose logs -f
+
+# Stop and remove containers
+docker-compose down
+
+# Pull pre-built image
+docker pull ghcr.io/hkuds/ai-trader:latest
+
+# Test local Docker build
+docker build -t ai-trader-test .
+docker run --env-file .env -v $(pwd)/data:/app/data ai-trader-test
+```
+
+### Releasing Docker Images
+
+```bash
+# Create and push release tag
+git tag v1.0.0
+git push origin v1.0.0
+
+# GitHub Actions automatically:
+# 1. Builds Docker image
+# 2. Tags with version and latest
+# 3. Pushes to ghcr.io/hkuds/ai-trader
+
+# Verify build in Actions tab
+# https://github.com/HKUDS/AI-Trader/actions
+```
+
 ### Running Trading Simulations
 ```bash
 # Run with default config
