@@ -35,15 +35,31 @@
 
 ---
 
-## 📝 Upcoming Updates (This Week)
+## ✨ Latest Updates (v0.3.0)
 
-We're excited to announce the following updates coming this week:
+**Major Architecture Upgrade - REST API Service**
 
-- ⏰ **Hourly Trading Support** - Upgrade to hour-level precision trading 
-- 🚀 **Service Deployment & Parallel Execution** - Deploy production service + parallel model execution
-- 🎨 **Enhanced Frontend Dashboard** - Add detailed trading log visualization (complete trading process display)
+- 🌐 **REST API Server** - Complete FastAPI implementation for external orchestration
+  - Trigger simulations via HTTP POST
+  - Monitor job progress in real-time
+  - Query results with flexible filtering
+  - Health checks and monitoring
+- 💾 **SQLite Database** - Full persistence layer with 6 relational tables
+  - Job tracking and lifecycle management
+  - Position records with P&L tracking
+  - AI reasoning logs and tool usage analytics
+- 🐳 **Dual Docker Deployment** - API server mode + Batch mode
+  - API mode: Persistent REST service with health checks
+  - Batch mode: One-time simulations (backwards compatible)
+- 🧪 **Comprehensive Testing** - 102 tests with 85% coverage
+  - Unit tests for all components
+  - Integration tests for API endpoints
+  - Validation scripts for Docker deployment
+- 📚 **Production Documentation** - Complete deployment guides
+  - DOCKER_API.md - API deployment and usage
+  - TESTING_GUIDE.md - Validation procedures
 
-Stay tuned for these exciting improvements! 🎉
+See [CHANGELOG.md](CHANGELOG.md) for full details.
 
 ---
 
@@ -209,12 +225,56 @@ AI-Trader Bench/
 
 ## 🚀 Quick Start
 
-### 📋 Prerequisites
+### 🐳 **Docker Deployment (Recommended)**
 
-- **Python 3.10+** 
+**Two deployment modes available:**
+
+#### 🌐 API Server Mode (Windmill Integration)
+```bash
+# 1. Clone and configure
+git clone https://github.com/Xe138/AI-Trader.git
+cd AI-Trader
+cp .env.example .env
+# Edit .env and add your API keys
+
+# 2. Start API server
+docker-compose up -d ai-trader-api
+
+# 3. Test API
+curl http://localhost:8080/health
+
+# 4. Trigger simulation
+curl -X POST http://localhost:8080/simulate/trigger \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config_path": "/app/configs/default_config.json",
+    "date_range": ["2025-01-16", "2025-01-17"],
+    "models": ["gpt-4"]
+  }'
+```
+
+See [DOCKER_API.md](DOCKER_API.md) for complete API documentation.
+
+#### 🎯 Batch Mode (One-time Simulation)
+```bash
+# Run single simulation
+docker-compose --profile batch up ai-trader-batch
+
+# With custom config
+docker-compose --profile batch run ai-trader-batch configs/custom.json
+```
+
+---
+
+### 💻 **Local Installation (Development)**
+
+#### 📋 Prerequisites
+
+- **Python 3.10+**
 - **API Keys**: OpenAI, Alpha Vantage, Jina AI
+- **Optional**: Docker (for containerized deployment)
 
-### ⚡ One-Click Installation
+#### ⚡ Installation Steps
 
 ```bash
 # 1. Clone project

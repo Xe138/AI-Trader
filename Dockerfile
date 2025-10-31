@@ -24,11 +24,11 @@ RUN mkdir -p /app/scripts && \
 # Create necessary directories
 RUN mkdir -p data logs data/agent_data
 
-# Make entrypoint executable
-RUN chmod +x entrypoint.sh
+# Make entrypoints executable
+RUN chmod +x entrypoint.sh entrypoint-api.sh
 
-# Expose MCP service ports and web dashboard
-EXPOSE 8000 8001 8002 8003 8888
+# Expose MCP service ports, API server, and web dashboard
+EXPOSE 8000 8001 8002 8003 8080 8888
 
 # Set Python to run unbuffered for real-time logs
 ENV PYTHONUNBUFFERED=1

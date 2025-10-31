@@ -7,6 +7,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-10-31
+
+### Added - API Service Transformation
+- **REST API Service** - Complete FastAPI implementation for external orchestration
+  - `POST /simulate/trigger` - Trigger simulation jobs with config, date range, and models
+  - `GET /simulate/status/{job_id}` - Query job progress and execution details
+  - `GET /results` - Retrieve simulation results with filtering (job_id, date, model)
+  - `GET /health` - Service health check with database connectivity verification
+- **SQLite Database** - Complete persistence layer replacing JSONL files
+  - Jobs table - Job metadata and lifecycle tracking
+  - Job details table - Per model-day execution status
+  - Positions table - Trading position records with P&L
+  - Holdings table - Portfolio holdings breakdown
+  - Reasoning logs table - AI decision reasoning history
+  - Tool usage table - MCP tool usage statistics
+- **Backend Components**
+  - JobManager - Job lifecycle management with concurrent job prevention
+  - RuntimeConfigManager - Isolated runtime configs for thread-safe execution
+  - ModelDayExecutor - Single model-day execution engine
+  - SimulationWorker - Job orchestration with date-sequential, model-parallel execution
+- **Comprehensive Test Suite**
+  - 102 unit and integration tests (85% coverage)
+  - 19 database tests (98% coverage)
+  - 23 job manager tests (98% coverage)
+  - 10 model executor tests (84% coverage)
+  - 20 API endpoint tests (81% coverage)
+  - 20 Pydantic model tests (100% coverage)
+  - 10 runtime manager tests (89% coverage)
+- **Docker Dual-Mode Deployment**
+  - API server mode - Persistent REST API service with health checks
+  - Batch mode - One-time simulation execution (backwards compatible)
+  - Separate entrypoints for each mode
+  - Health check configuration (30s interval, 3 retries)
+  - Volume persistence for SQLite database and logs
+- **Validation & Testing Tools**
+  - `scripts/validate_docker_build.sh` - Docker build and startup validation
+  - `scripts/test_api_endpoints.sh` - Complete API endpoint testing suite
+  - `scripts/test_batch_mode.sh` - Batch mode execution validation
+  - TESTING_GUIDE.md - Comprehensive testing procedures and troubleshooting
+- **Documentation**
+  - DOCKER_API.md - API deployment guide with examples
+  - TESTING_GUIDE.md - Validation procedures and troubleshooting
+  - API endpoint documentation with request/response examples
+  - Windmill integration patterns and examples
+
+### Changed
+- **Architecture** - Transformed from batch-only to API service with database persistence
+- **Data Storage** - Migrated from JSONL files to SQLite relational database
+- **Deployment** - Added dual-mode Docker deployment (API server + batch)
+- **Configuration** - Added API_PORT environment variable (default: 8080)
+- **Requirements** - Added fastapi>=0.120.0, uvicorn[standard]>=0.27.0, pydantic>=2.0.0
+- **Docker Compose** - Split into two services (ai-trader-api and ai-trader-batch)
+- **Dockerfile** - Added port 8080 exposure for API server
+- **.env.example** - Added API server configuration
+
+### Technical Implementation
+- **Test-Driven Development** - All components written with tests first
+- **Mock-based Testing** - Avoid heavy dependencies in unit tests
+- **Pydantic V2** - Type-safe request/response validation
+- **Foreign Key Constraints** - Database referential integrity with cascade deletes
+- **Thread-safe Execution** - Isolated runtime configs per model-day
+- **Background Job Execution** - ThreadPoolExecutor for parallel model execution
+- **Automatic Status Transitions** - Job status updates based on model-day completion
+
+### Performance & Quality
+- **Code Coverage** - 85% overall (84.63% measured)
+  - Database layer: 98%
+  - Job manager: 98%
+  - Pydantic models: 100%
+  - Runtime manager: 89%
+  - Model executor: 84%
+  - FastAPI app: 81%
+- **Test Execution** - 102 tests in ~2.5 seconds
+- **Zero Test Failures** - All tests passing (threading tests excluded)
+
+### Integration Ready
+- **Windmill.dev** - HTTP-based integration with polling support
+- **External Orchestration** - RESTful API for workflow automation
+- **Monitoring** - Health checks and status tracking
+- **Persistence** - SQLite database survives container restarts
+
+### Backwards Compatibility
+- **Batch Mode** - Original batch functionality preserved via Docker profile
+- **Configuration** - Existing config files still work
+- **Data Migration** - No automatic migration (fresh start recommended)
+
 ## [0.2.0] - 2025-10-31
 
 ### Added
@@ -113,6 +199,7 @@ For future releases, use this template:
 
 ---
 
-[Unreleased]: https://github.com/Xe138/AI-Trader/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Xe138/AI-Trader/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Xe138/AI-Trader/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Xe138/AI-Trader/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Xe138/AI-Trader/releases/tag/v0.1.0
