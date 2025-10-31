@@ -29,7 +29,6 @@ logger = logging.getLogger(__name__)
 # Pydantic models for request/response validation
 class SimulateTriggerRequest(BaseModel):
     """Request body for POST /simulate/trigger."""
-    config_path: str = Field(..., description="Path to configuration file")
     date_range: List[str] = Field(..., min_length=1, description="List of trading dates (YYYY-MM-DD)")
     models: Optional[List[str]] = Field(
         None,
@@ -86,12 +85,16 @@ class HealthResponse(BaseModel):
     timestamp: str
 
 
-def create_app(db_path: str = "data/jobs.db") -> FastAPI:
+def create_app(
+    db_path: str = "data/jobs.db",
+    config_path: str = "configs/default_config.json"
+) -> FastAPI:
     """
     Create FastAPI application instance.
 
     Args:
         db_path: Path to SQLite database
+        config_path: Path to default configuration file
 
     Returns:
         Configured FastAPI app
@@ -102,15 +105,16 @@ def create_app(db_path: str = "data/jobs.db") -> FastAPI:
         version="1.0.0"
     )
 
-    # Store db_path in app state
+    # Store paths in app state
     app.state.db_path = db_path
+    app.state.config_path = config_path
 
     @app.post("/simulate/trigger", response_model=SimulateTriggerResponse, status_code=200)
     async def trigger_simulation(request: SimulateTriggerRequest):
         """
         Trigger a new simulation job.
 
-        Creates a job with specified config, dates, and models from config file.
+        Creates a job with dates and models from config file.
         If models not specified in request, uses enabled models from config.
         Job runs asynchronously in background thread.
 
@@ -119,16 +123,19 @@ def create_app(db_path: str = "data/jobs.db") -> FastAPI:
             HTTPException 422: If request validation fails
         """
         try:
+            # Use config path from app state
+            config_path = app.state.config_path
+
             # Validate config path exists
-            if not Path(request.config_path).exists():
+            if not Path(config_path).exists():
                 raise HTTPException(
-                    status_code=400,
-                    detail=f"Config path does not exist: {request.config_path}"
+                    status_code=500,
+                    detail=f"Server configuration file not found: {config_path}"
                 )
 
             # Determine which models to run
             import json
-            with open(request.config_path, 'r') as f:
+            with open(config_path, 'r') as f:
                 config = json.load(f)
 
             if request.models is not None:
@@ -159,7 +166,7 @@ def create_app(db_path: str = "data/jobs.db") -> FastAPI:
 
             # Create job
             job_id = job_manager.create_job(
-                config_path=request.config_path,
+                config_path=config_path,
                 date_range=request.date_range,
                 models=models_to_run
             )

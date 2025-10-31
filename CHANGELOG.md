@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Simplified API Interface** - Config path is now a server-side detail
+  - Removed `config_path` parameter from POST /simulate/trigger
+  - Server uses internal default config (configs/default_config.json)
+  - Simplifies API calls - only need to specify date_range
 - **Model Selection** - `enabled` field in config now controls which models run
   - API `models` parameter is now optional
   - If not provided, uses models where `enabled: true` in config
