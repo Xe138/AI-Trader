@@ -8,10 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- **Simplified Configuration** - Removed `RUNTIME_ENV_PATH` environment variable
-  - No longer needed in docker-compose.yml or .env.example
-  - API mode dynamically manages runtime configs via `RuntimeConfigManager`
-  - Legacy tools gracefully handle missing `RUNTIME_ENV_PATH`
+- **Simplified Configuration** - Removed unnecessary environment variables
+  - Removed `RUNTIME_ENV_PATH` (API dynamically manages runtime configs)
+  - Removed `API_PORT` from container environment (only used for host port mapping)
+  - Container always uses port 8080 internally (hardcoded in entrypoint.sh)
+  - API_PORT in .env only controls host-side port mapping
   - Reduces configuration complexity for new deployments
 
 ## [0.3.0] - 2025-10-31
