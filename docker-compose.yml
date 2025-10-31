@@ -27,6 +27,9 @@ services:
 
       # Agent Configuration
       - AGENT_MAX_STEP=${AGENT_MAX_STEP:-30}
+
+      # Data Refresh Configuration
+      - MAX_DATA_AGE_DAYS=${MAX_DATA_AGE_DAYS:-7}
     ports:
       # Format: "HOST:CONTAINER" - container ports are fixed, host ports configurable via .env
       - "${MATH_HTTP_PORT:-8000}:8000"
