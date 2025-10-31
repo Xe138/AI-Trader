@@ -33,8 +33,8 @@ RUN mkdir -p data logs data/agent_data
 # Make entrypoint executable
 RUN chmod +x entrypoint.sh
 
-# Expose MCP service ports, API server, and web dashboard
-EXPOSE 8000 8001 8002 8003 8080 8888
+# Expose API server port (MCP services are internal only)
+EXPOSE 8080
 
 # Set Python to run unbuffered for real-time logs
 ENV PYTHONUNBUFFERED=1

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **Web UI Port** - Removed unused web dashboard port configuration
+  - Removed port 8888 from docker-compose.yml (not implemented)
+  - Removed WEB_HTTP_PORT from .env.example
+  - Removed port 8888 from Dockerfile EXPOSE
+  - Web UI static files exist in docs/ but are not served in API mode
+  - Only port 8080 (REST API) is now exposed
+
 ## [0.3.0] - 2025-10-31
 
 ### Added - API Service Transformation

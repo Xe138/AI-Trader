@@ -23,8 +23,6 @@ services:
     ports:
       # API server port (primary interface for external access)
       - "${API_PORT:-8080}:8080"
-      # Web dashboard
-      - "${WEB_HTTP_PORT:-8888}:8888"
     restart: unless-stopped  # Keep API server running
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
