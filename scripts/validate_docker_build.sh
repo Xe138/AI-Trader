@@ -172,6 +172,16 @@ echo ""
 # Step 6: Test health endpoint
 echo "Step 6: Testing health endpoint..."
 
+# Read API_PORT from .env or use default
+API_PORT=${API_PORT:-8080}
+if [ -f .env ]; then
+    # Source .env to get API_PORT
+    export $(grep "^API_PORT=" .env | xargs)
+fi
+API_PORT=${API_PORT:-8080}
+
+echo "Testing health endpoint on port $API_PORT..."
+
 # Wait for API to be ready with retries
 echo "Waiting for API to be ready (up to 30 seconds)..."
 MAX_RETRIES=15
@@ -179,7 +189,7 @@ RETRY_COUNT=0
 API_READY=false
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if curl -f -s http://localhost:8080/health &> /dev/null; then
+    if curl -f -s http://localhost:$API_PORT/health &> /dev/null; then
         API_READY=true
         break
     fi
@@ -189,10 +199,10 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 done
 
 if [ "$API_READY" = true ]; then
-    print_status 0 "Health endpoint responding"
+    print_status 0 "Health endpoint responding on port $API_PORT"
 
     # Get health details
-    HEALTH_DATA=$(curl -s http://localhost:8080/health)
+    HEALTH_DATA=$(curl -s http://localhost:$API_PORT/health)
     echo "Health response: $HEALTH_DATA"
 else
     print_status 1 "Health endpoint not responding after $MAX_RETRIES attempts"
