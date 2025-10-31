@@ -58,6 +58,12 @@ sleep 3
 # Note: Container always uses port 8080 internally
 # The API_PORT env var only affects the host port mapping in docker-compose.yml
 echo "🌐 Starting FastAPI server on port 8080..."
+echo "🔍 Checking if FastAPI app can be imported..."
+python -c "from api.main import app; print('✓ App imported successfully')" || {
+    echo "❌ Failed to import FastAPI app"
+    exit 1
+}
+
 exec uvicorn api.main:app \
     --host 0.0.0.0 \
     --port 8080 \
