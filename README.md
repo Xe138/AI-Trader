@@ -291,9 +291,6 @@ OPENAI_API_KEY=your_openai_key
 ALPHAADVANTAGE_API_KEY=your_alpha_vantage_key
 JINA_API_KEY=your_jina_api_key
 
-# ⚙️ System Configuration
-RUNTIME_ENV_PATH=./runtime_env.json # Recommended to use absolute path
-
 # 🌐 Service Port Configuration
 MATH_HTTP_PORT=8000
 SEARCH_HTTP_PORT=8001

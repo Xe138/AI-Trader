@@ -20,7 +20,6 @@ cp .env.example .env
 # Edit .env and set:
 # - OPENAI_API_BASE, OPENAI_API_KEY
 # - ALPHAADVANTAGE_API_KEY, JINA_API_KEY
-# - RUNTIME_ENV_PATH (recommended: absolute path to runtime_env.json)
 # - MCP service ports (default: 8000-8003)
 # - AGENT_MAX_STEP (default: 30)
 ```
@@ -163,8 +162,10 @@ bash main.sh
 3. JSON config file
 4. Default values (lowest)
 
-**Runtime configuration** (`runtime_env.json` at `RUNTIME_ENV_PATH`):
-- Dynamic state: `TODAY_DATE`, `SIGNATURE`, `IF_TRADE`
+**Runtime configuration** (API mode only):
+- Dynamically created per model-day execution via `RuntimeConfigManager`
+- Isolated config files prevent concurrent execution conflicts
+- Contains: `TODAY_DATE`, `SIGNATURE`, `IF_TRADE`, `JOB_ID`
 - Written by `write_config_value()`, read by `get_config_value()`
 
 ### Agent System
@@ -319,9 +320,9 @@ When modifying agent behavior or adding tools:
 - Check Alpha Vantage API key is valid
 
 **Runtime Config Issues:**
-- Set `RUNTIME_ENV_PATH` to absolute path in `.env`
-- Ensure directory is writable
-- File gets created automatically on first run
+- Runtime configs are automatically managed by the API
+- Configs are created per model-day execution in `data/` directory
+- Ensure `data/` directory is writable
 
 **Agent Doesn't Stop Trading:**
 - Agent must output `<FINISH_SIGNAL>` within `max_steps`
