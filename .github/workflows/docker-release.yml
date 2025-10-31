@@ -78,11 +78,11 @@ jobs:
           fi
           echo "prerelease=$PRERELEASE" >> $GITHUB_OUTPUT
 
-          # Generate release notes
+          # Generate generic release notes template
           cat > /tmp/release_notes.md << 'EOF'
-          ## 🐳 Docker Deployment
+          ## Release Notes
 
-          This release adds full Docker support for easy deployment.
+          <!-- TODO: Add release summary and highlights here -->
 
           ### Quick Start
 
@@ -110,34 +110,16 @@ jobs:
           - [Release Process](docs/RELEASING.md)
           - [Full Changelog](CHANGELOG.md)
 
-          ### What's New in v0.2.0
+          ### Changes
 
-          **Added:**
-          - Complete Docker deployment support with containerization
-          - Docker Compose orchestration for easy local deployment
-          - Multi-stage Dockerfile with Python 3.10-slim base image
-          - Automated CI/CD pipeline via GitHub Actions for release builds
-          - Docker images published to GitHub Container Registry (ghcr.io)
-          - Comprehensive Docker documentation (docs/DOCKER.md)
-          - Release process documentation (docs/RELEASING.md)
-          - CLAUDE.md repository guidance for development
-          - Environment variable configuration via docker-compose
-          - Sequential startup script (entrypoint.sh) for data fetch, MCP services, and trading agent
-          - Volume mounts for data and logs persistence
+          <!-- TODO: Add changes from CHANGELOG.md here -->
 
-          **Changed:**
-          - Updated .env.example with Docker-specific configuration and paths
-          - Updated .gitignore to exclude git worktrees directory
-          - Removed deprecated version tag from docker-compose.yml
-
-          **Fixed:**
-          - Docker Compose configuration now follows modern best practices (version-less)
-          - Dockerfile FROM AS keyword casing
-          - GitHub Actions lowercase repository owner handling
+          See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
 
           ---
 
           **Container Registry:** `ghcr.io/REPO_OWNER/ai-trader:VERSION`
+          **Docker Image:** `ghcr.io/REPO_OWNER/ai-trader:latest`
           EOF
 
           # Replace placeholders
