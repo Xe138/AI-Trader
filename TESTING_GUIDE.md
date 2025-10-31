@@ -278,23 +278,37 @@ chmod -R 755 data logs
 ### Problem: Health check fails
 
 **Symptoms:**
-- `curl http://localhost:8080/health` returns error
-- Container is running but API not responding
+- `curl http://localhost:8080/health` returns error or HTML page
+- Container is running but API not responding on expected port
 
 **Debug steps:**
 ```bash
 # Check if API process is running
 docker exec ai-trader ps aux | grep uvicorn
 
-# Check internal health
+# Check internal health (always uses 8080 inside container)
 docker exec ai-trader curl http://localhost:8080/health
 
 # Check logs for startup errors
 docker logs ai-trader | grep -i error
+
+# Check your configured API_PORT
+grep API_PORT .env
 ```
 
 **Solutions:**
 ```bash
+# If you get HTML 404 page, another service is using your port
+# Solution 1: Change API_PORT in .env
+echo "API_PORT=8889" >> .env
+docker-compose down
+docker-compose up -d
+
+# Solution 2: Find and stop the conflicting service
+sudo lsof -i :8080
+# or
+sudo netstat -tlnp | grep 8080
+
 # If MCP services didn't start:
 docker exec ai-trader ps aux | grep python
 
