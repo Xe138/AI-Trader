@@ -172,23 +172,60 @@ echo ""
 # Step 6: Test health endpoint
 echo "Step 6: Testing health endpoint..."
 
-# Wait a bit more for API to be ready
-sleep 5
+# Wait for API to be ready with retries
+echo "Waiting for API to be ready (up to 30 seconds)..."
+MAX_RETRIES=15
+RETRY_COUNT=0
+API_READY=false
 
-if curl -f http://localhost:8080/health &> /dev/null; then
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if curl -f -s http://localhost:8080/health &> /dev/null; then
+        API_READY=true
+        break
+    fi
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    echo "  Attempt $RETRY_COUNT/$MAX_RETRIES..."
+    sleep 2
+done
+
+if [ "$API_READY" = true ]; then
     print_status 0 "Health endpoint responding"
 
     # Get health details
     HEALTH_DATA=$(curl -s http://localhost:8080/health)
     echo "Health response: $HEALTH_DATA"
 else
-    print_status 1 "Health endpoint not responding"
-    print_warning "This could indicate:"
-    echo "  - API server failed to start"
-    echo "  - Port 8080 is already in use"
-    echo "  - MCP services failed to initialize"
+    print_status 1 "Health endpoint not responding after $MAX_RETRIES attempts"
+    print_warning "Diagnostics:"
+
+    # Check if container is still running
+    if docker ps | grep -q ai-trader; then
+        echo "  ✓ Container is running"
+    else
+        echo "  ✗ Container has stopped"
+    fi
+
+    # Check if port is listening
+    if docker exec ai-trader netstat -tuln 2>/dev/null | grep -q ":8080"; then
+        echo "  ✓ Port 8080 is listening inside container"
+    else
+        echo "  ✗ Port 8080 is NOT listening inside container"
+    fi
+
+    # Try curl from inside container
+    echo "  Testing from inside container..."
+    INTERNAL_TEST=$(docker exec ai-trader curl -f -s http://localhost:8080/health 2>&1)
+    if [ $? -eq 0 ]; then
+        echo "  ✓ Health endpoint works inside container: $INTERNAL_TEST"
+        echo "  ✗ Issue is with port mapping or host networking"
+    else
+        echo "  ✗ Health endpoint doesn't work inside container: $INTERNAL_TEST"
+        echo "  ✗ API server may not have started correctly"
+    fi
+
     echo ""
-    echo "Check logs with: docker logs ai-trader"
+    echo "Recent logs:"
+    docker logs ai-trader 2>&1 | tail -20
 fi
 
 echo ""
