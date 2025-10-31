@@ -18,7 +18,8 @@ all_nasdaq_100_symbols = [
 ]
 
 # 合并所有以 daily_price 开头的 json，逐文件一行写入 merged.jsonl
-current_dir = os.path.dirname(__file__)
+# Use current working directory instead of script directory for volume compatibility
+current_dir = os.getcwd()
 pattern = os.path.join(current_dir, 'daily_price*.json')
 files = sorted(glob.glob(pattern))
 
