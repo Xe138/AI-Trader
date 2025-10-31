@@ -11,7 +11,7 @@
 
 1. **Clone repository:**
    ```bash
-   git clone https://github.com/HKUDS/AI-Trader.git
+   git clone https://github.com/Xe138/AI-Trader.git
    cd AI-Trader
    ```
 

@@ -36,9 +36,9 @@ Tag push automatically triggers `.github/workflows/docker-release.yml`:
 
 ### 4. Verify Build
 
-1. Check GitHub Actions: https://github.com/HKUDS/AI-Trader/actions
+1. Check GitHub Actions: https://github.com/Xe138/AI-Trader/actions
 2. Verify workflow completed successfully (green checkmark)
-3. Check packages: https://github.com/HKUDS/AI-Trader/pkgs/container/ai-trader
+3. Check packages: https://github.com/Xe138/AI-Trader/pkgs/container/ai-trader
 
 ### 5. Test Release
 
@@ -54,7 +54,7 @@ docker run --env-file .env \
 
 ### 6. Create GitHub Release (Optional)
 
-1. Go to https://github.com/HKUDS/AI-Trader/releases/new
+1. Go to https://github.com/Xe138/AI-Trader/releases/new
 2. Select tag: `v1.0.0`
 3. Release title: `v1.0.0 - Docker Deployment Support`
 4. Add release notes:
