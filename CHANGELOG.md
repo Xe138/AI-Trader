@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Model Selection** - `enabled` field in config now controls which models run
+  - API `models` parameter is now optional
+  - If not provided, uses models where `enabled: true` in config
+  - If provided, explicitly overrides config (for manual testing)
+  - Prevents accidental execution of all models
+
 ### Removed
 - **Web UI Port** - Removed unused web dashboard port configuration
   - Removed port 8888 from docker-compose.yml (not implemented)

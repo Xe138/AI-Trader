@@ -31,7 +31,10 @@ class SimulateTriggerRequest(BaseModel):
     """Request body for POST /simulate/trigger."""
     config_path: str = Field(..., description="Path to configuration file")
     date_range: List[str] = Field(..., min_length=1, description="List of trading dates (YYYY-MM-DD)")
-    models: List[str] = Field(..., min_length=1, description="List of model signatures to simulate")
+    models: Optional[List[str]] = Field(
+        None,
+        description="Optional: List of model signatures to simulate. If not provided, uses enabled models from config."
+    )
 
     @field_validator("date_range")
     @classmethod
@@ -107,7 +110,8 @@ def create_app(db_path: str = "data/jobs.db") -> FastAPI:
         """
         Trigger a new simulation job.
 
-        Creates a job with specified config, dates, and models.
+        Creates a job with specified config, dates, and models from config file.
+        If models not specified in request, uses enabled models from config.
         Job runs asynchronously in background thread.
 
         Raises:
@@ -122,6 +126,28 @@ def create_app(db_path: str = "data/jobs.db") -> FastAPI:
                     detail=f"Config path does not exist: {request.config_path}"
                 )
 
+            # Determine which models to run
+            import json
+            with open(request.config_path, 'r') as f:
+                config = json.load(f)
+
+            if request.models is not None:
+                # Use models from request (explicit override)
+                models_to_run = request.models
+            else:
+                # Use enabled models from config
+                models_to_run = [
+                    model["signature"]
+                    for model in config.get("models", [])
+                    if model.get("enabled", False)
+                ]
+
+                if not models_to_run:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="No enabled models found in config. Either enable models in config or specify them in request."
+                    )
+
             job_manager = JobManager(db_path=app.state.db_path)
 
             # Check if can start new job
@@ -135,7 +161,7 @@ def create_app(db_path: str = "data/jobs.db") -> FastAPI:
             job_id = job_manager.create_job(
                 config_path=request.config_path,
                 date_range=request.date_range,
-                models=request.models
+                models=models_to_run
             )
 
             # Start worker in background thread (only if not in test mode)
@@ -152,8 +178,8 @@ def create_app(db_path: str = "data/jobs.db") -> FastAPI:
             return SimulateTriggerResponse(
                 job_id=job_id,
                 status="pending",
-                total_model_days=len(request.date_range) * len(request.models),
-                message=f"Simulation job {job_id} created and started"
+                total_model_days=len(request.date_range) * len(models_to_run),
+                message=f"Simulation job {job_id} created and started with {len(models_to_run)} models"
             )
 
         except HTTPException:
