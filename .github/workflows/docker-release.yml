@@ -10,7 +10,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
@@ -61,3 +61,97 @@ jobs:
           echo "✅ Docker image published successfully!"
           echo "📦 Pull with: docker pull ghcr.io/${{ steps.meta.outputs.repo_owner_lower }}/ai-trader:${{ steps.meta.outputs.version }}"
           echo "📦 Or latest: docker pull ghcr.io/${{ steps.meta.outputs.repo_owner_lower }}/ai-trader:latest"
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          VERSION="${{ steps.meta.outputs.version }}"
+          REPO_OWNER_LOWER="${{ steps.meta.outputs.repo_owner_lower }}"
+
+          # Check if this is an alpha/beta/rc release
+          if [[ "$VERSION" == *"-alpha"* ]] || [[ "$VERSION" == *"-beta"* ]] || [[ "$VERSION" == *"-rc"* ]]; then
+            PRERELEASE="true"
+            RELEASE_TYPE="Pre-release"
+          else
+            PRERELEASE="false"
+            RELEASE_TYPE="Release"
+          fi
+          echo "prerelease=$PRERELEASE" >> $GITHUB_OUTPUT
+
+          # Generate release notes
+          cat > /tmp/release_notes.md << 'EOF'
+          ## 🐳 Docker Deployment
+
+          This release adds full Docker support for easy deployment.
+
+          ### Quick Start
+
+          **Using Docker Compose:**
+          ```bash
+          git clone https://github.com/Xe138/AI-Trader.git
+          cd AI-Trader
+          cp .env.example .env
+          # Edit .env with your API keys
+          docker-compose up
+          ```
+
+          **Using pre-built image:**
+          ```bash
+          docker pull ghcr.io/REPO_OWNER/ai-trader:VERSION
+          docker run --env-file .env \
+            -v $(pwd)/data:/app/data \
+            -v $(pwd)/logs:/app/logs \
+            ghcr.io/REPO_OWNER/ai-trader:VERSION
+          ```
+
+          ### Documentation
+
+          - [Docker Deployment Guide](docs/DOCKER.md)
+          - [Release Process](docs/RELEASING.md)
+          - [Full Changelog](CHANGELOG.md)
+
+          ### What's New in v0.2.0
+
+          **Added:**
+          - Complete Docker deployment support with containerization
+          - Docker Compose orchestration for easy local deployment
+          - Multi-stage Dockerfile with Python 3.10-slim base image
+          - Automated CI/CD pipeline via GitHub Actions for release builds
+          - Docker images published to GitHub Container Registry (ghcr.io)
+          - Comprehensive Docker documentation (docs/DOCKER.md)
+          - Release process documentation (docs/RELEASING.md)
+          - CLAUDE.md repository guidance for development
+          - Environment variable configuration via docker-compose
+          - Sequential startup script (entrypoint.sh) for data fetch, MCP services, and trading agent
+          - Volume mounts for data and logs persistence
+
+          **Changed:**
+          - Updated .env.example with Docker-specific configuration and paths
+          - Updated .gitignore to exclude git worktrees directory
+          - Removed deprecated version tag from docker-compose.yml
+
+          **Fixed:**
+          - Docker Compose configuration now follows modern best practices (version-less)
+          - Dockerfile FROM AS keyword casing
+          - GitHub Actions lowercase repository owner handling
+
+          ---
+
+          **Container Registry:** `ghcr.io/REPO_OWNER/ai-trader:VERSION`
+          EOF
+
+          # Replace placeholders
+          sed -i "s/REPO_OWNER/$REPO_OWNER_LOWER/g" /tmp/release_notes.md
+          sed -i "s/VERSION/$VERSION/g" /tmp/release_notes.md
+
+          cat /tmp/release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.meta.outputs.version }}
+          name: v${{ steps.meta.outputs.version }}
+          body_path: /tmp/release_notes.md
+          draft: true
+          prerelease: ${{ steps.release_notes.outputs.prerelease }}
+          token: ${{ secrets.GITHUB_TOKEN }}
