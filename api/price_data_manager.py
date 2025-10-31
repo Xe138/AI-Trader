@@ -28,6 +28,11 @@ class RateLimitError(Exception):
     pass
 
 
+class DownloadError(Exception):
+    """Raised when download fails for non-rate-limit reasons."""
+    pass
+
+
 class PriceDataManager:
     """
     Manages price data availability, downloads, and coverage tracking.
@@ -327,8 +332,10 @@ class PriceDataManager:
 
         Raises:
             RateLimitError: If rate limit is hit
-            ValueError: If download fails after retries
+            DownloadError: If download fails after retries
         """
+        if not self.api_key:
+            raise DownloadError("API key not configured")
         for attempt in range(retries):
             try:
                 response = requests.get(
@@ -347,7 +354,7 @@ class PriceDataManager:
 
                     # Check for API error messages
                     if "Error Message" in data:
-                        raise ValueError(f"API error: {data['Error Message']}")
+                        raise DownloadError(f"API error: {data['Error Message']}")
 
                     # Check for rate limit in response body
                     if "Note" in data:
@@ -363,8 +370,8 @@ class PriceDataManager:
                             raise RateLimitError(info)
 
                     # Validate response has time series data
-                    if "Time Series (Daily)" not in data:
-                        raise ValueError(f"No time series data in response for {symbol}")
+                    if "Time Series (Daily)" not in data or "Meta Data" not in data:
+                        raise DownloadError(f"Invalid response format for {symbol}")
 
                     return data
 
@@ -378,21 +385,23 @@ class PriceDataManager:
                         logger.warning(f"Server error {response.status_code}. Retrying in {wait_time}s...")
                         time.sleep(wait_time)
                         continue
-                    raise ValueError(f"Server error: {response.status_code}")
+                    raise DownloadError(f"Server error: {response.status_code}")
 
                 else:
-                    raise ValueError(f"HTTP {response.status_code}: {response.text[:200]}")
+                    raise DownloadError(f"HTTP {response.status_code}: {response.text[:200]}")
 
             except RateLimitError:
                 raise  # Don't retry rate limits
+            except DownloadError:
+                raise  # Don't retry download errors
             except requests.RequestException as e:
                 if attempt < retries - 1:
                     logger.warning(f"Request failed: {e}. Retrying...")
                     time.sleep(2)
                     continue
-                raise ValueError(f"Request failed after {retries} attempts: {e}")
+                raise DownloadError(f"Request failed after {retries} attempts: {e}")
 
-        raise ValueError(f"Failed to download {symbol} after {retries} attempts")
+        raise DownloadError(f"Failed to download {symbol} after {retries} attempts")
 
     def _store_symbol_data(
         self,
