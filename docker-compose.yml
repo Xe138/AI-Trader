@@ -19,18 +19,19 @@ services:
       # System Configuration
       - RUNTIME_ENV_PATH=/app/data/runtime_env.json
 
-      # MCP Service Ports
-      - MATH_HTTP_PORT=${MATH_HTTP_PORT:-8000}
-      - SEARCH_HTTP_PORT=${SEARCH_HTTP_PORT:-8001}
-      - TRADE_HTTP_PORT=${TRADE_HTTP_PORT:-8002}
-      - GETPRICE_HTTP_PORT=${GETPRICE_HTTP_PORT:-8003}
+      # MCP Service Ports (fixed internally)
+      - MATH_HTTP_PORT=8000
+      - SEARCH_HTTP_PORT=8001
+      - TRADE_HTTP_PORT=8002
+      - GETPRICE_HTTP_PORT=8003
 
       # Agent Configuration
       - AGENT_MAX_STEP=${AGENT_MAX_STEP:-30}
     ports:
-      - "8000:8000"
-      - "8001:8001"
-      - "8002:8002"
-      - "8003:8003"
+      # Format: "HOST:CONTAINER" - container ports are fixed, host ports configurable via .env
+      - "${MATH_HTTP_PORT:-8000}:8000"
+      - "${SEARCH_HTTP_PORT:-8001}:8001"
+      - "${TRADE_HTTP_PORT:-8002}:8002"
+      - "${GETPRICE_HTTP_PORT:-8003}:8003"
       - "8888:8888"
     restart: unless-stopped
