@@ -7,16 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- **Simplified Configuration** - Removed unnecessary environment variables and port mappings
-  - Removed `RUNTIME_ENV_PATH` (API dynamically manages runtime configs)
-  - Removed `API_PORT` from container environment (only used for host port mapping)
-  - Removed MCP service port configuration (MATH_HTTP_PORT, SEARCH_HTTP_PORT, TRADE_HTTP_PORT, GETPRICE_HTTP_PORT)
-  - MCP services use fixed internal ports (8000-8003) and are no longer exposed to host
-  - Container always uses port 8080 internally for API (hardcoded in entrypoint.sh)
-  - Only API port (8080) and web dashboard (8888) are exposed to host
-  - Reduces configuration complexity and attack surface for new deployments
-
 ## [0.3.0] - 2025-10-31
 
 ### Added - API Service Transformation
@@ -66,11 +56,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Architecture** - Transformed from batch-only to API-first service with database persistence
 - **Data Storage** - Migrated from JSONL files to SQLite relational database
 - **Deployment** - Simplified to single API-only Docker service
-- **Configuration** - Added configurable API_PORT environment variable (default: 8080, customizable for port conflicts)
+- **Configuration** - Simplified environment variable configuration
+  - Added configurable API_PORT for host port mapping (default: 8080, customizable for port conflicts)
+  - Removed `RUNTIME_ENV_PATH` (API dynamically manages runtime configs via RuntimeConfigManager)
+  - Removed MCP service port configuration (MATH_HTTP_PORT, SEARCH_HTTP_PORT, TRADE_HTTP_PORT, GETPRICE_HTTP_PORT)
+  - MCP services use fixed internal ports (8000-8003) and are no longer exposed to host
+  - Container always uses port 8080 internally for API (hardcoded in entrypoint.sh)
+  - Only API port (8080) and web dashboard (8888) are exposed to host
+  - Reduces configuration complexity and attack surface
 - **Requirements** - Added fastapi>=0.120.0, uvicorn[standard]>=0.27.0, pydantic>=2.0.0
 - **Docker Compose** - Single service (ai-trader) instead of dual-mode
 - **Dockerfile** - Added system dependencies (curl, procps) and port 8080 exposure
-- **.env.example** - Enhanced API server configuration with port conflict documentation
+- **.env.example** - Simplified configuration with only essential variables
 - **Entrypoint** - Unified entrypoint.sh with proper signal handling (exec uvicorn)
 
 ### Technical Implementation
