@@ -47,10 +47,9 @@ cd /app
 
 # Step 2: Start MCP services in background
 echo "🔧 Starting MCP services..."
-cd /app/agent_tools
-python start_mcp_services.py &
-MCP_PID=$!
 cd /app
+python agent_tools/start_mcp_services.py &
+MCP_PID=$!
 
 # Step 3: Wait for services to initialize
 echo "⏳ Waiting for MCP services to start..."

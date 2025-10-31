@@ -27,32 +27,33 @@ class MCPServiceManager:
             'price': int(os.getenv('GETPRICE_HTTP_PORT', '8003'))
         }
         
-        # Service configurations
+        # Service configurations (paths relative to /app)
+        self.agent_tools_dir = Path(__file__).parent.resolve()
         self.service_configs = {
             'math': {
-                'script': 'tool_math.py',
+                'script': self.agent_tools_dir / 'tool_math.py',
                 'name': 'Math',
                 'port': self.ports['math']
             },
             'search': {
-                'script': 'tool_jina_search.py',
+                'script': self.agent_tools_dir / 'tool_jina_search.py',
                 'name': 'Search',
                 'port': self.ports['search']
             },
             'trade': {
-                'script': 'tool_trade.py',
+                'script': self.agent_tools_dir / 'tool_trade.py',
                 'name': 'TradeTools',
                 'port': self.ports['trade']
             },
             'price': {
-                'script': 'tool_get_price_local.py',
+                'script': self.agent_tools_dir / 'tool_get_price_local.py',
                 'name': 'LocalPrices',
                 'port': self.ports['price']
             }
         }
-        
+
         # Create logs directory
-        self.log_dir = Path('../logs')
+        self.log_dir = Path('logs')
         self.log_dir.mkdir(exist_ok=True)
         
         # Set signal handlers
@@ -70,20 +71,20 @@ class MCPServiceManager:
         script_path = config['script']
         service_name = config['name']
         port = config['port']
-        
-        if not Path(script_path).exists():
+
+        if not script_path.exists():
             print(f"❌ Script file not found: {script_path}")
             return False
-        
+
         try:
             # Start service process
             log_file = self.log_dir / f"{service_id}.log"
             with open(log_file, 'w') as f:
                 process = subprocess.Popen(
-                    [sys.executable, script_path],
+                    [sys.executable, str(script_path)],
                     stdout=f,
                     stderr=subprocess.STDOUT,
-                    cwd=os.getcwd()
+                    cwd=Path.cwd()  # Use current working directory (/app)
                 )
             
             self.services[service_id] = {
