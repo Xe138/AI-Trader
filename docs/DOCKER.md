@@ -53,10 +53,30 @@ AGENT_MAX_STEP=30
 
 ### Custom Trading Configuration
 
-Pass a custom config file:
+**Simple Method (Recommended):**
+
+Create a `configs/custom_config.json` file - it will be automatically used:
 
 ```bash
-docker-compose run ai-trader configs/my_config.json
+# Copy default config as starting point
+cp configs/default_config.json configs/custom_config.json
+
+# Edit your custom config
+nano configs/custom_config.json
+
+# Run normally - custom_config.json is automatically detected!
+docker-compose up
+```
+
+**Priority order:**
+1. `configs/custom_config.json` (if exists) - **Highest priority**
+2. Command-line argument: `docker-compose run ai-trader configs/other.json`
+3. `configs/default_config.json` (fallback)
+
+**Advanced: Use a different config file name:**
+
+```bash
+docker-compose run ai-trader configs/my_special_config.json
 ```
 
 ## Usage Examples
@@ -92,10 +112,11 @@ docker-compose up
 
 ### Volume Mounts
 
-Docker Compose mounts two volumes:
+Docker Compose mounts three volumes:
 
 - `./data:/app/data` - Price data and trading records
 - `./logs:/app/logs` - MCP service logs
+- `./configs:/app/configs` - Configuration files (allows editing configs without rebuilding)
 
 Data persists across container restarts. To reset:
 
@@ -227,13 +248,45 @@ Services exposed on host:
 
 ### Test Different Configurations
 
-```bash
-# Create test config
-cp configs/default_config.json configs/test_config.json
-# Edit test_config.json
+**Method 1: Use the standard custom_config.json**
 
-# Run with test config
-docker-compose run ai-trader configs/test_config.json
+```bash
+# Create and edit your config
+cp configs/default_config.json configs/custom_config.json
+nano configs/custom_config.json
+
+# Run - automatically uses custom_config.json
+docker-compose up
+```
+
+**Method 2: Test multiple configs with different names**
+
+```bash
+# Create multiple test configs
+cp configs/default_config.json configs/conservative.json
+cp configs/default_config.json configs/aggressive.json
+
+# Edit each config...
+
+# Test conservative strategy
+docker-compose run ai-trader configs/conservative.json
+
+# Test aggressive strategy
+docker-compose run ai-trader configs/aggressive.json
+```
+
+**Method 3: Temporarily switch configs**
+
+```bash
+# Temporarily rename your custom config
+mv configs/custom_config.json configs/custom_config.json.backup
+cp configs/test_strategy.json configs/custom_config.json
+
+# Run with test strategy
+docker-compose up
+
+# Restore original
+mv configs/custom_config.json.backup configs/custom_config.json
 ```
 
 ## Production Deployment

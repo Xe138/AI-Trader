@@ -57,6 +57,7 @@ delete.py
 refresh_data.sh
 
 # Config files (optional - uncomment if needed)
+configs/custom_config.json
 configs/day_config.json
 configs/hour_config.json
 configs/test_config.json

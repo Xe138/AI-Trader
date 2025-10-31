@@ -57,7 +57,19 @@ sleep 3
 
 # Step 4: Run trading agent with config file
 echo "🤖 Starting trading agent..."
-CONFIG_FILE="${1:-configs/default_config.json}"
+
+# Smart config selection: custom_config.json takes precedence if it exists
+if [ -f "configs/custom_config.json" ]; then
+    CONFIG_FILE="configs/custom_config.json"
+    echo "✅ Using custom configuration: configs/custom_config.json"
+elif [ -n "$1" ]; then
+    CONFIG_FILE="$1"
+    echo "✅ Using specified configuration: $CONFIG_FILE"
+else
+    CONFIG_FILE="configs/default_config.json"
+    echo "✅ Using default configuration: configs/default_config.json"
+fi
+
 python main.py "$CONFIG_FILE"
 
 # Cleanup on exit

@@ -7,6 +7,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+      - ./configs:/app/configs
     environment:
       # AI Model API Configuration
       - OPENAI_API_BASE=${OPENAI_API_BASE}
