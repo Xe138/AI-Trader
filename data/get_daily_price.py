@@ -26,10 +26,10 @@ def get_daily_price(SYMBOL: str):
     url = f'https://www.alphavantage.co/query?function={FUNCTION}&symbol={SYMBOL}&outputsize={OUTPUTSIZE}&apikey={APIKEY}'
     r = requests.get(url)
     data = r.json()
-    print(data)
     if data.get('Note') is not None or data.get('Information') is not None:
-        print(f"Error")
+        print(f"⚠️  {SYMBOL}: API rate limit or error - {data.get('Note') or data.get('Information')}")
         return
+    print(f"✓ Fetched {SYMBOL}")
     with open(f'./daily_prices_{SYMBOL}.json', 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
     if SYMBOL == "QQQ":
