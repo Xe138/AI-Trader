@@ -20,7 +20,6 @@ cp .env.example .env
 # Edit .env and set:
 # - OPENAI_API_BASE, OPENAI_API_KEY
 # - ALPHAADVANTAGE_API_KEY, JINA_API_KEY
-# - MCP service ports (default: 8000-8003)
 # - AGENT_MAX_STEP (default: 30)
 ```
 
@@ -40,11 +39,8 @@ cd agent_tools
 python start_mcp_services.py
 cd ..
 
-# Services run on ports defined in .env:
-# - MATH_HTTP_PORT (default: 8000)
-# - SEARCH_HTTP_PORT (default: 8001)
-# - TRADE_HTTP_PORT (default: 8002)
-# - GETPRICE_HTTP_PORT (default: 8003)
+# MCP services use fixed internal ports (8000-8003)
+# These are not exposed to the host and should not be changed
 ```
 
 ### Docker Deployment

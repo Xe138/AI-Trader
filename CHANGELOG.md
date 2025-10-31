@@ -8,12 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- **Simplified Configuration** - Removed unnecessary environment variables
+- **Simplified Configuration** - Removed unnecessary environment variables and port mappings
   - Removed `RUNTIME_ENV_PATH` (API dynamically manages runtime configs)
   - Removed `API_PORT` from container environment (only used for host port mapping)
-  - Container always uses port 8080 internally (hardcoded in entrypoint.sh)
-  - API_PORT in .env only controls host-side port mapping
-  - Reduces configuration complexity for new deployments
+  - Removed MCP service port configuration (MATH_HTTP_PORT, SEARCH_HTTP_PORT, TRADE_HTTP_PORT, GETPRICE_HTTP_PORT)
+  - MCP services use fixed internal ports (8000-8003) and are no longer exposed to host
+  - Container always uses port 8080 internally for API (hardcoded in entrypoint.sh)
+  - Only API port (8080) and web dashboard (8888) are exposed to host
+  - Reduces configuration complexity and attack surface for new deployments
 
 ## [0.3.0] - 2025-10-31
 

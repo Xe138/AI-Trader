@@ -291,11 +291,6 @@ OPENAI_API_KEY=your_openai_key
 ALPHAADVANTAGE_API_KEY=your_alpha_vantage_key
 JINA_API_KEY=your_jina_api_key
 
-# 🌐 Service Port Configuration
-MATH_HTTP_PORT=8000
-SEARCH_HTTP_PORT=8001
-TRADE_HTTP_PORT=8002
-GETPRICE_HTTP_PORT=8003
 # 🧠 AI Agent Configuration
 AGENT_MAX_STEP=30             # Maximum reasoning steps
 ```

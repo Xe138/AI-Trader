@@ -18,21 +18,10 @@ services:
       - ALPHAADVANTAGE_API_KEY=${ALPHAADVANTAGE_API_KEY}
       - JINA_API_KEY=${JINA_API_KEY}
 
-      # MCP Service Ports (fixed internally)
-      - MATH_HTTP_PORT=8000
-      - SEARCH_HTTP_PORT=8001
-      - TRADE_HTTP_PORT=8002
-      - GETPRICE_HTTP_PORT=8003
-
       # Agent Configuration
       - AGENT_MAX_STEP=${AGENT_MAX_STEP:-30}
     ports:
-      # MCP service ports (internal)
-      - "${MATH_HTTP_PORT:-8000}:8000"
-      - "${SEARCH_HTTP_PORT:-8001}:8001"
-      - "${TRADE_HTTP_PORT:-8002}:8002"
-      - "${GETPRICE_HTTP_PORT:-8003}:8003"
-      # API server port (primary interface)
+      # API server port (primary interface for external access)
       - "${API_PORT:-8080}:8080"
       # Web dashboard
       - "${WEB_HTTP_PORT:-8888}:8888"
