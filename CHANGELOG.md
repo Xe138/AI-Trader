@@ -48,13 +48,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - ModelDayExecutor - Single model-day execution engine
   - SimulationWorker - Job orchestration with date-sequential, model-parallel execution
 - **Comprehensive Test Suite**
-  - 102 unit and integration tests (85% coverage)
+  - 175 unit and integration tests
   - 19 database tests (98% coverage)
   - 23 job manager tests (98% coverage)
   - 10 model executor tests (84% coverage)
   - 20 API endpoint tests (81% coverage)
   - 20 Pydantic model tests (100% coverage)
   - 10 runtime manager tests (89% coverage)
+  - 22 date utilities tests (100% coverage)
+  - 33 price data manager tests (85% coverage)
+  - 10 on-demand download integration tests
+  - 8 existing integration tests
 - **Docker Deployment** - Persistent REST API service
   - API-only deployment (batch mode removed for simplicity)
   - Single docker-compose service (ai-trader)
@@ -78,12 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Price data now stored in `price_data` table instead of `merged.jsonl`
   - Tools/price_tools.py updated to query database
   - Position data remains in database (already migrated in earlier versions)
-- **Deployment** - Simplified to single API-only Docker service
-- **API Request Format** - Date range specification changed
-  - Old: `{"date_range": ["2025-01-20", "2025-01-21", ...]}`
-  - New: `{"start_date": "2025-01-20", "end_date": "2025-01-24"}`
-  - `end_date` is optional (defaults to `start_date` for single day simulation)
-  - Server automatically expands range and validates trading days
+- **Deployment** - Simplified to single API-only Docker service (REST API is new in v0.3.0)
 - **Configuration** - Simplified environment variable configuration
   - **Added:** `AUTO_DOWNLOAD_PRICE_DATA` (default: true) - Enable on-demand downloads
   - **Added:** `MAX_SIMULATION_DAYS` (default: 30) - Maximum date range size
@@ -95,15 +94,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Container always uses port 8080 internally for API
   - Only API port (8080) is exposed to host
   - Reduces configuration complexity and attack surface
-- **Model Selection** - `enabled` field in config now controls which models run
-  - API `models` parameter is now optional
-  - If not provided, uses models where `enabled: true` in config
-  - If provided, explicitly overrides config (for manual testing)
-  - Prevents accidental execution of all models
-- **API Interface** - Config path is now server-side detail
-  - Removed `config_path` parameter from POST /simulate/trigger
-  - Server uses internal default config (configs/default_config.json)
-  - Simplifies API calls
 - **Requirements** - Added fastapi>=0.120.0, uvicorn[standard]>=0.27.0, pydantic>=2.0.0
 - **Docker Compose** - Single service (ai-trader) instead of dual-mode
 - **Dockerfile** - Added system dependencies (curl, procps) and port 8080 exposure
@@ -120,15 +110,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Automatic Status Transitions** - Job status updates based on model-day completion
 
 ### Performance & Quality
-- **Code Coverage** - 85% overall (84.63% measured)
+- **Test Suite** - 175 tests, all passing
+  - Unit tests: 155 tests
+  - Integration tests: 18 tests
+  - API tests: 20+ tests
+- **Code Coverage** - High coverage for new modules
+  - Date utilities: 100%
+  - Price data manager: 85%
   - Database layer: 98%
   - Job manager: 98%
   - Pydantic models: 100%
   - Runtime manager: 89%
   - Model executor: 84%
   - FastAPI app: 81%
-- **Test Execution** - 102 tests in ~2.5 seconds
-- **Zero Test Failures** - All tests passing (threading tests excluded)
+- **Test Execution** - Fast test suite (~12 seconds for full suite)
 
 ### Integration Ready
 - **Windmill.dev** - HTTP-based integration with polling support
@@ -138,21 +133,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 - **Batch Mode Removed** - All simulations now run through REST API
-  - Simplifies deployment and eliminates dual-mode complexity
-  - Focus on API-first architecture for external orchestration
-  - Migration: Use POST /simulate/trigger endpoint instead of batch execution
-- **API Request Format Changed** - Date specification now uses start_date/end_date
-  - Old format: `{"date_range": ["2025-01-20", "2025-01-21"], "models": [...]}`
-  - New format: `{"start_date": "2025-01-20", "end_date": "2025-01-21"}`
-  - Models parameter is optional (uses enabled models from config)
-  - Config_path parameter removed (server-side detail)
+  - v0.2.0 used sequential batch execution via Docker entrypoint
+  - v0.3.0 introduces REST API for external orchestration
+  - Migration: Use `POST /simulate/trigger` endpoint instead of direct script execution
 - **Data Storage Format Changed** - Price data moved from JSONL to SQLite
-  - Run `python scripts/migrate_price_data.py` to migrate existing data
+  - Run `python scripts/migrate_price_data.py` to migrate existing merged.jsonl data
   - `merged.jsonl` no longer used (replaced by `price_data` table)
   - Automatic on-demand downloads eliminate need for manual data fetching
 - **Configuration Variables Changed**
-  - Added: `AUTO_DOWNLOAD_PRICE_DATA`, `MAX_SIMULATION_DAYS`
-  - Removed: `RUNTIME_ENV_PATH`, MCP port configs, `WEB_HTTP_PORT`
+  - Added: `AUTO_DOWNLOAD_PRICE_DATA`, `MAX_SIMULATION_DAYS`, `API_PORT`
+  - Removed: `RUNTIME_ENV_PATH`, MCP service ports, `WEB_HTTP_PORT`
+  - MCP services now use fixed internal ports (not exposed to host)
 
 ## [0.2.0] - 2025-10-31
 
