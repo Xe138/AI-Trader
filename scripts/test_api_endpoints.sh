@@ -25,7 +25,7 @@ echo "Checking if API is accessible..."
 if ! curl -f "$API_BASE_URL/health" &> /dev/null; then
     echo -e "${RED}✗${NC} API is not accessible at $API_BASE_URL"
     echo "Make sure the container is running:"
-    echo "  docker-compose up -d ai-trader-api"
+    echo "  docker-compose up -d ai-trader"
     exit 1
 fi
 echo -e "${GREEN}✓${NC} API is accessible"

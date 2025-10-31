@@ -137,7 +137,7 @@ echo ""
 echo "Step 5: Testing API mode startup..."
 echo "Starting container in background..."
 
-$COMPOSE_CMD up -d ai-trader-api
+$COMPOSE_CMD up -d ai-trader
 
 if [ $? -eq 0 ]; then
     print_status 0 "Container started successfully"
@@ -146,20 +146,20 @@ if [ $? -eq 0 ]; then
     sleep 10
 
     # Check if container is still running
-    if docker ps | grep -q ai-trader-api; then
+    if docker ps | grep -q ai-trader; then
         print_status 0 "Container is running"
 
         # Check logs for errors
-        ERROR_COUNT=$(docker logs ai-trader-api 2>&1 | grep -i "error" | grep -v "ERROR:" | wc -l)
+        ERROR_COUNT=$(docker logs ai-trader 2>&1 | grep -i "error" | grep -v "ERROR:" | wc -l)
         if [ $ERROR_COUNT -gt 0 ]; then
             print_warning "Found $ERROR_COUNT error messages in logs"
-            echo "Check logs with: docker logs ai-trader-api"
+            echo "Check logs with: docker logs ai-trader"
         else
             print_status 0 "No critical errors in logs"
         fi
     else
         print_status 1 "Container stopped unexpectedly"
-        echo "Check logs with: docker logs ai-trader-api"
+        echo "Check logs with: docker logs ai-trader"
         exit 1
     fi
 else
@@ -188,7 +188,7 @@ else
     echo "  - Port 8080 is already in use"
     echo "  - MCP services failed to initialize"
     echo ""
-    echo "Check logs with: docker logs ai-trader-api"
+    echo "Check logs with: docker logs ai-trader"
 fi
 
 echo ""
@@ -215,7 +215,7 @@ echo "2. Test batch mode:"
 echo "   bash scripts/test_batch_mode.sh"
 echo ""
 echo "3. If any checks failed, review logs:"
-echo "   docker logs ai-trader-api"
+echo "   docker logs ai-trader"
 echo ""
 echo "4. For troubleshooting, see: DOCKER_API.md"
 echo ""

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Simplified Deployment** - Removed batch mode, now API-only
+  - Single docker-compose service (ai-trader) instead of dual mode
+  - Removed scripts/test_batch_mode.sh
+  - Streamlined entrypoint (entrypoint.sh now runs API server)
+  - Simplified docker-compose.yml configuration
+
+### Removed
+- **Batch Mode** - Eliminated one-time batch simulation mode
+  - All simulations now run through REST API
+  - Removes complexity of dual-mode deployment
+  - Focus on API-first architecture for Windmill integration
+
 ## [0.3.0] - 2025-10-31
 
 ### Added - API Service Transformation

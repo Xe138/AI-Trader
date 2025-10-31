@@ -48,9 +48,9 @@
   - Job tracking and lifecycle management
   - Position records with P&L tracking
   - AI reasoning logs and tool usage analytics
-- 🐳 **Dual Docker Deployment** - API server mode + Batch mode
-  - API mode: Persistent REST service with health checks
-  - Batch mode: One-time simulations (backwards compatible)
+- 🐳 **Docker Deployment** - Persistent REST API service
+  - Health checks and automatic restarts
+  - Volume persistence for database and logs
 - 🧪 **Comprehensive Testing** - 102 tests with 85% coverage
   - Unit tests for all components
   - Integration tests for API endpoints
@@ -227,9 +227,7 @@ AI-Trader Bench/
 
 ### 🐳 **Docker Deployment (Recommended)**
 
-**Two deployment modes available:**
-
-#### 🌐 API Server Mode (Windmill Integration)
+#### 🌐 REST API Server (Windmill Integration)
 ```bash
 # 1. Clone and configure
 git clone https://github.com/Xe138/AI-Trader.git
@@ -238,7 +236,7 @@ cp .env.example .env
 # Edit .env and add your API keys
 
 # 2. Start API server
-docker-compose up -d ai-trader-api
+docker-compose up -d
 
 # 3. Test API
 curl http://localhost:8080/health
@@ -253,16 +251,7 @@ curl -X POST http://localhost:8080/simulate/trigger \
   }'
 ```
 
-See [DOCKER_API.md](DOCKER_API.md) for complete API documentation.
-
-#### 🎯 Batch Mode (One-time Simulation)
-```bash
-# Run single simulation
-docker-compose --profile batch up ai-trader-batch
-
-# With custom config
-docker-compose --profile batch run ai-trader-batch configs/custom.json
-```
+See [DOCKER_API.md](DOCKER_API.md) for complete API documentation and [TESTING_GUIDE.md](TESTING_GUIDE.md) for validation procedures.
 
 ---
 

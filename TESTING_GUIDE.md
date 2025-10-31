@@ -20,9 +20,6 @@ bash scripts/validate_docker_build.sh
 
 # 3. Test API endpoints
 bash scripts/test_api_endpoints.sh
-
-# 4. Test batch mode
-bash scripts/test_batch_mode.sh
 ```
 
 ---
@@ -85,7 +82,7 @@ Health response: {"status":"healthy","database":"connected","timestamp":"..."}
 - Check Docker Desktop is running
 - Verify `.env` has all required keys
 - Check port 8080 is not already in use
-- Review logs: `docker logs ai-trader-api`
+- Review logs: `docker logs ai-trader`
 
 ---
 
@@ -96,7 +93,7 @@ Health response: {"status":"healthy","database":"connected","timestamp":"..."}
 **Command:**
 ```bash
 # Ensure API is running first
-docker-compose up -d ai-trader-api
+docker-compose up -d ai-trader
 
 # Run tests
 bash scripts/test_api_endpoints.sh
@@ -154,74 +151,13 @@ Test 9: Error handling
 ```
 
 **If it fails:**
-- Ensure container is running: `docker ps | grep ai-trader-api`
-- Check API logs: `docker logs ai-trader-api`
+- Ensure container is running: `docker ps | grep ai-trader`
+- Check API logs: `docker logs ai-trader`
 - Verify port 8080 is accessible: `curl http://localhost:8080/health`
-- Check MCP services started: `docker exec ai-trader-api ps aux | grep python`
+- Check MCP services started: `docker exec ai-trader ps aux | grep python`
 
 ---
 
-### Test 3: Batch Mode Testing
-
-**Purpose:** Verify one-time simulation execution works
-
-**Command:**
-```bash
-bash scripts/test_batch_mode.sh
-```
-
-**What it tests:**
-- ✅ Batch mode container starts
-- ✅ Simulation executes to completion
-- ✅ Exit code is 0 (success)
-- ✅ Position files created
-- ✅ Log files generated
-- ✅ Price data persists between runs
-
-**Expected output:**
-```
-==========================================
-AI-Trader Batch Mode Testing
-==========================================
-
-✓ Prerequisites OK
-Using config: configs/default_config.json
-
-Test 1: Building Docker image
-✓ Image built successfully
-
-Test 2: Running batch simulation
-🚀 Starting AI-Trader...
-✅ Environment variables validated
-📊 Fetching and merging price data...
-🔧 Starting MCP services...
-🤖 Starting trading agent...
-[Trading output...]
-
-Test 3: Checking exit status
-✓ Batch simulation completed successfully (exit code: 0)
-
-Test 4: Verifying output files
-✓ Found 1 position file(s)
-Sample position data: {...}
-✓ Found 3 log file(s)
-
-Test 5: Checking price data
-✓ Price data exists: 100 stocks
-
-Test 6: Testing data persistence
-✓ Second run completed successfully
-✓ Price data was reused
-```
-
-**If it fails:**
-- Check `.env` has valid API keys
-- Verify internet connection (for price data)
-- Check available disk space
-- Review batch logs: `docker logs ai-trader-batch`
-- Check data directory permissions
-
----
 
 ## Manual Testing Procedures
 
@@ -229,7 +165,7 @@ Test 6: Testing data persistence
 
 ```bash
 # Start API
-docker-compose up -d ai-trader-api
+docker-compose up -d ai-trader
 
 # Test health endpoint
 curl http://localhost:8080/health
@@ -299,7 +235,7 @@ ls -lh data/jobs.db
 ls -R data/agent_data
 
 # Restart container
-docker-compose up -d ai-trader-api
+docker-compose up -d ai-trader
 
 # Data should still be accessible via API
 curl http://localhost:8080/results | jq '.count'
@@ -312,13 +248,13 @@ curl http://localhost:8080/results | jq '.count'
 ### Problem: Container won't start
 
 **Symptoms:**
-- `docker ps` shows no ai-trader-api container
+- `docker ps` shows no ai-trader container
 - Container exits immediately
 
 **Debug steps:**
 ```bash
 # Check logs
-docker logs ai-trader-api
+docker logs ai-trader
 
 # Common issues:
 # 1. Missing API keys in .env
@@ -348,25 +284,25 @@ chmod -R 755 data logs
 **Debug steps:**
 ```bash
 # Check if API process is running
-docker exec ai-trader-api ps aux | grep uvicorn
+docker exec ai-trader ps aux | grep uvicorn
 
 # Check internal health
-docker exec ai-trader-api curl http://localhost:8080/health
+docker exec ai-trader curl http://localhost:8080/health
 
 # Check logs for startup errors
-docker logs ai-trader-api | grep -i error
+docker logs ai-trader | grep -i error
 ```
 
 **Solutions:**
 ```bash
 # If MCP services didn't start:
-docker exec ai-trader-api ps aux | grep python
+docker exec ai-trader ps aux | grep python
 
 # If database issues:
-docker exec ai-trader-api ls -l /app/data/jobs.db
+docker exec ai-trader ls -l /app/data/jobs.db
 
 # Restart container
-docker-compose restart ai-trader-api
+docker-compose restart ai-trader
 ```
 
 ### Problem: Job stays in "pending" status
@@ -378,19 +314,19 @@ docker-compose restart ai-trader-api
 **Debug steps:**
 ```bash
 # Check worker logs
-docker logs ai-trader-api | grep -i "worker\|simulation"
+docker logs ai-trader | grep -i "worker\|simulation"
 
 # Check database
-docker exec ai-trader-api sqlite3 /app/data/jobs.db "SELECT * FROM job_details;"
+docker exec ai-trader sqlite3 /app/data/jobs.db "SELECT * FROM job_details;"
 
 # Check if MCP services are accessible
-docker exec ai-trader-api curl http://localhost:8000/health
+docker exec ai-trader curl http://localhost:8000/health
 ```
 
 **Solutions:**
 ```bash
 # Restart container (jobs resume automatically)
-docker-compose restart ai-trader-api
+docker-compose restart ai-trader
 
 # Check specific job status
 curl http://localhost:8080/simulate/status/$JOB_ID | jq '.details'
@@ -411,7 +347,7 @@ curl http://localhost:8080/simulate/status/$JOB_ID | jq '.details'
 watch -n 30 "curl -s http://localhost:8080/simulate/status/$JOB_ID | jq '.status, .progress'"
 
 # Check agent logs for slowness
-docker logs ai-trader-api | tail -100
+docker logs ai-trader | tail -100
 ```
 
 ---
@@ -451,20 +387,20 @@ docker logs ai-trader-api | tail -100
 
 ```bash
 # Docker handles log rotation, but monitor size:
-docker logs ai-trader-api --tail 100
+docker logs ai-trader --tail 100
 
 # Clear old logs if needed:
-docker logs ai-trader-api > /dev/null 2>&1
+docker logs ai-trader > /dev/null 2>&1
 ```
 
 ### Database Size
 
 ```bash
 # Monitor database growth
-docker exec ai-trader-api du -h /app/data/jobs.db
+docker exec ai-trader du -h /app/data/jobs.db
 
 # Vacuum periodically
-docker exec ai-trader-api sqlite3 /app/data/jobs.db "VACUUM;"
+docker exec ai-trader sqlite3 /app/data/jobs.db "VACUUM;"
 ```
 
 ---
@@ -473,12 +409,11 @@ docker exec ai-trader-api sqlite3 /app/data/jobs.db "VACUUM;"
 
 ### Validation Complete When:
 
-- ✅ All 3 test scripts pass without errors
+- ✅ Both test scripts pass without errors
 - ✅ Health endpoint returns "healthy" status
 - ✅ Can trigger and complete simulation job
 - ✅ Results are retrievable via API
 - ✅ Data persists after container restart
-- ✅ Batch mode completes successfully
 - ✅ No critical errors in logs
 
 ### Ready for Production When:
@@ -508,6 +443,6 @@ docker exec ai-trader-api sqlite3 /app/data/jobs.db "VACUUM;"
 For issues not covered in this guide:
 
 1. Check `DOCKER_API.md` for detailed API documentation
-2. Review container logs: `docker logs ai-trader-api`
-3. Check database: `docker exec ai-trader-api sqlite3 /app/data/jobs.db ".tables"`
+2. Review container logs: `docker logs ai-trader`
+3. Check database: `docker exec ai-trader sqlite3 /app/data/jobs.db ".tables"`
 4. Open issue on GitHub with logs and error messages

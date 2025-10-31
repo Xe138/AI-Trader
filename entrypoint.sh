@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e  # Exit on any error
 
-echo "🚀 Starting AI-Trader..."
+echo "🚀 Starting AI-Trader API Server..."
 
 # Validate required environment variables
 echo "🔍 Validating environment variables..."
@@ -31,25 +31,15 @@ if [ ${#MISSING_VARS[@]} -gt 0 ]; then
     echo "   2. Edit .env and add your API keys"
     echo "   3. Restart the container"
     echo ""
-    echo "See docs/DOCKER.md for more information."
     exit 1
 fi
 
 echo "✅ Environment variables validated"
 
-# Step 1: Data preparation
-echo "📊 Checking price data..."
-if [ -f "/app/data/merged.jsonl" ] && [ -s "/app/data/merged.jsonl" ]; then
-    echo "✅ Using existing price data ($(wc -l < /app/data/merged.jsonl) stocks)"
-    echo "   To refresh data, delete /app/data/merged.jsonl and restart"
-else
-    echo "📊 Fetching and merging price data..."
-    # Run script from /app/scripts but output to /app/data
-    # Note: get_daily_price.py now automatically calls merge_jsonl.py after fetching
-    cd /app/data
-    python /app/scripts/get_daily_price.py
-    cd /app
-fi
+# Step 1: Initialize database
+echo "📊 Initializing database..."
+python -c "from api.database import initialize_database; initialize_database('data/jobs.db')"
+echo "✅ Database initialized"
 
 # Step 2: Start MCP services in background
 echo "🔧 Starting MCP services..."
@@ -61,22 +51,15 @@ MCP_PID=$!
 echo "⏳ Waiting for MCP services to start..."
 sleep 3
 
-# Step 4: Run trading agent with config file
-echo "🤖 Starting trading agent..."
-
-# Smart config selection: custom_config.json takes precedence if it exists
-if [ -f "configs/custom_config.json" ]; then
-    CONFIG_FILE="configs/custom_config.json"
-    echo "✅ Using custom configuration: configs/custom_config.json"
-elif [ -n "$1" ]; then
-    CONFIG_FILE="$1"
-    echo "✅ Using specified configuration: $CONFIG_FILE"
-else
-    CONFIG_FILE="configs/default_config.json"
-    echo "✅ Using default configuration: configs/default_config.json"
-fi
-
-python main.py "$CONFIG_FILE"
+# Step 4: Start FastAPI server with uvicorn
+# Note: Container always uses port 8080 internally
+# The API_PORT env var only affects the host port mapping in docker-compose.yml
+echo "🌐 Starting FastAPI server on port 8080..."
+uvicorn api.main:app \
+    --host 0.0.0.0 \
+    --port 8080 \
+    --log-level info \
+    --access-log
 
 # Cleanup on exit
-trap "echo '🛑 Stopping MCP services...'; kill $MCP_PID 2>/dev/null; exit 0" EXIT SIGTERM SIGINT
+trap "echo '🛑 Stopping services...'; kill $MCP_PID 2>/dev/null; exit 0" EXIT SIGTERM SIGINT
