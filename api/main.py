@@ -9,6 +9,7 @@ Provides endpoints for:
 """
 
 import logging
+import os
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +21,8 @@ from pydantic import BaseModel, Field, field_validator
 from api.job_manager import JobManager
 from api.simulation_worker import SimulationWorker
 from api.database import get_db_connection
+from api.price_data_manager import PriceDataManager
+from api.date_utils import validate_date_range, expand_date_range, get_max_simulation_days
 import threading
 import time
 
@@ -29,22 +32,28 @@ logger = logging.getLogger(__name__)
 # Pydantic models for request/response validation
 class SimulateTriggerRequest(BaseModel):
     """Request body for POST /simulate/trigger."""
-    date_range: List[str] = Field(..., min_length=1, description="List of trading dates (YYYY-MM-DD)")
+    start_date: str = Field(..., description="Start date for simulation (YYYY-MM-DD)")
+    end_date: Optional[str] = Field(None, description="End date for simulation (YYYY-MM-DD). If not provided, simulates single day.")
     models: Optional[List[str]] = Field(
         None,
         description="Optional: List of model signatures to simulate. If not provided, uses enabled models from config."
     )
 
-    @field_validator("date_range")
+    @field_validator("start_date", "end_date")
     @classmethod
-    def validate_date_range(cls, v):
+    def validate_date_format(cls, v):
         """Validate date format."""
-        for date in v:
-            try:
-                datetime.strptime(date, "%Y-%m-%d")
-            except ValueError:
-                raise ValueError(f"Invalid date format: {date}. Expected YYYY-MM-DD")
+        if v is None:
+            return v
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError(f"Invalid date format: {v}. Expected YYYY-MM-DD")
         return v
+
+    def get_end_date(self) -> str:
+        """Get end date, defaulting to start_date if not provided."""
+        return self.end_date or self.start_date
 
 
 class SimulateTriggerResponse(BaseModel):
@@ -114,13 +123,12 @@ def create_app(
         """
         Trigger a new simulation job.
 
-        Creates a job with dates and models from config file.
-        If models not specified in request, uses enabled models from config.
-        Job runs asynchronously in background thread.
+        Validates date range, downloads missing price data if needed,
+        and creates job with available trading dates.
 
         Raises:
-            HTTPException 400: If another job is already running or config invalid
-            HTTPException 422: If request validation fails
+            HTTPException 400: Validation errors, running job, or invalid dates
+            HTTPException 503: Price data download failed
         """
         try:
             # Use config path from app state
@@ -132,6 +140,13 @@ def create_app(
                     status_code=500,
                     detail=f"Server configuration file not found: {config_path}"
                 )
+
+            # Get end date (defaults to start_date for single day)
+            end_date = request.get_end_date()
+
+            # Validate date range
+            max_days = get_max_simulation_days()
+            validate_date_range(request.start_date, end_date, max_days=max_days)
 
             # Determine which models to run
             import json
@@ -155,6 +170,67 @@ def create_app(
                         detail="No enabled models found in config. Either enable models in config or specify them in request."
                     )
 
+            # Check price data and download if needed
+            auto_download = os.getenv("AUTO_DOWNLOAD_PRICE_DATA", "true").lower() == "true"
+            price_manager = PriceDataManager(db_path=app.state.db_path)
+
+            # Check what's missing
+            missing_coverage = price_manager.get_missing_coverage(
+                request.start_date,
+                end_date
+            )
+
+            download_info = None
+
+            # Download missing data if enabled
+            if any(missing_coverage.values()):
+                if not auto_download:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Missing price data for {len(missing_coverage)} symbols and auto-download is disabled. "
+                               f"Enable AUTO_DOWNLOAD_PRICE_DATA or pre-populate data."
+                    )
+
+                logger.info(f"Downloading missing price data for {len(missing_coverage)} symbols")
+
+                requested_dates = set(expand_date_range(request.start_date, end_date))
+
+                download_result = price_manager.download_missing_data_prioritized(
+                    missing_coverage,
+                    requested_dates
+                )
+
+                if not download_result["success"]:
+                    raise HTTPException(
+                        status_code=503,
+                        detail="Failed to download any price data. Check ALPHAADVANTAGE_API_KEY."
+                    )
+
+                download_info = {
+                    "symbols_downloaded": len(download_result["downloaded"]),
+                    "symbols_failed": len(download_result["failed"]),
+                    "rate_limited": download_result["rate_limited"]
+                }
+
+                logger.info(
+                    f"Downloaded {len(download_result['downloaded'])} symbols, "
+                    f"{len(download_result['failed'])} failed, rate_limited={download_result['rate_limited']}"
+                )
+
+            # Get available trading dates (after potential download)
+            available_dates = price_manager.get_available_trading_dates(
+                request.start_date,
+                end_date
+            )
+
+            if not available_dates:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"No trading dates with complete price data in range "
+                           f"{request.start_date} to {end_date}. "
+                           f"All symbols must have data for a date to be tradeable."
+                )
+
             job_manager = JobManager(db_path=app.state.db_path)
 
             # Check if can start new job
@@ -164,10 +240,10 @@ def create_app(
                     detail="Another simulation job is already running or pending. Please wait for it to complete."
                 )
 
-            # Create job
+            # Create job with available dates
             job_id = job_manager.create_job(
                 config_path=config_path,
-                date_range=request.date_range,
+                date_range=available_dates,
                 models=models_to_run
             )
 
@@ -180,14 +256,26 @@ def create_app(
                 thread = threading.Thread(target=run_worker, daemon=True)
                 thread.start()
 
-            logger.info(f"Triggered simulation job {job_id}")
+            logger.info(f"Triggered simulation job {job_id} with {len(available_dates)} dates")
 
-            return SimulateTriggerResponse(
+            # Build response message
+            message = f"Simulation job created with {len(available_dates)} trading dates"
+            if download_info and download_info["rate_limited"]:
+                message += " (rate limit reached - partial data)"
+
+            response = SimulateTriggerResponse(
                 job_id=job_id,
                 status="pending",
-                total_model_days=len(request.date_range) * len(models_to_run),
-                message=f"Simulation job {job_id} created and started with {len(models_to_run)} models"
+                total_model_days=len(available_dates) * len(models_to_run),
+                message=message
             )
+
+            # Add download info if we downloaded
+            if download_info:
+                # Note: Need to add download_info field to response model
+                logger.info(f"Download info: {download_info}")
+
+            return response
 
         except HTTPException:
             raise
