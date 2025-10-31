@@ -38,12 +38,18 @@ fi
 echo "✅ Environment variables validated"
 
 # Step 1: Data preparation
-echo "📊 Fetching and merging price data..."
-# Run scripts from /app/scripts but output to /app/data
-cd /app/data
-python /app/scripts/get_daily_price.py
-python /app/scripts/merge_jsonl.py
-cd /app
+echo "📊 Checking price data..."
+if [ -f "/app/data/merged.jsonl" ] && [ -s "/app/data/merged.jsonl" ]; then
+    echo "✅ Using existing price data ($(wc -l < /app/data/merged.jsonl) stocks)"
+    echo "   To refresh data, delete /app/data/merged.jsonl and restart"
+else
+    echo "📊 Fetching and merging price data..."
+    # Run scripts from /app/scripts but output to /app/data
+    cd /app/data
+    python /app/scripts/get_daily_price.py
+    python /app/scripts/merge_jsonl.py
+    cd /app
+fi
 
 # Step 2: Start MCP services in background
 echo "🔧 Starting MCP services..."
