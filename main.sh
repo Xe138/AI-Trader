@@ -10,8 +10,8 @@ echo "🚀 Launching AI Trader Environment..."
 
 echo "📊 Now getting and merging price data..."
 cd ./data
+# Note: get_daily_price.py now automatically calls merge_jsonl.py after fetching
 python get_daily_price.py
-python merge_jsonl.py
 cd ../
 
 echo "🔧 Now starting MCP services..."

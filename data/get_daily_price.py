@@ -1,8 +1,12 @@
-import requests
-import os
-from dotenv import load_dotenv
-load_dotenv()
 import json
+import os
+import subprocess
+import sys
+
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 all_nasdaq_100_symbols = [
@@ -43,3 +47,14 @@ if __name__ == "__main__":
         get_daily_price(symbol)
 
     get_daily_price("QQQ")
+
+    # Automatically run merge after fetching
+    print("\n📦 Merging price data...")
+    try:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        merge_script = os.path.join(script_dir, "merge_jsonl.py")
+        subprocess.run([sys.executable, merge_script], check=True)
+        print("✅ Price data merged successfully")
+    except Exception as e:
+        print(f"⚠️  Failed to merge data: {e}")
+        print("   Please run 'python merge_jsonl.py' manually")

@@ -44,10 +44,10 @@ if [ -f "/app/data/merged.jsonl" ] && [ -s "/app/data/merged.jsonl" ]; then
     echo "   To refresh data, delete /app/data/merged.jsonl and restart"
 else
     echo "📊 Fetching and merging price data..."
-    # Run scripts from /app/scripts but output to /app/data
+    # Run script from /app/scripts but output to /app/data
+    # Note: get_daily_price.py now automatically calls merge_jsonl.py after fetching
     cd /app/data
     python /app/scripts/get_daily_price.py
-    python /app/scripts/merge_jsonl.py
     cd /app
 fi
 
