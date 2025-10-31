@@ -50,6 +50,9 @@ def initialize_database(db_path: str = "data/jobs.db") -> None:
         4. holdings - Portfolio holdings per position
         5. reasoning_logs - AI decision logs (optional, for detail=full)
         6. tool_usage - Tool usage statistics
+        7. price_data - Historical OHLCV price data (replaces merged.jsonl)
+        8. price_data_coverage - Downloaded date range tracking per symbol
+        9. simulation_runs - Simulation run tracking for soft delete
 
     Args:
         db_path: Path to SQLite database file
@@ -108,8 +111,10 @@ def initialize_database(db_path: str = "data/jobs.db") -> None:
             daily_return_pct REAL,
             cumulative_profit REAL,
             cumulative_return_pct REAL,
+            simulation_run_id TEXT,
             created_at TEXT NOT NULL,
-            FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE
+            FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE,
+            FOREIGN KEY (simulation_run_id) REFERENCES simulation_runs(run_id) ON DELETE SET NULL
         )
     """)
 
@@ -150,6 +155,50 @@ def initialize_database(db_path: str = "data/jobs.db") -> None:
             tool_name TEXT NOT NULL,
             call_count INTEGER NOT NULL DEFAULT 1,
             total_duration_seconds REAL,
+            FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE
+        )
+    """)
+
+    # Table 7: Price Data - OHLCV price data (replaces merged.jsonl)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS price_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT NOT NULL,
+            date TEXT NOT NULL,
+            open REAL NOT NULL,
+            high REAL NOT NULL,
+            low REAL NOT NULL,
+            close REAL NOT NULL,
+            volume INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE(symbol, date)
+        )
+    """)
+
+    # Table 8: Price Data Coverage - Track downloaded date ranges per symbol
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS price_data_coverage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            downloaded_at TEXT NOT NULL,
+            source TEXT DEFAULT 'alpha_vantage',
+            UNIQUE(symbol, start_date, end_date)
+        )
+    """)
+
+    # Table 9: Simulation Runs - Track simulation runs for soft delete
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS simulation_runs (
+            run_id TEXT PRIMARY KEY,
+            job_id TEXT NOT NULL,
+            model TEXT NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            status TEXT NOT NULL CHECK(status IN ('active', 'superseded')),
+            created_at TEXT NOT NULL,
+            superseded_at TEXT,
             FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE
         )
     """)
@@ -222,6 +271,41 @@ def _create_indexes(cursor: sqlite3.Cursor) -> None:
         ON tool_usage(job_id, date, model)
     """)
 
+    # Price data table indexes
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_price_data_symbol_date ON price_data(symbol, date)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_price_data_date ON price_data(date)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_price_data_symbol ON price_data(symbol)
+    """)
+
+    # Price data coverage table indexes
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_coverage_symbol ON price_data_coverage(symbol)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_coverage_dates ON price_data_coverage(start_date, end_date)
+    """)
+
+    # Simulation runs table indexes
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_runs_job_model ON simulation_runs(job_id, model)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_runs_status ON simulation_runs(status)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_runs_dates ON simulation_runs(start_date, end_date)
+    """)
+
+    # Positions table - add index for simulation_run_id
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_positions_run_id ON positions(simulation_run_id)
+    """)
+
 
 def drop_all_tables(db_path: str = "data/jobs.db") -> None:
     """
@@ -240,8 +324,11 @@ def drop_all_tables(db_path: str = "data/jobs.db") -> None:
         'reasoning_logs',
         'holdings',
         'positions',
+        'simulation_runs',
         'job_details',
-        'jobs'
+        'jobs',
+        'price_data_coverage',
+        'price_data'
     ]
 
     for table in tables:
@@ -296,7 +383,8 @@ def get_database_stats(db_path: str = "data/jobs.db") -> dict:
         stats["database_size_mb"] = 0
 
     # Get row counts for each table
-    tables = ['jobs', 'job_details', 'positions', 'holdings', 'reasoning_logs', 'tool_usage']
+    tables = ['jobs', 'job_details', 'positions', 'holdings', 'reasoning_logs', 'tool_usage',
+              'price_data', 'price_data_coverage', 'simulation_runs']
 
     for table in tables:
         cursor.execute(f"SELECT COUNT(*) FROM {table}")
