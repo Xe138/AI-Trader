@@ -203,11 +203,29 @@ def initialize_database(db_path: str = "data/jobs.db") -> None:
         )
     """)
 
+    # Run schema migrations for existing databases
+    _migrate_schema(cursor)
+
     # Create indexes for performance
     _create_indexes(cursor)
 
     conn.commit()
     conn.close()
+
+
+def _migrate_schema(cursor: sqlite3.Cursor) -> None:
+    """Migrate existing database schema to latest version."""
+    # Check if positions table exists and has simulation_run_id column
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='positions'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(positions)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+        if 'simulation_run_id' not in columns:
+            # Add simulation_run_id column to existing positions table
+            cursor.execute("""
+                ALTER TABLE positions ADD COLUMN simulation_run_id TEXT
+            """)
 
 
 def _create_indexes(cursor: sqlite3.Cursor) -> None:
