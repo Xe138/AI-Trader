@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-10-30
+
 ### Added
 - Complete Docker deployment support with containerization
 - Docker Compose orchestration for easy local deployment
@@ -91,5 +93,6 @@ For future releases, use this template:
 
 ---
 
-[Unreleased]: https://github.com/HKUDS/AI-Trader/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/HKUDS/AI-Trader/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/HKUDS/AI-Trader/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/HKUDS/AI-Trader/releases/tag/v0.1.0
