@@ -20,22 +20,27 @@
 **Major Architecture Upgrade - REST API Service**
 
 - 🌐 **REST API Server** - Complete FastAPI implementation
-  - `POST /simulate/trigger` - Start simulation jobs
-  - `GET /simulate/status/{job_id}` - Monitor progress
+  - `POST /simulate/trigger` - Start simulation jobs with date ranges
+  - `GET /simulate/status/{job_id}` - Monitor progress in real-time
   - `GET /results` - Query results with filtering
   - `GET /health` - Service health checks
-- 💾 **SQLite Database** - Persistent storage
+- 💾 **SQLite Database** - Complete persistence layer
+  - Price data storage with on-demand downloads
   - Job tracking and lifecycle management
   - Position records with P&L tracking
   - AI reasoning logs and tool usage analytics
+- 📊 **On-Demand Price Data** - Automatic gap filling
+  - Priority-based download strategy
+  - Graceful rate limit handling
+  - Coverage tracking per symbol
 - 🐳 **Production-Ready Docker** - Single-command deployment
   - Health checks and automatic restarts
   - Volume persistence for data and logs
   - Simplified configuration
-- 🧪 **Comprehensive Testing** - 102 tests, 85% coverage
-- 📚 **Complete Documentation** - Deployment and validation guides
+- 🧪 **Comprehensive Testing** - 175 tests with high coverage
+- 📚 **Complete Documentation** - API guides and validation procedures
 
-See [CHANGELOG.md](CHANGELOG.md) for full release notes.
+See [CHANGELOG.md](CHANGELOG.md) for full release notes and [ROADMAP.md](ROADMAP.md) for planned features.
 
 ---
 
@@ -140,7 +145,8 @@ curl -X POST http://localhost:8080/simulate/trigger \
   -H "Content-Type: application/json" \
   -d '{
     "config_path": "/app/configs/default_config.json",
-    "date_range": ["2025-01-16", "2025-01-17"],
+    "start_date": "2025-01-16",
+    "end_date": "2025-01-17",
     "models": ["gpt-4"]
   }'
 ```
@@ -167,10 +173,18 @@ Start a new simulation job.
 ```json
 {
   "config_path": "/app/configs/default_config.json",
-  "date_range": ["2025-01-16", "2025-01-17"],
+  "start_date": "2025-01-16",
+  "end_date": "2025-01-17",
   "models": ["gpt-4", "claude-3.7-sonnet"]
 }
 ```
+
+**Parameters:**
+- `config_path` (required) - Path to configuration file in container
+- `start_date` (required) - Start date in YYYY-MM-DD format
+- `end_date` (optional) - End date in YYYY-MM-DD format. If omitted, defaults to `start_date` (single day)
+- `models` (optional) - Array of model signatures to run. If omitted, runs all enabled models from config
+- `detail` (optional) - Detail level: "summary" (default) or "full" (includes AI reasoning logs)
 
 **Response:**
 ```json
@@ -245,6 +259,186 @@ Service health check.
   "database": "connected",
   "timestamp": "2025-01-16T10:00:00Z"
 }
+```
+
+### Complete API Reference
+
+#### Request Validation Rules
+
+**Date Format:**
+- Must be YYYY-MM-DD format
+- Must be valid calendar date
+- Cannot be in the future
+- `start_date` must be <= `end_date`
+- Maximum date range: 30 days (configurable via `MAX_SIMULATION_DAYS`)
+
+**Model Selection:**
+- Must match signatures defined in config file
+- Only enabled models will run
+- If `models` array omitted, all enabled models from config run
+
+**Configuration Path:**
+- Must exist in container filesystem
+- Must be valid JSON with required fields
+- Typically stored in `/app/configs/`
+
+#### Error Responses
+
+All API endpoints return consistent error responses:
+
+```json
+{
+  "detail": "Error message describing what went wrong"
+}
+```
+
+**Common HTTP Status Codes:**
+- `200 OK` - Successful request
+- `400 Bad Request` - Invalid parameters or validation failure
+- `404 Not Found` - Job ID not found
+- `409 Conflict` - Job already running (concurrent job prevention)
+- `500 Internal Server Error` - Unexpected server error
+
+**Example Validation Errors:**
+
+Invalid date format:
+```json
+{
+  "detail": "Invalid date format: 2025-1-16. Use YYYY-MM-DD"
+}
+```
+
+Date range too large:
+```json
+{
+  "detail": "Date range too large: 45 days. Maximum allowed: 30 days"
+}
+```
+
+Future date:
+```json
+{
+  "detail": "Dates cannot be in the future: 2026-01-16"
+}
+```
+
+Concurrent job:
+```json
+{
+  "detail": "Another simulation job is already running: <job_id>"
+}
+```
+
+#### Job Status Values
+
+- `pending` - Job created, waiting to start
+- `running` - Job currently executing
+- `completed` - All model-days completed successfully
+- `partial` - Some model-days completed, some failed
+- `failed` - All model-days failed
+
+#### Model-Day Status Values
+
+- `pending` - Not started yet
+- `running` - Currently executing
+- `completed` - Finished successfully
+- `failed` - Execution failed with error
+
+### Advanced API Usage
+
+#### On-Demand Price Data Downloads
+
+AI-Trader automatically downloads missing price data when needed:
+
+1. **Automatic Gap Detection** - System checks database for missing date ranges
+2. **Priority-Based Downloads** - Downloads symbols that complete the most dates first
+3. **Rate Limit Handling** - Gracefully handles Alpha Vantage API limits
+4. **Coverage Tracking** - Records downloaded date ranges per symbol
+
+**Configuration:**
+```bash
+# Enable/disable automatic downloads (default: true)
+AUTO_DOWNLOAD_PRICE_DATA=true
+
+# Alpha Vantage API key (required for downloads)
+ALPHAADVANTAGE_API_KEY=your_key_here
+```
+
+**Download Behavior:**
+- If price data exists in database, uses cached data (no API call)
+- If data missing, downloads from Alpha Vantage during simulation
+- Rate limit hit: Pauses downloads, continues simulation with available data
+- Next simulation resumes downloads where it left off
+
+**Example Workflow:**
+```bash
+# First run: Downloads data for requested dates
+curl -X POST http://localhost:8080/simulate/trigger \
+  -d '{"start_date": "2025-01-16", "end_date": "2025-01-20", ...}'
+# Downloads AAPL, MSFT, GOOGL for 2025-01-16 to 2025-01-20
+
+# Second run: Reuses cached data, no downloads
+curl -X POST http://localhost:8080/simulate/trigger \
+  -d '{"start_date": "2025-01-18", "end_date": "2025-01-19", ...}'
+# Uses cached data, zero API calls
+
+# Third run: Only downloads new dates
+curl -X POST http://localhost:8080/simulate/trigger \
+  -d '{"start_date": "2025-01-20", "end_date": "2025-01-22", ...}'
+# Reuses 2025-01-20 data, downloads 2025-01-21 and 2025-01-22
+```
+
+#### Detail Levels
+
+Control how much data is logged during simulation:
+
+**Summary Mode (default):**
+```bash
+curl -X POST http://localhost:8080/simulate/trigger \
+  -d '{"start_date": "2025-01-16", "detail": "summary", ...}'
+```
+- Logs positions, P&L, and tool usage
+- Does NOT log AI reasoning steps
+- Minimal database storage
+- Faster execution
+
+**Full Mode:**
+```bash
+curl -X POST http://localhost:8080/simulate/trigger \
+  -d '{"start_date": "2025-01-16", "detail": "full", ...}'
+```
+- Logs positions, P&L, tool usage, AND AI reasoning
+- Stores complete conversation history in `reasoning_logs` table
+- Larger database footprint
+- Useful for debugging AI decision-making
+
+**Querying Reasoning Logs:**
+```bash
+docker exec -it ai-trader sqlite3 /app/data/jobs.db
+sqlite> SELECT * FROM reasoning_logs WHERE job_id='...' AND date='2025-01-16';
+```
+
+#### Concurrent Job Prevention
+
+Only one simulation can run at a time:
+
+```bash
+# Start first job
+curl -X POST http://localhost:8080/simulate/trigger -d '{...}'
+# Response: {"job_id": "abc123", "status": "running"}
+
+# Try to start second job
+curl -X POST http://localhost:8080/simulate/trigger -d '{...}'
+# Response: 409 Conflict
+# {"detail": "Another simulation job is already running: abc123"}
+
+# Wait for first job to complete
+curl http://localhost:8080/simulate/status/abc123
+# {"status": "completed", ...}
+
+# Now second job can start
+curl -X POST http://localhost:8080/simulate/trigger -d '{...}'
+# Response: {"job_id": "def456", "status": "running"}
 ```
 
 ---
@@ -328,12 +522,12 @@ docker-compose up -d
 # 2. Health check
 curl http://localhost:8080/health
 
-# 3. Trigger small test job
+# 3. Trigger small test job (single day)
 curl -X POST http://localhost:8080/simulate/trigger \
   -H "Content-Type: application/json" \
   -d '{
     "config_path": "/app/configs/default_config.json",
-    "date_range": ["2025-01-16"],
+    "start_date": "2025-01-16",
     "models": ["gpt-4"]
   }'
 
@@ -429,13 +623,17 @@ AI-Trader/
 export async function triggerSimulation(
   api_url: string,
   config_path: string,
-  date_range: string[],
+  start_date: string,
+  end_date: string | null,
   models: string[]
 ) {
+  const body = { config_path, start_date, models };
+  if (end_date) body['end_date'] = end_date;
+
   const response = await fetch(`${api_url}/simulate/trigger`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ config_path, date_range, models })
+    body: JSON.stringify(body)
   });
   return response.json();
 }
@@ -467,13 +665,21 @@ export async function getResults(api_url: string, job_id: string) {
 import requests
 import time
 
-# Trigger simulation
+# Trigger simulation (date range)
 response = requests.post('http://localhost:8080/simulate/trigger', json={
     'config_path': '/app/configs/default_config.json',
-    'date_range': ['2025-01-16', '2025-01-17'],
+    'start_date': '2025-01-16',
+    'end_date': '2025-01-17',
     'models': ['gpt-4', 'claude-3.7-sonnet']
 })
 job_id = response.json()['job_id']
+
+# Or trigger single day (omit end_date)
+response = requests.post('http://localhost:8080/simulate/trigger', json={
+    'config_path': '/app/configs/default_config.json',
+    'start_date': '2025-01-16',
+    'models': ['gpt-4']
+})
 
 # Poll for completion
 while True:
