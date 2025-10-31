@@ -1,6 +1,8 @@
 services:
   ai-trader:
-    build: .
+    image: ghcr.io/xe138/ai-trader:latest
+    # Uncomment to build locally instead of pulling:
+    # build: .
     container_name: ai-trader-app
     volumes:
       - ./data:/app/data
