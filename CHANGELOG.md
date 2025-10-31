@@ -7,19 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- **Simplified Deployment** - Removed batch mode, now API-only
-  - Single docker-compose service (ai-trader) instead of dual mode
-  - Removed scripts/test_batch_mode.sh
-  - Streamlined entrypoint (entrypoint.sh now runs API server)
-  - Simplified docker-compose.yml configuration
-
-### Removed
-- **Batch Mode** - Eliminated one-time batch simulation mode
-  - All simulations now run through REST API
-  - Removes complexity of dual-mode deployment
-  - Focus on API-first architecture for Windmill integration
-
 ## [0.3.0] - 2025-10-31
 
 ### Added - API Service Transformation
@@ -48,17 +35,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 20 API endpoint tests (81% coverage)
   - 20 Pydantic model tests (100% coverage)
   - 10 runtime manager tests (89% coverage)
-- **Docker Dual-Mode Deployment**
-  - API server mode - Persistent REST API service with health checks
-  - Batch mode - One-time simulation execution (backwards compatible)
-  - Separate entrypoints for each mode
+- **Docker Deployment** - Persistent REST API service
+  - API-only deployment (batch mode removed for simplicity)
+  - Single docker-compose service (ai-trader)
   - Health check configuration (30s interval, 3 retries)
   - Volume persistence for SQLite database and logs
+  - Configurable API_PORT for flexible deployment
+  - System dependencies (curl, procps) for health checks and debugging
 - **Validation & Testing Tools**
-  - `scripts/validate_docker_build.sh` - Docker build and startup validation
-  - `scripts/test_api_endpoints.sh` - Complete API endpoint testing suite
-  - `scripts/test_batch_mode.sh` - Batch mode execution validation
-  - TESTING_GUIDE.md - Comprehensive testing procedures and troubleshooting
+  - `scripts/validate_docker_build.sh` - Docker build and startup validation with port awareness
+  - `scripts/test_api_endpoints.sh` - Complete API endpoint testing suite with port awareness
+  - TESTING_GUIDE.md - Comprehensive testing procedures and troubleshooting (including port conflicts)
 - **Documentation**
   - DOCKER_API.md - API deployment guide with examples
   - TESTING_GUIDE.md - Validation procedures and troubleshooting
@@ -66,14 +53,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Windmill integration patterns and examples
 
 ### Changed
-- **Architecture** - Transformed from batch-only to API service with database persistence
+- **Architecture** - Transformed from batch-only to API-first service with database persistence
 - **Data Storage** - Migrated from JSONL files to SQLite relational database
-- **Deployment** - Added dual-mode Docker deployment (API server + batch)
-- **Configuration** - Added API_PORT environment variable (default: 8080)
+- **Deployment** - Simplified to single API-only Docker service
+- **Configuration** - Added configurable API_PORT environment variable (default: 8080, customizable for port conflicts)
 - **Requirements** - Added fastapi>=0.120.0, uvicorn[standard]>=0.27.0, pydantic>=2.0.0
-- **Docker Compose** - Split into two services (ai-trader-api and ai-trader-batch)
-- **Dockerfile** - Added port 8080 exposure for API server
-- **.env.example** - Added API server configuration
+- **Docker Compose** - Single service (ai-trader) instead of dual-mode
+- **Dockerfile** - Added system dependencies (curl, procps) and port 8080 exposure
+- **.env.example** - Enhanced API server configuration with port conflict documentation
+- **Entrypoint** - Unified entrypoint.sh with proper signal handling (exec uvicorn)
 
 ### Technical Implementation
 - **Test-Driven Development** - All components written with tests first
@@ -101,10 +89,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Monitoring** - Health checks and status tracking
 - **Persistence** - SQLite database survives container restarts
 
-### Backwards Compatibility
-- **Batch Mode** - Original batch functionality preserved via Docker profile
-- **Configuration** - Existing config files still work
-- **Data Migration** - No automatic migration (fresh start recommended)
+### Breaking Changes
+- **Batch Mode Removed** - All simulations now run through REST API
+  - Simplifies deployment and eliminates dual-mode complexity
+  - Focus on API-first architecture for external orchestration
+  - Migration: Use POST /simulate/trigger endpoint instead of batch execution
 
 ## [0.2.0] - 2025-10-31
 
