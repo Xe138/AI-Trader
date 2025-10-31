@@ -1,9 +1,9 @@
 services:
   # Batch mode: Run one-time simulations with config file
   ai-trader-batch:
-    image: ghcr.io/xe138/ai-trader:latest
+    # image: ghcr.io/xe138/ai-trader:latest
     # Uncomment to build locally instead of pulling:
-    # build: .
+    build: .
     container_name: ai-trader-batch
     volumes:
       - ${VOLUME_PATH:-.}/data:/app/data
@@ -42,9 +42,9 @@ services:
 
   # API mode: REST API server for Windmill integration
   ai-trader-api:
-    image: ghcr.io/xe138/ai-trader:latest
+    # image: ghcr.io/xe138/ai-trader:latest
     # Uncomment to build locally instead of pulling:
-    # build: .
+    build: .
     container_name: ai-trader-api
     entrypoint: ["./entrypoint-api.sh"]
     volumes:
