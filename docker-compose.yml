@@ -5,9 +5,9 @@ services:
     # build: .
     container_name: ai-trader-app
     volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - ./configs:/app/configs
+      - ${VOLUME_PATH:-.}/data:/app/data
+      - ${VOLUME_PATH:-.}/logs:/app/logs
+      - ${VOLUME_PATH:-.}/configs:/app/configs
     environment:
       # AI Model API Configuration
       - OPENAI_API_BASE=${OPENAI_API_BASE}

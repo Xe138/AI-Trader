@@ -112,17 +112,43 @@ docker-compose up
 
 ### Volume Mounts
 
-Docker Compose mounts three volumes:
+Docker Compose mounts three volumes for persistent data. By default, these are stored in the project directory:
 
 - `./data:/app/data` - Price data and trading records
 - `./logs:/app/logs` - MCP service logs
 - `./configs:/app/configs` - Configuration files (allows editing configs without rebuilding)
 
-Data persists across container restarts. To reset:
+### Custom Volume Location
+
+You can change where data is stored by setting `VOLUME_PATH` in your `.env` file:
+
+```bash
+# Store data in a different location
+VOLUME_PATH=/home/user/trading-data
+
+# Or use a relative path
+VOLUME_PATH=./volumes
+```
+
+This will store data in:
+- `/home/user/trading-data/data/`
+- `/home/user/trading-data/logs/`
+- `/home/user/trading-data/configs/`
+
+**Note:** The directory structure is automatically created. You'll need to copy your existing configs:
+```bash
+# After changing VOLUME_PATH
+mkdir -p /home/user/trading-data/configs
+cp configs/custom_config.json /home/user/trading-data/configs/
+```
+
+### Reset Data
+
+To reset all trading data:
 
 ```bash
 docker-compose down
-rm -rf data/agent_data/* logs/*
+rm -rf ${VOLUME_PATH:-.}/data/agent_data/* ${VOLUME_PATH:-.}/logs/*
 docker-compose up
 ```
 
