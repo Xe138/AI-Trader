@@ -12,6 +12,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 from tools.general_tools import get_config_value
+from api.database import get_db_connection
 
 all_nasdaq_100_symbols = [
     "NVDA", "MSFT", "AAPL", "GOOG", "GOOGL", "AMZN", "META", "AVGO", "TSLA",
@@ -47,143 +48,95 @@ def get_yesterday_date(today_date: str) -> str:
     yesterday_date = yesterday_dt.strftime("%Y-%m-%d")
     return yesterday_date
 
-def get_open_prices(today_date: str, symbols: List[str], merged_path: Optional[str] = None) -> Dict[str, Optional[float]]:
-    """从 data/merged.jsonl 中读取指定日期与标的的开盘价。
+def get_open_prices(today_date: str, symbols: List[str], merged_path: Optional[str] = None, db_path: str = "data/jobs.db") -> Dict[str, Optional[float]]:
+    """从 price_data 数据库表中读取指定日期与标的的开盘价。
 
     Args:
         today_date: 日期字符串，格式 YYYY-MM-DD。
         symbols: 需要查询的股票代码列表。
-        merged_path: 可选，自定义 merged.jsonl 路径；默认读取项目根目录下 data/merged.jsonl。
+        merged_path: 已废弃，保留用于向后兼容。
+        db_path: 数据库路径，默认 data/jobs.db。
 
     Returns:
         {symbol_price: open_price 或 None} 的字典；若未找到对应日期或标的，则值为 None。
     """
-    wanted = set(symbols)
     results: Dict[str, Optional[float]] = {}
 
-    if merged_path is None:
-        base_dir = Path(__file__).resolve().parents[1]
-        merged_file = base_dir / "data" / "merged.jsonl"
-    else:
-        merged_file = Path(merged_path)
+    try:
+        conn = get_db_connection(db_path)
+        cursor = conn.cursor()
 
-    if not merged_file.exists():
-        return results
+        # Query all requested symbols for the date
+        placeholders = ','.join('?' * len(symbols))
+        query = f"""
+            SELECT symbol, open
+            FROM price_data
+            WHERE date = ? AND symbol IN ({placeholders})
+        """
 
-    with merged_file.open("r", encoding="utf-8") as f:
-        for line in f:
-            if not line.strip():
-                continue
-            try:
-                doc = json.loads(line)
-            except Exception:
-                continue
-            meta = doc.get("Meta Data", {}) if isinstance(doc, dict) else {}
-            sym = meta.get("2. Symbol")
-            if sym not in wanted:
-                continue
-            series = doc.get("Time Series (Daily)", {})
-            if not isinstance(series, dict):
-                continue
-            bar = series.get(today_date)
-            if isinstance(bar, dict):
-                open_val = bar.get("1. buy price")
-                try:
-                    results[f'{sym}_price'] = float(open_val) if open_val is not None else None
-                except Exception:
-                    results[f'{sym}_price'] = None
+        params = [today_date] + list(symbols)
+        cursor.execute(query, params)
+
+        # Build results dict
+        for row in cursor.fetchall():
+            symbol = row[0]
+            open_price = row[1]
+            results[f'{symbol}_price'] = float(open_price) if open_price is not None else None
+
+        conn.close()
+
+    except Exception as e:
+        # Log error but return empty results to maintain compatibility
+        print(f"Error querying price data: {e}")
 
     return results
 
-def get_yesterday_open_and_close_price(today_date: str, symbols: List[str], merged_path: Optional[str] = None) -> Tuple[Dict[str, Optional[float]], Dict[str, Optional[float]]]:
-    """从 data/merged.jsonl 中读取指定日期与股票的昨日买入价和卖出价。
+def get_yesterday_open_and_close_price(today_date: str, symbols: List[str], merged_path: Optional[str] = None, db_path: str = "data/jobs.db") -> Tuple[Dict[str, Optional[float]], Dict[str, Optional[float]]]:
+    """从 price_data 数据库表中读取指定日期与股票的昨日买入价和卖出价。
 
     Args:
         today_date: 日期字符串，格式 YYYY-MM-DD，代表今天日期。
         symbols: 需要查询的股票代码列表。
-        merged_path: 可选，自定义 merged.jsonl 路径；默认读取项目根目录下 data/merged.jsonl。
+        merged_path: 已废弃，保留用于向后兼容。
+        db_path: 数据库路径，默认 data/jobs.db。
 
     Returns:
         (买入价字典, 卖出价字典) 的元组；若未找到对应日期或标的，则值为 None。
     """
-    wanted = set(symbols)
     buy_results: Dict[str, Optional[float]] = {}
     sell_results: Dict[str, Optional[float]] = {}
 
-    if merged_path is None:
-        base_dir = Path(__file__).resolve().parents[1]
-        merged_file = base_dir / "data" / "merged.jsonl"
-    else:
-        merged_file = Path(merged_path)
-
-    if not merged_file.exists():
-        return buy_results, sell_results
-
     yesterday_date = get_yesterday_date(today_date)
 
-    with merged_file.open("r", encoding="utf-8") as f:
-        for line in f:
-            if not line.strip():
-                continue
-            try:
-                doc = json.loads(line)
-            except Exception:
-                continue
-            meta = doc.get("Meta Data", {}) if isinstance(doc, dict) else {}
-            sym = meta.get("2. Symbol")
-            if sym not in wanted:
-                continue
-            series = doc.get("Time Series (Daily)", {})
-            if not isinstance(series, dict):
-                continue
-            
-            # 尝试获取昨日买入价和卖出价
-            bar = series.get(yesterday_date)
-            if isinstance(bar, dict):
-                buy_val = bar.get("1. buy price")  # 买入价字段
-                sell_val = bar.get("4. sell price")  # 卖出价字段
-                
-                try:
-                    buy_price = float(buy_val) if buy_val is not None else None
-                    sell_price = float(sell_val) if sell_val is not None else None
-                    buy_results[f'{sym}_price'] = buy_price
-                    sell_results[f'{sym}_price'] = sell_price
-                except Exception:
-                    buy_results[f'{sym}_price'] = None
-                    sell_results[f'{sym}_price'] = None
-            else:
-                # 如果昨日没有数据，尝试向前查找最近的交易日
-                today_dt = datetime.strptime(today_date, "%Y-%m-%d")
-                yesterday_dt = today_dt - timedelta(days=1)
-                current_date = yesterday_dt
-                found_data = False
-                
-                # 最多向前查找5个交易日
-                for _ in range(5):
-                    current_date -= timedelta(days=1)
-                    # 跳过周末
-                    while current_date.weekday() >= 5:
-                        current_date -= timedelta(days=1)
-                    
-                    check_date = current_date.strftime("%Y-%m-%d")
-                    bar = series.get(check_date)
-                    if isinstance(bar, dict):
-                        buy_val = bar.get("1. buy price")
-                        sell_val = bar.get("4. sell price")
-                        
-                        try:
-                            buy_price = float(buy_val) if buy_val is not None else None
-                            sell_price = float(sell_val) if sell_val is not None else None
-                            buy_results[f'{sym}_price'] = buy_price
-                            sell_results[f'{sym}_price'] = sell_price
-                            found_data = True
-                            break
-                        except Exception:
-                            continue
-                
-                if not found_data:
-                    buy_results[f'{sym}_price'] = None
-                    sell_results[f'{sym}_price'] = None
+    try:
+        conn = get_db_connection(db_path)
+        cursor = conn.cursor()
+
+        # Query all requested symbols for yesterday's date
+        placeholders = ','.join('?' * len(symbols))
+        query = f"""
+            SELECT symbol, open, close
+            FROM price_data
+            WHERE date = ? AND symbol IN ({placeholders})
+        """
+
+        params = [yesterday_date] + list(symbols)
+        cursor.execute(query, params)
+
+        # Build results dicts
+        for row in cursor.fetchall():
+            symbol = row[0]
+            open_price = row[1]  # Buy price (open)
+            close_price = row[2]  # Sell price (close)
+
+            buy_results[f'{symbol}_price'] = float(open_price) if open_price is not None else None
+            sell_results[f'{symbol}_price'] = float(close_price) if close_price is not None else None
+
+        conn.close()
+
+    except Exception as e:
+        # Log error but return empty results to maintain compatibility
+        print(f"Error querying price data: {e}")
 
     return buy_results, sell_results
 

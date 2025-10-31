@@ -7,26 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- **Simplified API Interface** - Config path is now a server-side detail
-  - Removed `config_path` parameter from POST /simulate/trigger
-  - Server uses internal default config (configs/default_config.json)
-  - Simplifies API calls - only need to specify date_range
-- **Model Selection** - `enabled` field in config now controls which models run
-  - API `models` parameter is now optional
-  - If not provided, uses models where `enabled: true` in config
-  - If provided, explicitly overrides config (for manual testing)
-  - Prevents accidental execution of all models
-
-### Removed
-- **Web UI Port** - Removed unused web dashboard port configuration
-  - Removed port 8888 from docker-compose.yml (not implemented)
-  - Removed WEB_HTTP_PORT from .env.example
-  - Removed port 8888 from Dockerfile EXPOSE
-  - Web UI static files exist in docs/ but are not served in API mode
-  - Only port 8080 (REST API) is now exposed
-
 ## [0.3.0] - 2025-10-31
+
+### Added - Price Data Management & On-Demand Downloads
+- **SQLite Price Data Storage** - Replaced JSONL files with relational database
+  - `price_data` table for OHLCV data (replaces merged.jsonl)
+  - `price_data_coverage` table for tracking downloaded date ranges
+  - `simulation_runs` table for soft-delete position tracking
+  - Comprehensive indexes for query performance
+- **On-Demand Price Data Downloads** - Automatic gap filling via Alpha Vantage
+  - Priority-based download strategy (maximize date completion)
+  - Graceful rate limit handling (no pre-configured limits needed)
+  - Smart coverage gap detection
+  - Configurable via `AUTO_DOWNLOAD_PRICE_DATA` (default: true)
+- **Date Range API** - Simplified date specification
+  - Single date: `{"start_date": "2025-01-20"}`
+  - Date range: `{"start_date": "2025-01-20", "end_date": "2025-01-24"}`
+  - Automatic validation (chronological order, max range, not future)
+  - Configurable max days via `MAX_SIMULATION_DAYS` (default: 30)
+- **Migration Tooling** - Script to import existing merged.jsonl data
+  - `scripts/migrate_price_data.py` for one-time data migration
+  - Automatic coverage tracking during migration
 
 ### Added - API Service Transformation
 - **REST API Service** - Complete FastAPI implementation for external orchestration
@@ -74,15 +75,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Architecture** - Transformed from batch-only to API-first service with database persistence
 - **Data Storage** - Migrated from JSONL files to SQLite relational database
+  - Price data now stored in `price_data` table instead of `merged.jsonl`
+  - Tools/price_tools.py updated to query database
+  - Position data remains in database (already migrated in earlier versions)
 - **Deployment** - Simplified to single API-only Docker service
+- **API Request Format** - Date range specification changed
+  - Old: `{"date_range": ["2025-01-20", "2025-01-21", ...]}`
+  - New: `{"start_date": "2025-01-20", "end_date": "2025-01-24"}`
+  - `end_date` is optional (defaults to `start_date` for single day simulation)
+  - Server automatically expands range and validates trading days
 - **Configuration** - Simplified environment variable configuration
-  - Added configurable API_PORT for host port mapping (default: 8080, customizable for port conflicts)
-  - Removed `RUNTIME_ENV_PATH` (API dynamically manages runtime configs via RuntimeConfigManager)
-  - Removed MCP service port configuration (MATH_HTTP_PORT, SEARCH_HTTP_PORT, TRADE_HTTP_PORT, GETPRICE_HTTP_PORT)
+  - **Added:** `AUTO_DOWNLOAD_PRICE_DATA` (default: true) - Enable on-demand downloads
+  - **Added:** `MAX_SIMULATION_DAYS` (default: 30) - Maximum date range size
+  - **Added:** `API_PORT` for host port mapping (default: 8080, customizable for port conflicts)
+  - **Removed:** `RUNTIME_ENV_PATH` (API dynamically manages runtime configs)
+  - **Removed:** MCP service ports (MATH_HTTP_PORT, SEARCH_HTTP_PORT, TRADE_HTTP_PORT, GETPRICE_HTTP_PORT)
+  - **Removed:** `WEB_HTTP_PORT` (web UI not implemented)
   - MCP services use fixed internal ports (8000-8003) and are no longer exposed to host
-  - Container always uses port 8080 internally for API (hardcoded in entrypoint.sh)
-  - Only API port (8080) and web dashboard (8888) are exposed to host
+  - Container always uses port 8080 internally for API
+  - Only API port (8080) is exposed to host
   - Reduces configuration complexity and attack surface
+- **Model Selection** - `enabled` field in config now controls which models run
+  - API `models` parameter is now optional
+  - If not provided, uses models where `enabled: true` in config
+  - If provided, explicitly overrides config (for manual testing)
+  - Prevents accidental execution of all models
+- **API Interface** - Config path is now server-side detail
+  - Removed `config_path` parameter from POST /simulate/trigger
+  - Server uses internal default config (configs/default_config.json)
+  - Simplifies API calls
 - **Requirements** - Added fastapi>=0.120.0, uvicorn[standard]>=0.27.0, pydantic>=2.0.0
 - **Docker Compose** - Single service (ai-trader) instead of dual-mode
 - **Dockerfile** - Added system dependencies (curl, procps) and port 8080 exposure
@@ -120,6 +141,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Simplifies deployment and eliminates dual-mode complexity
   - Focus on API-first architecture for external orchestration
   - Migration: Use POST /simulate/trigger endpoint instead of batch execution
+- **API Request Format Changed** - Date specification now uses start_date/end_date
+  - Old format: `{"date_range": ["2025-01-20", "2025-01-21"], "models": [...]}`
+  - New format: `{"start_date": "2025-01-20", "end_date": "2025-01-21"}`
+  - Models parameter is optional (uses enabled models from config)
+  - Config_path parameter removed (server-side detail)
+- **Data Storage Format Changed** - Price data moved from JSONL to SQLite
+  - Run `python scripts/migrate_price_data.py` to migrate existing data
+  - `merged.jsonl` no longer used (replaced by `price_data` table)
+  - Automatic on-demand downloads eliminate need for manual data fetching
+- **Configuration Variables Changed**
+  - Added: `AUTO_DOWNLOAD_PRICE_DATA`, `MAX_SIMULATION_DAYS`
+  - Removed: `RUNTIME_ENV_PATH`, MCP port configs, `WEB_HTTP_PORT`
 
 ## [0.2.0] - 2025-10-31
 
