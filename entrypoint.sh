@@ -47,19 +47,19 @@ cd /app
 python agent_tools/start_mcp_services.py &
 MCP_PID=$!
 
+# Setup cleanup trap before starting uvicorn
+trap "echo '🛑 Stopping services...'; kill $MCP_PID 2>/dev/null; exit 0" EXIT SIGTERM SIGINT
+
 # Step 3: Wait for services to initialize
 echo "⏳ Waiting for MCP services to start..."
 sleep 3
 
-# Step 4: Start FastAPI server with uvicorn
+# Step 4: Start FastAPI server with uvicorn (this blocks)
 # Note: Container always uses port 8080 internally
 # The API_PORT env var only affects the host port mapping in docker-compose.yml
 echo "🌐 Starting FastAPI server on port 8080..."
-uvicorn api.main:app \
+exec uvicorn api.main:app \
     --host 0.0.0.0 \
     --port 8080 \
     --log-level info \
     --access-log
-
-# Cleanup on exit
-trap "echo '🛑 Stopping services...'; kill $MCP_PID 2>/dev/null; exit 0" EXIT SIGTERM SIGINT
