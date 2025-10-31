@@ -218,7 +218,7 @@ AI-Trader Bench/
 
 ```bash
 # 1. Clone project
-git clone https://github.com/HKUDS/AI-Trader.git
+git clone https://github.com/Xe138/AI-Trader.git
 cd AI-Trader
 
 # 2. Install dependencies
@@ -331,7 +331,7 @@ The easiest way to run AI-Trader is with Docker Compose:
 
 ```bash
 # 1. Clone and setup
-git clone https://github.com/HKUDS/AI-Trader.git
+git clone https://github.com/Xe138/AI-Trader.git
 cd AI-Trader
 
 # 2. Configure environment
@@ -590,8 +590,8 @@ We welcome contributions of all kinds! Especially AI trading strategies and agen
 
 ## 📞 Support & Community
 
-- **💬 Discussions**: [GitHub Discussions](https://github.com/HKUDS/AI-Trader/discussions)
-- **🐛 Issues**: [GitHub Issues](https://github.com/HKUDS/AI-Trader/issues)
+- **💬 Discussions**: [GitHub Discussions](https://github.com/Xe138/AI-Trader/discussions)
+- **🐛 Issues**: [GitHub Issues](https://github.com/Xe138/AI-Trader/issues)
 
 ## 📄 License
 
@@ -615,8 +615,8 @@ The materials provided by the AI-Trader project are for research purposes only a
 
 **🌟 If this project helps you, please give us a Star!**
 
-[![GitHub stars](https://img.shields.io/github/stars/HKUDS/AI-Trader?style=social)](https://github.com/HKUDS/AI-Trader)
-[![GitHub forks](https://img.shields.io/github/forks/HKUDS/AI-Trader?style=social)](https://github.com/HKUDS/AI-Trader)
+[![GitHub stars](https://img.shields.io/github/stars/Xe138/AI-Trader?style=social)](https://github.com/Xe138/AI-Trader)
+[![GitHub forks](https://img.shields.io/github/forks/Xe138/AI-Trader?style=social)](https://github.com/Xe138/AI-Trader)
 
 **🤖 Experience AI's full potential in financial markets through complete autonomous decision-making!**  
 **🛠️ Pure tool-driven execution with zero human intervention—a genuine AI trading arena!** 🚀
