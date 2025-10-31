@@ -17,8 +17,17 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Configuration
-API_BASE_URL=${API_BASE_URL:-http://localhost:8080}
+# Read API_PORT from .env if available
+API_PORT=${API_PORT:-8080}
+if [ -f .env ]; then
+    export $(grep "^API_PORT=" .env | xargs)
+fi
+API_PORT=${API_PORT:-8080}
+
+API_BASE_URL=${API_BASE_URL:-http://localhost:$API_PORT}
 TEST_CONFIG="/app/configs/default_config.json"
+
+echo "Using API base URL: $API_BASE_URL"
 
 # Check if API is running
 echo "Checking if API is accessible..."
