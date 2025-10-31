@@ -43,6 +43,29 @@ This document outlines planned features and improvements for the AI-Trader proje
   - `GET /data/status` - Check download progress and rate limits
   - `DELETE /data/range` - Remove price data for specific date ranges
 
+#### Web UI
+- **Dashboard Interface** - Web-based monitoring and control interface
+  - Job management dashboard
+    - View active, pending, and completed jobs
+    - Start new simulations with form-based configuration
+    - Monitor job progress in real-time
+    - Cancel running jobs
+  - Results visualization
+    - Performance charts (P&L over time, cumulative returns)
+    - Position history timeline
+    - Model comparison views
+    - Trade log explorer with filtering
+  - Configuration management
+    - Model configuration editor
+    - Date range selection with calendar picker
+    - Price data coverage visualization
+  - Technical implementation
+    - Modern frontend framework (React, Vue.js, or Svelte)
+    - Real-time updates via WebSocket or SSE
+    - Responsive design for mobile access
+    - Chart library (Plotly.js, Chart.js, or Recharts)
+    - Served alongside API (single container deployment)
+
 ## Contributing
 
 We welcome contributions to any of these planned features! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
