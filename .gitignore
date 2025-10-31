@@ -85,3 +85,4 @@ dmypy.json
 # Git worktrees
 .worktrees/
 
+data/jobs.db
