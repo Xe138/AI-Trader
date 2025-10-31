@@ -79,12 +79,18 @@ class MCPServiceManager:
         try:
             # Start service process
             log_file = self.log_dir / f"{service_id}.log"
+
+            # Set PYTHONPATH to /app so services can import from tools module
+            env = os.environ.copy()
+            env['PYTHONPATH'] = str(Path.cwd())
+
             with open(log_file, 'w') as f:
                 process = subprocess.Popen(
                     [sys.executable, str(script_path)],
                     stdout=f,
                     stderr=subprocess.STDOUT,
-                    cwd=Path.cwd()  # Use current working directory (/app)
+                    cwd=Path.cwd(),  # Use current working directory (/app)
+                    env=env  # Pass environment with PYTHONPATH
                 )
             
             self.services[service_id] = {
