@@ -67,8 +67,7 @@ jobs:
 
           # Only add 'latest' tag for stable releases
           if [[ "$IS_PRERELEASE" == "false" ]]; then
-            TAGS="$TAGS
-ghcr.io/$REPO_OWNER_LOWER/ai-trader:latest"
+            TAGS="${TAGS}"$'\n'"ghcr.io/$REPO_OWNER_LOWER/ai-trader:latest"
             echo "Tagging as both $VERSION and latest"
           else
             echo "Pre-release detected - tagging as $VERSION only (NOT latest)"
