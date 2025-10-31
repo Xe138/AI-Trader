@@ -37,6 +37,29 @@ fi
 
 echo "✅ Environment variables validated"
 
+# Function to check if price data needs refresh
+should_refresh_data() {
+    MAX_AGE=${MAX_DATA_AGE_DAYS:-7}
+
+    # Check if at least one price file exists
+    if ! ls /app/data/daily_prices_*.json >/dev/null 2>&1; then
+        echo "📭 No price data found"
+        return 0  # Need refresh
+    fi
+
+    # Find any files older than MAX_AGE days
+    STALE_COUNT=$(find /app/data -name "daily_prices_*.json" -mtime +$MAX_AGE | wc -l)
+    TOTAL_COUNT=$(ls /app/data/daily_prices_*.json 2>/dev/null | wc -l)
+
+    if [ $STALE_COUNT -gt 0 ]; then
+        echo "📅 Found $STALE_COUNT stale files (>$MAX_AGE days old)"
+        return 0  # Need refresh
+    fi
+
+    echo "✅ All $TOTAL_COUNT price files are fresh (<$MAX_AGE days old)"
+    return 1  # Skip refresh
+}
+
 # Step 1: Data preparation
 echo "📊 Fetching and merging price data..."
 # Run scripts from /app/scripts but output to /app/data
