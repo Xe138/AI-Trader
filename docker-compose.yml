@@ -34,4 +34,4 @@ services:
       - "${TRADE_HTTP_PORT:-8002}:8002"
       - "${GETPRICE_HTTP_PORT:-8003}:8003"
       - "${WEB_HTTP_PORT:-8888}:8888"
-    restart: unless-stopped
+    restart: on-failure:3  # Restart max 3 times on failure, prevents endless loops

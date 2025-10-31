@@ -3,6 +3,40 @@ set -e  # Exit on any error
 
 echo "🚀 Starting AI-Trader..."
 
+# Validate required environment variables
+echo "🔍 Validating environment variables..."
+MISSING_VARS=()
+
+if [ -z "$OPENAI_API_KEY" ]; then
+    MISSING_VARS+=("OPENAI_API_KEY")
+fi
+
+if [ -z "$ALPHAADVANTAGE_API_KEY" ]; then
+    MISSING_VARS+=("ALPHAADVANTAGE_API_KEY")
+fi
+
+if [ -z "$JINA_API_KEY" ]; then
+    MISSING_VARS+=("JINA_API_KEY")
+fi
+
+if [ ${#MISSING_VARS[@]} -gt 0 ]; then
+    echo ""
+    echo "❌ ERROR: Missing required environment variables:"
+    for var in "${MISSING_VARS[@]}"; do
+        echo "   - $var"
+    done
+    echo ""
+    echo "Please set these variables in your .env file:"
+    echo "   1. Copy .env.example to .env"
+    echo "   2. Edit .env and add your API keys"
+    echo "   3. Restart the container"
+    echo ""
+    echo "See docs/DOCKER.md for more information."
+    exit 1
+fi
+
+echo "✅ Environment variables validated"
+
 # Step 1: Data preparation
 echo "📊 Fetching and merging price data..."
 # Run scripts from /app/scripts but output to /app/data
