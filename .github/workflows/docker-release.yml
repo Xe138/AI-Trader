@@ -30,6 +30,12 @@ jobs:
       - name: Extract version from tag
         id: meta
         run: |
+          # Ensure we're building from a tag
+          if [[ "$GITHUB_REF" != refs/tags/* ]]; then
+            echo "Error: This workflow should only run on tag pushes"
+            echo "GITHUB_REF: $GITHUB_REF"
+            exit 1
+          fi
           VERSION=${GITHUB_REF#refs/tags/v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION"
