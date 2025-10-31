@@ -52,10 +52,12 @@ echo "⏳ Waiting for MCP services to start..."
 sleep 3
 
 # Step 4: Start FastAPI server with uvicorn
-echo "🌐 Starting FastAPI server on port ${API_PORT:-8080}..."
+# Note: Container always uses port 8080 internally
+# The API_PORT env var only affects the host port mapping in docker-compose.yml
+echo "🌐 Starting FastAPI server on port 8080..."
 uvicorn api.main:app \
     --host 0.0.0.0 \
-    --port ${API_PORT:-8080} \
+    --port 8080 \
     --log-level info \
     --access-log
 
