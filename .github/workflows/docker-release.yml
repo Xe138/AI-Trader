@@ -40,19 +40,24 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION"
 
+          # Docker tags must be lowercase
+          REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "repo_owner_lower=$REPO_OWNER_LOWER" >> $GITHUB_OUTPUT
+          echo "Repository owner (lowercase): $REPO_OWNER_LOWER"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/ai-trader:${{ steps.meta.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/ai-trader:latest
+            ghcr.io/${{ steps.meta.outputs.repo_owner_lower }}/ai-trader:${{ steps.meta.outputs.version }}
+            ghcr.io/${{ steps.meta.outputs.repo_owner_lower }}/ai-trader:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Image published
         run: |
           echo "✅ Docker image published successfully!"
-          echo "📦 Pull with: docker pull ghcr.io/${{ github.repository_owner }}/ai-trader:${{ steps.meta.outputs.version }}"
-          echo "📦 Or latest: docker pull ghcr.io/${{ github.repository_owner }}/ai-trader:latest"
+          echo "📦 Pull with: docker pull ghcr.io/${{ steps.meta.outputs.repo_owner_lower }}/ai-trader:${{ steps.meta.outputs.version }}"
+          echo "📦 Or latest: docker pull ghcr.io/${{ steps.meta.outputs.repo_owner_lower }}/ai-trader:latest"
