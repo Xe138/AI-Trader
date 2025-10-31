@@ -15,6 +15,12 @@ WORKDIR /app
 # Copy application code
 COPY . .
 
+# Copy data scripts to separate directory (volume mount won't overlay these)
+RUN mkdir -p /app/scripts && \
+    cp data/get_daily_price.py /app/scripts/ && \
+    cp data/get_interdaily_price.py /app/scripts/ && \
+    cp data/merge_jsonl.py /app/scripts/
+
 # Create necessary directories
 RUN mkdir -p data logs data/agent_data
 

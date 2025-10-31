@@ -5,9 +5,10 @@ echo "🚀 Starting AI-Trader..."
 
 # Step 1: Data preparation
 echo "📊 Fetching and merging price data..."
+# Run scripts from /app/scripts but output to /app/data
 cd /app/data
-python get_daily_price.py
-python merge_jsonl.py
+python /app/scripts/get_daily_price.py
+python /app/scripts/merge_jsonl.py
 cd /app
 
 # Step 2: Start MCP services in background
