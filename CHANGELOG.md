@@ -7,30 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2025-10-30
+## [0.2.0] - 2025-10-31
 
 ### Added
 - Complete Docker deployment support with containerization
 - Docker Compose orchestration for easy local deployment
 - Multi-stage Dockerfile with Python 3.10-slim base image
 - Automated CI/CD pipeline via GitHub Actions for release builds
+- Automatic draft release creation with version tagging
 - Docker images published to GitHub Container Registry (ghcr.io)
 - Comprehensive Docker documentation (docs/DOCKER.md)
 - Release process documentation (docs/RELEASING.md)
+- Data cache reuse design documentation (docs/DESIGN_DATA_CACHE_REUSE.md)
 - CLAUDE.md repository guidance for development
 - Docker deployment section in main README
 - Environment variable configuration via docker-compose
 - Sequential startup script (entrypoint.sh) for data fetch, MCP services, and trading agent
 - Volume mounts for data and logs persistence
-- Pre-built image support from ghcr.io/hkuds/ai-trader
+- Pre-built image support from ghcr.io/xe138/ai-trader
+- Configurable volume path for persistent data
+- Configurable web interface host port
+- Automated merged.jsonl creation during price fetching
+- API key registration URLs in .env.example
 
 ### Changed
-- Updated .env.example with Docker-specific configuration and paths
+- Updated .env.example with Docker-specific configuration, API key URLs, and paths
 - Updated .gitignore to exclude git worktrees directory
 - Removed deprecated version tag from docker-compose.yml
+- Updated repository URLs to Xe138/AI-Trader fork
+- Docker Compose now uses pre-built image by default
+- Simplified Docker config file selection with convention over configuration
+- Fixed internal ports with configurable host ports
+- Separated data scripts from volume mount directory
+- Reduced log flooding during data fetch
+- OPENAI_API_BASE can now be left empty in configuration
 
 ### Fixed
 - Docker Compose configuration now follows modern best practices (version-less)
+- Prevent restart loop on missing API keys with proper validation
+- Docker tag generation now converts repository owner to lowercase
+- Validate GITHUB_REF is a tag in docker-release workflow
+- Correct Dockerfile FROM AS casing
+- Module import errors for MCP services resolved with PYTHONPATH
+- Prevent price data overwrite on container restart
+- Merge script now writes to current directory for volume compatibility
 
 ## [0.1.0] - Initial Release
 
