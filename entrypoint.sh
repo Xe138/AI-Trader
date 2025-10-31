@@ -53,30 +53,7 @@ MCP_PID=$!
 
 # Step 3: Wait for services to initialize
 echo "⏳ Waiting for MCP services to start..."
-sleep 5
-
-# Verify MCP services are responsive
-echo "🔍 Checking MCP service health..."
-MAX_RETRIES=10
-RETRY_COUNT=0
-SERVICES_READY=false
-
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    # Check if all ports are listening
-    if nc -z localhost 8000 && nc -z localhost 8001 && nc -z localhost 8002 && nc -z localhost 8003; then
-        SERVICES_READY=true
-        echo "✅ All MCP services are ready"
-        break
-    fi
-    RETRY_COUNT=$((RETRY_COUNT + 1))
-    echo "⏳ Waiting for services... (attempt $RETRY_COUNT/$MAX_RETRIES)"
-    sleep 1
-done
-
-if [ "$SERVICES_READY" = false ]; then
-    echo "⚠️  Warning: Some MCP services may not be ready"
-    echo "   Check logs in /app/logs/ for details"
-fi
+sleep 3
 
 # Step 4: Run trading agent with config file
 echo "🤖 Starting trading agent..."
