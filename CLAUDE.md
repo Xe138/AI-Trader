@@ -23,6 +23,7 @@ cp .env.example .env
 # - RUNTIME_ENV_PATH (recommended: absolute path to runtime_env.json)
 # - MCP service ports (default: 8000-8003)
 # - AGENT_MAX_STEP (default: 30)
+# - MAX_DATA_AGE_DAYS (optional, default: 7)
 ```
 
 ### Data Preparation
@@ -75,6 +76,22 @@ docker pull ghcr.io/hkuds/ai-trader:latest
 # Test local Docker build
 docker build -t ai-trader-test .
 docker run --env-file .env -v $(pwd)/data:/app/data ai-trader-test
+```
+
+#### Data Caching Behavior
+
+The container automatically caches price data between restarts:
+- On first run: Fetches all 103 NASDAQ tickers
+- On restart: Checks if data files are older than `MAX_DATA_AGE_DAYS` (default: 7 days)
+  - If fresh: Skips fetch, uses cached data (fast startup)
+  - If stale: Refreshes all data
+
+Configure staleness threshold:
+```bash
+# In .env
+MAX_DATA_AGE_DAYS=7   # Refresh after 7 days
+MAX_DATA_AGE_DAYS=0   # Always refresh (testing)
+MAX_DATA_AGE_DAYS=30  # Monthly refresh (historical backtesting)
 ```
 
 ### Releasing Docker Images
