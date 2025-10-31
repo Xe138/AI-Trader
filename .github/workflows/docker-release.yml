@@ -45,14 +45,45 @@ jobs:
           echo "repo_owner_lower=$REPO_OWNER_LOWER" >> $GITHUB_OUTPUT
           echo "Repository owner (lowercase): $REPO_OWNER_LOWER"
 
+          # Check if this is a pre-release (alpha, beta, rc)
+          # Only stable releases get the 'latest' tag
+          if [[ "$VERSION" == *"-alpha"* ]] || [[ "$VERSION" == *"-beta"* ]] || [[ "$VERSION" == *"-rc"* ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "This is a pre-release version - will NOT tag as 'latest'"
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "This is a stable release - will tag as 'latest'"
+          fi
+
+      - name: Generate Docker tags
+        id: docker_tags
+        run: |
+          VERSION="${{ steps.meta.outputs.version }}"
+          REPO_OWNER_LOWER="${{ steps.meta.outputs.repo_owner_lower }}"
+          IS_PRERELEASE="${{ steps.meta.outputs.is_prerelease }}"
+
+          # Always tag with version
+          TAGS="ghcr.io/$REPO_OWNER_LOWER/ai-trader:$VERSION"
+
+          # Only add 'latest' tag for stable releases
+          if [[ "$IS_PRERELEASE" == "false" ]]; then
+            TAGS="$TAGS
+ghcr.io/$REPO_OWNER_LOWER/ai-trader:latest"
+            echo "Tagging as both $VERSION and latest"
+          else
+            echo "Pre-release detected - tagging as $VERSION only (NOT latest)"
+          fi
+
+          echo "tags<<EOF" >> $GITHUB_OUTPUT
+          echo "$TAGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: |
-            ghcr.io/${{ steps.meta.outputs.repo_owner_lower }}/ai-trader:${{ steps.meta.outputs.version }}
-            ghcr.io/${{ steps.meta.outputs.repo_owner_lower }}/ai-trader:latest
+          tags: ${{ steps.docker_tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -60,7 +91,12 @@ jobs:
         run: |
           echo "✅ Docker image published successfully!"
           echo "📦 Pull with: docker pull ghcr.io/${{ steps.meta.outputs.repo_owner_lower }}/ai-trader:${{ steps.meta.outputs.version }}"
-          echo "📦 Or latest: docker pull ghcr.io/${{ steps.meta.outputs.repo_owner_lower }}/ai-trader:latest"
+
+          if [[ "${{ steps.meta.outputs.is_prerelease }}" == "false" ]]; then
+            echo "📦 Or latest: docker pull ghcr.io/${{ steps.meta.outputs.repo_owner_lower }}/ai-trader:latest"
+          else
+            echo "⚠️  Pre-release version - 'latest' tag not updated"
+          fi
 
       - name: Generate release notes
         id: release_notes
