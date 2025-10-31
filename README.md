@@ -374,17 +374,35 @@ ALPHAADVANTAGE_API_KEY=your_key_here
 ```bash
 # First run: Downloads data for requested dates
 curl -X POST http://localhost:8080/simulate/trigger \
-  -d '{"start_date": "2025-01-16", "end_date": "2025-01-20", ...}'
+  -H "Content-Type: application/json" \
+  -d '{
+    "config_path": "/app/configs/default_config.json",
+    "start_date": "2025-01-16",
+    "end_date": "2025-01-20",
+    "models": ["gpt-4"]
+  }'
 # Downloads AAPL, MSFT, GOOGL for 2025-01-16 to 2025-01-20
 
 # Second run: Reuses cached data, no downloads
 curl -X POST http://localhost:8080/simulate/trigger \
-  -d '{"start_date": "2025-01-18", "end_date": "2025-01-19", ...}'
+  -H "Content-Type: application/json" \
+  -d '{
+    "config_path": "/app/configs/default_config.json",
+    "start_date": "2025-01-18",
+    "end_date": "2025-01-19",
+    "models": ["gpt-4"]
+  }'
 # Uses cached data, zero API calls
 
 # Third run: Only downloads new dates
 curl -X POST http://localhost:8080/simulate/trigger \
-  -d '{"start_date": "2025-01-20", "end_date": "2025-01-22", ...}'
+  -H "Content-Type: application/json" \
+  -d '{
+    "config_path": "/app/configs/default_config.json",
+    "start_date": "2025-01-20",
+    "end_date": "2025-01-22",
+    "models": ["gpt-4"]
+  }'
 # Reuses 2025-01-20 data, downloads 2025-01-21 and 2025-01-22
 ```
 
@@ -395,7 +413,13 @@ Control how much data is logged during simulation:
 **Summary Mode (default):**
 ```bash
 curl -X POST http://localhost:8080/simulate/trigger \
-  -d '{"start_date": "2025-01-16", "detail": "summary", ...}'
+  -H "Content-Type: application/json" \
+  -d '{
+    "config_path": "/app/configs/default_config.json",
+    "start_date": "2025-01-16",
+    "models": ["gpt-4"],
+    "detail": "summary"
+  }'
 ```
 - Logs positions, P&L, and tool usage
 - Does NOT log AI reasoning steps
@@ -405,7 +429,13 @@ curl -X POST http://localhost:8080/simulate/trigger \
 **Full Mode:**
 ```bash
 curl -X POST http://localhost:8080/simulate/trigger \
-  -d '{"start_date": "2025-01-16", "detail": "full", ...}'
+  -H "Content-Type: application/json" \
+  -d '{
+    "config_path": "/app/configs/default_config.json",
+    "start_date": "2025-01-16",
+    "models": ["gpt-4"],
+    "detail": "full"
+  }'
 ```
 - Logs positions, P&L, tool usage, AND AI reasoning
 - Stores complete conversation history in `reasoning_logs` table
@@ -424,11 +454,23 @@ Only one simulation can run at a time:
 
 ```bash
 # Start first job
-curl -X POST http://localhost:8080/simulate/trigger -d '{...}'
+curl -X POST http://localhost:8080/simulate/trigger \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config_path": "/app/configs/default_config.json",
+    "start_date": "2025-01-16",
+    "models": ["gpt-4"]
+  }'
 # Response: {"job_id": "abc123", "status": "running"}
 
-# Try to start second job
-curl -X POST http://localhost:8080/simulate/trigger -d '{...}'
+# Try to start second job (will fail)
+curl -X POST http://localhost:8080/simulate/trigger \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config_path": "/app/configs/default_config.json",
+    "start_date": "2025-01-17",
+    "models": ["gpt-4"]
+  }'
 # Response: 409 Conflict
 # {"detail": "Another simulation job is already running: abc123"}
 
@@ -437,7 +479,13 @@ curl http://localhost:8080/simulate/status/abc123
 # {"status": "completed", ...}
 
 # Now second job can start
-curl -X POST http://localhost:8080/simulate/trigger -d '{...}'
+curl -X POST http://localhost:8080/simulate/trigger \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config_path": "/app/configs/default_config.json",
+    "start_date": "2025-01-17",
+    "models": ["gpt-4"]
+  }'
 # Response: {"job_id": "def456", "status": "running"}
 ```
 
@@ -627,8 +675,10 @@ export async function triggerSimulation(
   end_date: string | null,
   models: string[]
 ) {
-  const body = { config_path, start_date, models };
-  if (end_date) body['end_date'] = end_date;
+  const body: any = { config_path, start_date, models };
+  if (end_date) {
+    body.end_date = end_date;
+  }
 
   const response = await fetch(`${api_url}/simulate/trigger`, {
     method: 'POST',
@@ -665,7 +715,7 @@ export async function getResults(api_url: string, job_id: string) {
 import requests
 import time
 
-# Trigger simulation (date range)
+# Example 1: Trigger simulation with date range
 response = requests.post('http://localhost:8080/simulate/trigger', json={
     'config_path': '/app/configs/default_config.json',
     'start_date': '2025-01-16',
@@ -674,12 +724,13 @@ response = requests.post('http://localhost:8080/simulate/trigger', json={
 })
 job_id = response.json()['job_id']
 
-# Or trigger single day (omit end_date)
-response = requests.post('http://localhost:8080/simulate/trigger', json={
+# Example 2: Trigger single day (omit end_date)
+response_single = requests.post('http://localhost:8080/simulate/trigger', json={
     'config_path': '/app/configs/default_config.json',
     'start_date': '2025-01-16',
     'models': ['gpt-4']
 })
+job_id_single = response_single.json()['job_id']
 
 # Poll for completion
 while True:
