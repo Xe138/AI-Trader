@@ -144,7 +144,6 @@ curl http://localhost:8080/health
 curl -X POST http://localhost:8080/simulate/trigger \
   -H "Content-Type: application/json" \
   -d '{
-    "config_path": "/app/configs/default_config.json",
     "start_date": "2025-01-16",
     "end_date": "2025-01-17",
     "models": ["gpt-4"]
@@ -172,7 +171,6 @@ Start a new simulation job.
 **Request:**
 ```json
 {
-  "config_path": "/app/configs/default_config.json",
   "start_date": "2025-01-16",
   "end_date": "2025-01-17",
   "models": ["gpt-4", "claude-3.7-sonnet"]
@@ -180,11 +178,9 @@ Start a new simulation job.
 ```
 
 **Parameters:**
-- `config_path` (required) - Path to configuration file in container
 - `start_date` (required) - Start date in YYYY-MM-DD format
 - `end_date` (optional) - End date in YYYY-MM-DD format. If omitted, defaults to `start_date` (single day)
 - `models` (optional) - Array of model signatures to run. If omitted, runs all enabled models from config
-- `detail` (optional) - Detail level: "summary" (default) or "full" (includes AI reasoning logs)
 
 **Response:**
 ```json
@@ -273,14 +269,15 @@ Service health check.
 - Maximum date range: 30 days (configurable via `MAX_SIMULATION_DAYS`)
 
 **Model Selection:**
-- Must match signatures defined in config file
+- Must match signatures defined in server configuration file
 - Only enabled models will run
-- If `models` array omitted, all enabled models from config run
+- If `models` array omitted, all enabled models from server config run
 
-**Configuration Path:**
-- Must exist in container filesystem
-- Must be valid JSON with required fields
-- Typically stored in `/app/configs/`
+**Server Configuration:**
+- Config file path is set when starting the API server (not per-request)
+- Default: `configs/default_config.json`
+- Set via environment variable: `CONFIG_PATH=/path/to/config.json`
+- Contains model definitions, agent settings, and defaults
 
 #### Error Responses
 
@@ -376,7 +373,6 @@ ALPHAADVANTAGE_API_KEY=your_key_here
 curl -X POST http://localhost:8080/simulate/trigger \
   -H "Content-Type: application/json" \
   -d '{
-    "config_path": "/app/configs/default_config.json",
     "start_date": "2025-01-16",
     "end_date": "2025-01-20",
     "models": ["gpt-4"]
@@ -387,7 +383,6 @@ curl -X POST http://localhost:8080/simulate/trigger \
 curl -X POST http://localhost:8080/simulate/trigger \
   -H "Content-Type: application/json" \
   -d '{
-    "config_path": "/app/configs/default_config.json",
     "start_date": "2025-01-18",
     "end_date": "2025-01-19",
     "models": ["gpt-4"]
@@ -398,7 +393,6 @@ curl -X POST http://localhost:8080/simulate/trigger \
 curl -X POST http://localhost:8080/simulate/trigger \
   -H "Content-Type: application/json" \
   -d '{
-    "config_path": "/app/configs/default_config.json",
     "start_date": "2025-01-20",
     "end_date": "2025-01-22",
     "models": ["gpt-4"]
@@ -415,10 +409,8 @@ Control how much data is logged during simulation:
 curl -X POST http://localhost:8080/simulate/trigger \
   -H "Content-Type: application/json" \
   -d '{
-    "config_path": "/app/configs/default_config.json",
     "start_date": "2025-01-16",
-    "models": ["gpt-4"],
-    "detail": "summary"
+    "models": ["gpt-4"]
   }'
 ```
 - Logs positions, P&L, and tool usage
@@ -428,13 +420,13 @@ curl -X POST http://localhost:8080/simulate/trigger \
 
 **Full Mode:**
 ```bash
+# Note: Detail level control not yet implemented in v0.3.0
+# All simulations currently log complete data
 curl -X POST http://localhost:8080/simulate/trigger \
   -H "Content-Type: application/json" \
   -d '{
-    "config_path": "/app/configs/default_config.json",
     "start_date": "2025-01-16",
-    "models": ["gpt-4"],
-    "detail": "full"
+    "models": ["gpt-4"]
   }'
 ```
 - Logs positions, P&L, tool usage, AND AI reasoning
@@ -457,7 +449,6 @@ Only one simulation can run at a time:
 curl -X POST http://localhost:8080/simulate/trigger \
   -H "Content-Type: application/json" \
   -d '{
-    "config_path": "/app/configs/default_config.json",
     "start_date": "2025-01-16",
     "models": ["gpt-4"]
   }'
@@ -467,7 +458,6 @@ curl -X POST http://localhost:8080/simulate/trigger \
 curl -X POST http://localhost:8080/simulate/trigger \
   -H "Content-Type: application/json" \
   -d '{
-    "config_path": "/app/configs/default_config.json",
     "start_date": "2025-01-17",
     "models": ["gpt-4"]
   }'
@@ -482,7 +472,6 @@ curl http://localhost:8080/simulate/status/abc123
 curl -X POST http://localhost:8080/simulate/trigger \
   -H "Content-Type: application/json" \
   -d '{
-    "config_path": "/app/configs/default_config.json",
     "start_date": "2025-01-17",
     "models": ["gpt-4"]
   }'
@@ -574,7 +563,6 @@ curl http://localhost:8080/health
 curl -X POST http://localhost:8080/simulate/trigger \
   -H "Content-Type: application/json" \
   -d '{
-    "config_path": "/app/configs/default_config.json",
     "start_date": "2025-01-16",
     "models": ["gpt-4"]
   }'
@@ -670,12 +658,11 @@ AI-Trader/
 // Trigger simulation
 export async function triggerSimulation(
   api_url: string,
-  config_path: string,
   start_date: string,
   end_date: string | null,
   models: string[]
 ) {
-  const body: any = { config_path, start_date, models };
+  const body: any = { start_date, models };
   if (end_date) {
     body.end_date = end_date;
   }
@@ -717,7 +704,6 @@ import time
 
 # Example 1: Trigger simulation with date range
 response = requests.post('http://localhost:8080/simulate/trigger', json={
-    'config_path': '/app/configs/default_config.json',
     'start_date': '2025-01-16',
     'end_date': '2025-01-17',
     'models': ['gpt-4', 'claude-3.7-sonnet']
@@ -726,7 +712,6 @@ job_id = response.json()['job_id']
 
 # Example 2: Trigger single day (omit end_date)
 response_single = requests.post('http://localhost:8080/simulate/trigger', json={
-    'config_path': '/app/configs/default_config.json',
     'start_date': '2025-01-16',
     'models': ['gpt-4']
 })
