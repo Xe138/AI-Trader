@@ -60,13 +60,18 @@ should_refresh_data() {
     return 1  # Skip refresh
 }
 
-# Step 1: Data preparation
-echo "📊 Fetching and merging price data..."
-# Run scripts from /app/scripts but output to /app/data
-cd /app/data
-python /app/scripts/get_daily_price.py
-python /app/scripts/merge_jsonl.py
-cd /app
+# Step 1: Data preparation (conditional)
+echo "📊 Checking price data freshness..."
+
+if should_refresh_data; then
+    echo "🔄 Fetching and merging price data..."
+    cd /app/data
+    python /app/scripts/get_daily_price.py
+    python /app/scripts/merge_jsonl.py
+    cd /app
+else
+    echo "⏭️  Skipping data fetch (using cached data)"
+fi
 
 # Step 2: Start MCP services in background
 echo "🔧 Starting MCP services..."
