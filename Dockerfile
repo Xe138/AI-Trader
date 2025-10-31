@@ -1,5 +1,5 @@
 # Base stage - dependency installation
-FROM python:3.10-slim as base
+FROM python:3.10-slim AS base
 
 WORKDIR /app
 
