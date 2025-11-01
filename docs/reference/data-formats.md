@@ -1,6 +1,6 @@
 # Data Formats
 
-File formats and schemas used by AI-Trader.
+File formats and schemas used by AI-Trader-Server.
 
 ---
 
