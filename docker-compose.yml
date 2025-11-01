@@ -8,7 +8,8 @@ services:
     volumes:
       - ${VOLUME_PATH:-.}/data:/app/data
       - ${VOLUME_PATH:-.}/logs:/app/logs
-      - ${VOLUME_PATH:-.}/configs:/app/configs
+      # User configs mounted to /app/user-configs (default config baked into image)
+      - ${VOLUME_PATH:-.}/configs:/app/user-configs
     environment:
       # Deployment Configuration
       - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-PROD}
