@@ -1,6 +1,6 @@
 # Configuration Guide
 
-Complete guide to configuring AI-Trader.
+Complete guide to configuring AI-Trader-Server.
 
 ---
 
@@ -323,5 +323,5 @@ docker-compose up -d
 curl http://localhost:8080/health
 
 # Check logs for errors
-docker logs ai-trader | grep -i error
+docker logs ai-trader-server | grep -i error
 ```

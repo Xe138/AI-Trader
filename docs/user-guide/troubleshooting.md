@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-Common issues and solutions for AI-Trader.
+Common issues and solutions for AI-Trader-Server.
 
 ---
 
@@ -9,16 +9,16 @@ Common issues and solutions for AI-Trader.
 ### Container Won't Start
 
 **Symptoms:**
-- `docker ps` shows no ai-trader container
+- `docker ps` shows no ai-trader-server container
 - Container exits immediately after starting
 
 **Debug:**
 ```bash
 # Check logs
-docker logs ai-trader
+docker logs ai-trader-server
 
 # Check if container exists (stopped)
-docker ps -a | grep ai-trader
+docker ps -a | grep ai-trader-server
 ```
 
 **Common Causes & Solutions:**
@@ -64,10 +64,10 @@ chmod -R 755 data logs configs
 **Debug:**
 ```bash
 # Check if API process is running
-docker exec ai-trader ps aux | grep uvicorn
+docker exec ai-trader-server ps aux | grep uvicorn
 
 # Test internal health (always port 8080 inside container)
-docker exec ai-trader curl http://localhost:8080/health
+docker exec ai-trader-server curl http://localhost:8080/health
 
 # Check configured port
 grep API_PORT .env
@@ -82,7 +82,7 @@ Another service is using your configured port.
 # Find conflicting service
 sudo lsof -i :8080
 
-# Change AI-Trader port
+# Change AI-Trader-Server port
 echo "API_PORT=8889" >> .env
 docker-compose down
 docker-compose up -d
@@ -94,7 +94,7 @@ curl http://localhost:8889/health
 **If MCP services didn't start:**
 ```bash
 # Check MCP processes
-docker exec ai-trader ps aux | grep python
+docker exec ai-trader-server ps aux | grep python
 
 # Should see 4 MCP services on ports 8000-8003
 ```
@@ -102,7 +102,7 @@ docker exec ai-trader ps aux | grep python
 **If database issues:**
 ```bash
 # Check database file
-docker exec ai-trader ls -l /app/data/jobs.db
+docker exec ai-trader-server ls -l /app/data/jobs.db
 
 # If missing, restart to recreate
 docker-compose restart
@@ -121,13 +121,13 @@ docker-compose restart
 **Debug:**
 ```bash
 # Check worker logs
-docker logs ai-trader | grep -i "worker\|simulation"
+docker logs ai-trader-server | grep -i "worker\|simulation"
 
 # Check database
-docker exec ai-trader sqlite3 /app/data/jobs.db "SELECT * FROM job_details;"
+docker exec ai-trader-server sqlite3 /app/data/jobs.db "SELECT * FROM job_details;"
 
 # Check MCP service accessibility
-docker exec ai-trader curl http://localhost:8000/health
+docker exec ai-trader-server curl http://localhost:8000/health
 ```
 
 **Solutions:**
@@ -173,7 +173,7 @@ done
 **Check if agent is stuck:**
 ```bash
 # View real-time logs
-docker logs -f ai-trader
+docker logs -f ai-trader-server
 
 # Look for repeated errors or infinite loops
 ```
@@ -204,7 +204,7 @@ curl -X POST http://localhost:8080/simulate/trigger \
 **Option 2: Manually Download Data**
 
 ```bash
-docker exec -it ai-trader bash
+docker exec -it ai-trader-server bash
 cd data
 python get_daily_price.py  # Downloads latest data
 python merge_jsonl.py       # Merges into database
@@ -242,7 +242,7 @@ grep AUTO_DOWNLOAD_PRICE_DATA .env
 **Workaround:**
 ```bash
 # Pre-download data in batches
-docker exec -it ai-trader bash
+docker exec -it ai-trader-server bash
 cd data
 
 # Download in stages (wait 1 min between runs)
@@ -269,7 +269,7 @@ exit
 }
 ```
 
-**Cause:** AI-Trader allows only 1 concurrent job by default.
+**Cause:** AI-Trader-Server allows only 1 concurrent job by default.
 
 **Solutions:**
 
@@ -279,7 +279,7 @@ exit
 curl http://localhost:8080/health  # Verify API is up
 
 # Query recent jobs (need to check database)
-docker exec ai-trader sqlite3 /app/data/jobs.db \
+docker exec ai-trader-server sqlite3 /app/data/jobs.db \
   "SELECT job_id, status FROM jobs ORDER BY created_at DESC LIMIT 5;"
 ```
 
@@ -292,7 +292,7 @@ curl http://localhost:8080/simulate/status/{job_id}
 **Force-stop stuck job (last resort):**
 ```bash
 # Update job status in database
-docker exec ai-trader sqlite3 /app/data/jobs.db \
+docker exec ai-trader-server sqlite3 /app/data/jobs.db \
   "UPDATE jobs SET status='failed' WHERE status IN ('pending', 'running');"
 
 # Restart service
@@ -386,7 +386,7 @@ docker-compose up -d
 
 ```bash
 # Re-download price data
-docker exec -it ai-trader bash
+docker exec -it ai-trader-server bash
 cd data
 python get_daily_price.py
 python merge_jsonl.py
@@ -418,7 +418,7 @@ exit
 **3. MCP services overloaded**
 ```bash
 # Check CPU usage
-docker stats ai-trader
+docker stats ai-trader-server
 ```
 
 ---
@@ -430,7 +430,7 @@ docker stats ai-trader
 **If higher:**
 ```bash
 # Check memory
-docker stats ai-trader
+docker stats ai-trader-server
 
 # Restart if needed
 docker-compose restart
@@ -442,34 +442,34 @@ docker-compose restart
 
 ```bash
 # Container status
-docker ps | grep ai-trader
+docker ps | grep ai-trader-server
 
 # Real-time logs
-docker logs -f ai-trader
+docker logs -f ai-trader-server
 
 # Check errors only
-docker logs ai-trader 2>&1 | grep -i error
+docker logs ai-trader-server 2>&1 | grep -i error
 
 # Container resource usage
-docker stats ai-trader
+docker stats ai-trader-server
 
 # Access container shell
-docker exec -it ai-trader bash
+docker exec -it ai-trader-server bash
 
 # Database inspection
-docker exec -it ai-trader sqlite3 /app/data/jobs.db
+docker exec -it ai-trader-server sqlite3 /app/data/jobs.db
 sqlite> SELECT * FROM jobs ORDER BY created_at DESC LIMIT 5;
 sqlite> SELECT status, COUNT(*) FROM jobs GROUP BY status;
 sqlite> .quit
 
 # Check file permissions
-docker exec ai-trader ls -la /app/data
+docker exec ai-trader-server ls -la /app/data
 
 # Test API connectivity
 curl -v http://localhost:8080/health
 
 # View all environment variables
-docker exec ai-trader env | sort
+docker exec ai-trader-server env | sort
 ```
 
 ---
@@ -480,7 +480,7 @@ If your issue isn't covered here:
 
 1. **Check logs** for specific error messages
 2. **Review** [API_REFERENCE.md](../../API_REFERENCE.md) for correct usage
-3. **Search** [GitHub Issues](https://github.com/Xe138/AI-Trader/issues)
+3. **Search** [GitHub Issues](https://github.com/Xe138/AI-Trader-Server/issues)
 4. **Open new issue** with:
    - Error messages from logs
    - Steps to reproduce

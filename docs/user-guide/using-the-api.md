@@ -1,6 +1,6 @@
 # Using the API
 
-Common workflows and best practices for AI-Trader API.
+Common workflows and best practices for AI-Trader-Server API.
 
 ---
 
