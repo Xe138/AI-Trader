@@ -41,7 +41,16 @@ echo "📊 Initializing database..."
 python -c "from api.database import initialize_database; initialize_database('data/jobs.db')"
 echo "✅ Database initialized"
 
-# Step 2: Start MCP services in background
+# Step 2: Merge and validate configuration
+echo "🔧 Merging and validating configuration..."
+python -c "from tools.config_merger import merge_and_validate; merge_and_validate()" || {
+    echo "❌ Configuration validation failed"
+    exit 1
+}
+export CONFIG_PATH=/tmp/runtime_config.json
+echo "✅ Configuration validated and merged"
+
+# Step 3: Start MCP services in background
 echo "🔧 Starting MCP services..."
 cd /app
 python agent_tools/start_mcp_services.py &
@@ -50,11 +59,11 @@ MCP_PID=$!
 # Setup cleanup trap before starting uvicorn
 trap "echo '🛑 Stopping services...'; kill $MCP_PID 2>/dev/null; exit 0" EXIT SIGTERM SIGINT
 
-# Step 3: Wait for services to initialize
+# Step 4: Wait for services to initialize
 echo "⏳ Waiting for MCP services to start..."
 sleep 3
 
-# Step 4: Start FastAPI server with uvicorn (this blocks)
+# Step 5: Start FastAPI server with uvicorn (this blocks)
 # Note: Container always uses port 8080 internally
 # The API_PORT env var only affects the host port mapping in docker-compose.yml
 echo "🌐 Starting FastAPI server on port 8080..."
