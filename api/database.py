@@ -213,6 +213,57 @@ def initialize_database(db_path: str = "data/jobs.db") -> None:
     conn.close()
 
 
+def initialize_dev_database(db_path: str = "data/trading_dev.db") -> None:
+    """
+    Initialize dev database with clean schema
+
+    Deletes and recreates dev database unless PRESERVE_DEV_DATA=true.
+    Used at startup in DEV mode to ensure clean testing environment.
+
+    Args:
+        db_path: Path to dev database file
+    """
+    from tools.deployment_config import should_preserve_dev_data
+
+    if should_preserve_dev_data():
+        print(f"ℹ️  PRESERVE_DEV_DATA=true, keeping existing dev database: {db_path}")
+        # Ensure schema exists even if preserving data
+        if not Path(db_path).exists():
+            print(f"📁 Dev database doesn't exist, creating: {db_path}")
+            initialize_database(db_path)
+        return
+
+    # Delete existing dev database
+    if Path(db_path).exists():
+        print(f"🗑️  Removing existing dev database: {db_path}")
+        Path(db_path).unlink()
+
+    # Create fresh dev database
+    print(f"📁 Creating fresh dev database: {db_path}")
+    initialize_database(db_path)
+
+
+def cleanup_dev_database(db_path: str = "data/trading_dev.db", data_path: str = "./data/dev_agent_data") -> None:
+    """
+    Cleanup dev database and data files
+
+    Args:
+        db_path: Path to dev database file
+        data_path: Path to dev data directory
+    """
+    import shutil
+
+    # Remove dev database
+    if Path(db_path).exists():
+        print(f"🗑️  Removing dev database: {db_path}")
+        Path(db_path).unlink()
+
+    # Remove dev data directory
+    if Path(data_path).exists():
+        print(f"🗑️  Removing dev data directory: {data_path}")
+        shutil.rmtree(data_path)
+
+
 def _migrate_schema(cursor: sqlite3.Cursor) -> None:
     """Migrate existing database schema to latest version."""
     # Check if positions table exists and has simulation_run_id column
