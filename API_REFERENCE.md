@@ -729,6 +729,29 @@ Server loads model definitions from configuration file (default: `configs/defaul
 - `openai_base_url` - Optional custom API endpoint
 - `openai_api_key` - Optional model-specific API key
 
+### Configuration Override System
+
+**Default config:** `/app/configs/default_config.json` (baked into image)
+
+**Custom config:** `/app/user-configs/config.json` (optional, via volume mount)
+
+**Merge behavior:**
+- Custom config sections completely replace default sections (root-level merge)
+- If no custom config exists, defaults are used
+- Validation occurs at container startup (before API starts)
+- Invalid config causes immediate exit with detailed error message
+
+**Example custom config** (overrides models only):
+```json
+{
+  "models": [
+    {"name": "gpt-5", "basemodel": "openai/gpt-5", "signature": "gpt-5", "enabled": true}
+  ]
+}
+```
+
+All other sections (`agent_config`, `log_config`, etc.) inherited from default.
+
 ---
 
 ## OpenAPI / Swagger Documentation

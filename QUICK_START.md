@@ -54,7 +54,36 @@ JINA_API_KEY=your-jina-key-here
 
 ---
 
-## Step 3: Start the API Server
+## Step 3: (Optional) Custom Model Configuration
+
+To use different AI models than the defaults, create a custom config:
+
+1. Create config directory:
+   ```bash
+   mkdir -p configs
+   ```
+
+2. Create `configs/config.json`:
+   ```json
+   {
+     "models": [
+       {
+         "name": "my-gpt-4",
+         "basemodel": "openai/gpt-4",
+         "signature": "my-gpt-4",
+         "enabled": true
+       }
+     ]
+   }
+   ```
+
+3. The Docker container will automatically merge this with default settings.
+
+Your custom config only needs to include sections you want to override.
+
+---
+
+## Step 4: Start the API Server
 
 ```bash
 docker-compose up -d
@@ -79,7 +108,7 @@ docker logs -f ai-trader-server
 
 ---
 
-## Step 4: Verify Service is Running
+## Step 5: Verify Service is Running
 
 ```bash
 curl http://localhost:8080/health
@@ -99,7 +128,7 @@ If you see `"status": "healthy"`, you're ready!
 
 ---
 
-## Step 5: Run Your First Simulation
+## Step 6: Run Your First Simulation
 
 Trigger a simulation for a single day with GPT-4:
 
@@ -130,7 +159,7 @@ curl -X POST http://localhost:8080/simulate/trigger \
 
 ---
 
-## Step 6: Monitor Progress
+## Step 7: Monitor Progress
 
 ```bash
 # Replace with your job_id from Step 5
@@ -175,7 +204,7 @@ curl http://localhost:8080/simulate/status/$JOB_ID
 
 ---
 
-## Step 7: View Results
+## Step 8: View Results
 
 ```bash
 curl "http://localhost:8080/results?job_id=$JOB_ID" | jq '.'
