@@ -1,10 +1,10 @@
 services:
   # REST API server for Windmill integration
-  ai-trader:
-    # image: ghcr.io/xe138/ai-trader:latest
+  ai-trader-server:
+    # image: ghcr.io/xe138/ai-trader-server:latest
     # Uncomment to build locally instead of pulling:
     build: .
-    container_name: ai-trader
+    container_name: ai-trader-server
     volumes:
       - ${VOLUME_PATH:-.}/data:/app/data
       - ${VOLUME_PATH:-.}/logs:/app/logs
