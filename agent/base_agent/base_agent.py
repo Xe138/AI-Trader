@@ -23,6 +23,12 @@ sys.path.insert(0, project_root)
 from tools.general_tools import extract_conversation, extract_tool_messages, get_config_value, write_config_value
 from tools.price_tools import add_no_trade_record
 from prompts.agent_prompt import get_agent_system_prompt, STOP_SIGNAL
+from tools.deployment_config import (
+    is_dev_mode,
+    get_data_path,
+    log_api_key_warning,
+    get_deployment_mode
+)
 
 # Load environment variables
 load_dotenv()
@@ -98,9 +104,9 @@ class BaseAgent:
         
         # Set MCP configuration
         self.mcp_config = mcp_config or self._get_default_mcp_config()
-        
-        # Set log path
-        self.base_log_path = log_path or "./data/agent_data"
+
+        # Set log path (apply deployment mode path resolution)
+        self.base_log_path = get_data_path(log_path or "./data/agent_data")
         
         # Set OpenAI configuration
         if openai_base_url==None:
@@ -146,17 +152,22 @@ class BaseAgent:
     async def initialize(self) -> None:
         """Initialize MCP client and AI model"""
         print(f"🚀 Initializing agent: {self.signature}")
-        
-        # Validate OpenAI configuration
-        if not self.openai_api_key:
-            raise ValueError("❌ OpenAI API key not set. Please configure OPENAI_API_KEY in environment or config file.")
-        if not self.openai_base_url:
-            print("⚠️  OpenAI base URL not set, using default")
-        
+        print(f"🔧 Deployment mode: {get_deployment_mode()}")
+
+        # Log API key warning if in dev mode
+        log_api_key_warning()
+
+        # Validate OpenAI configuration (only in PROD mode)
+        if not is_dev_mode():
+            if not self.openai_api_key:
+                raise ValueError("❌ OpenAI API key not set. Please configure OPENAI_API_KEY in environment or config file.")
+            if not self.openai_base_url:
+                print("⚠️  OpenAI base URL not set, using default")
+
         try:
             # Create MCP client
             self.client = MultiServerMCPClient(self.mcp_config)
-            
+
             # Get tools
             self.tools = await self.client.get_tools()
             if not self.tools:
@@ -170,22 +181,28 @@ class BaseAgent:
                 f"   Please ensure MCP services are running at the configured ports.\n"
                 f"   Run: python agent_tools/start_mcp_services.py"
             )
-        
+
         try:
-            # Create AI model
-            self.model = ChatOpenAI(
-                model=self.basemodel,
-                base_url=self.openai_base_url,
-                api_key=self.openai_api_key,
-                max_retries=3,
-                timeout=30
-            )
+            # Create AI model (mock in DEV mode, real in PROD mode)
+            if is_dev_mode():
+                from agent.mock_provider import MockChatModel
+                self.model = MockChatModel(date="2025-01-01")  # Date will be updated per session
+                print(f"🤖 Using MockChatModel (DEV mode)")
+            else:
+                self.model = ChatOpenAI(
+                    model=self.basemodel,
+                    base_url=self.openai_base_url,
+                    api_key=self.openai_api_key,
+                    max_retries=3,
+                    timeout=30
+                )
+                print(f"🤖 Using {self.basemodel} (PROD mode)")
         except Exception as e:
             raise RuntimeError(f"❌ Failed to initialize AI model: {e}")
-        
+
         # Note: agent will be created in run_trading_session() based on specific date
         # because system_prompt needs the current date and price information
-        
+
         print(f"✅ Agent {self.signature} initialization completed")
     
     def _setup_logging(self, today_date: str) -> str:
@@ -223,15 +240,19 @@ class BaseAgent:
     async def run_trading_session(self, today_date: str) -> None:
         """
         Run single day trading session
-        
+
         Args:
             today_date: Trading date
         """
         print(f"📈 Starting trading session: {today_date}")
-        
+
+        # Update mock model date if in dev mode
+        if is_dev_mode():
+            self.model.date = today_date
+
         # Set up logging
         log_file = self._setup_logging(today_date)
-        
+
         # Update system prompt
         self.agent = create_agent(
             self.model,
