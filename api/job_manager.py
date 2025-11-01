@@ -54,7 +54,8 @@ class JobManager:
         self,
         config_path: str,
         date_range: List[str],
-        models: List[str]
+        models: List[str],
+        model_day_filter: Optional[List[tuple]] = None
     ) -> str:
         """
         Create new simulation job.
@@ -63,6 +64,8 @@ class JobManager:
             config_path: Path to configuration file
             date_range: List of dates to simulate (YYYY-MM-DD)
             models: List of model signatures to execute
+            model_day_filter: Optional list of (model, date) tuples to limit job_details.
+                             If None, creates job_details for all model-date combinations.
 
         Returns:
             job_id: UUID of created job
@@ -95,9 +98,10 @@ class JobManager:
                 created_at
             ))
 
-            # Create job_details for each model-day combination
-            for date in date_range:
-                for model in models:
+            # Create job_details based on filter
+            if model_day_filter is not None:
+                # Only create job_details for specified model-day pairs
+                for model, date in model_day_filter:
                     cursor.execute("""
                         INSERT INTO job_details (
                             job_id, date, model, status
@@ -105,8 +109,21 @@ class JobManager:
                         VALUES (?, ?, ?, ?)
                     """, (job_id, date, model, "pending"))
 
+                logger.info(f"Created job {job_id} with {len(model_day_filter)} model-day tasks (filtered)")
+            else:
+                # Create job_details for all model-day combinations
+                for date in date_range:
+                    for model in models:
+                        cursor.execute("""
+                            INSERT INTO job_details (
+                                job_id, date, model, status
+                            )
+                            VALUES (?, ?, ?, ?)
+                        """, (job_id, date, model, "pending"))
+
+                logger.info(f"Created job {job_id} with {len(date_range)} dates and {len(models)} models")
+
             conn.commit()
-            logger.info(f"Created job {job_id} with {len(date_range)} dates and {len(models)} models")
 
             return job_id
 
@@ -581,6 +598,67 @@ class JobManager:
                 })
 
             return jobs
+
+        finally:
+            conn.close()
+
+    def get_last_completed_date_for_model(self, model: str) -> Optional[str]:
+        """
+        Get last completed simulation date for a specific model.
+
+        Args:
+            model: Model signature
+
+        Returns:
+            Last completed date (YYYY-MM-DD) or None if no data exists
+        """
+        conn = get_db_connection(self.db_path)
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("""
+                SELECT date
+                FROM job_details
+                WHERE model = ? AND status = 'completed'
+                ORDER BY date DESC
+                LIMIT 1
+            """, (model,))
+
+            row = cursor.fetchone()
+            return row[0] if row else None
+
+        finally:
+            conn.close()
+
+    def get_completed_model_dates(self, models: List[str], start_date: str, end_date: str) -> Dict[str, List[str]]:
+        """
+        Get all completed dates for each model within a date range.
+
+        Args:
+            models: List of model signatures
+            start_date: Start date (YYYY-MM-DD)
+            end_date: End date (YYYY-MM-DD)
+
+        Returns:
+            Dict mapping model signature to list of completed dates
+        """
+        conn = get_db_connection(self.db_path)
+        cursor = conn.cursor()
+
+        try:
+            result = {model: [] for model in models}
+
+            for model in models:
+                cursor.execute("""
+                    SELECT DISTINCT date
+                    FROM job_details
+                    WHERE model = ? AND status = 'completed' AND date >= ? AND date <= ?
+                    ORDER BY date
+                """, (model, start_date, end_date))
+
+                result[model] = [row[0] for row in cursor.fetchall()]
+
+            return result
 
         finally:
             conn.close()

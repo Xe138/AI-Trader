@@ -49,11 +49,12 @@ curl "http://localhost:8080/results?job_id=$JOB_ID" | jq '.'
 
 ### Single-Day Simulation
 
-Omit `end_date` to simulate just one day:
+Set `start_date` and `end_date` to the same value:
 
 ```bash
 curl -X POST http://localhost:8080/simulate/trigger \
-  -d '{"start_date": "2025-01-16", "models": ["gpt-4"]}'
+  -H "Content-Type: application/json" \
+  -d '{"start_date": "2025-01-16", "end_date": "2025-01-16", "models": ["gpt-4"]}'
 ```
 
 ### All Enabled Models
@@ -62,8 +63,21 @@ Omit `models` to run all enabled models from config:
 
 ```bash
 curl -X POST http://localhost:8080/simulate/trigger \
+  -H "Content-Type: application/json" \
   -d '{"start_date": "2025-01-16", "end_date": "2025-01-20"}'
 ```
+
+### Resume from Last Completed
+
+Use `"start_date": null` to continue from where you left off:
+
+```bash
+curl -X POST http://localhost:8080/simulate/trigger \
+  -H "Content-Type: application/json" \
+  -d '{"start_date": null, "end_date": "2025-01-31", "models": ["gpt-4"]}'
+```
+
+Each model will resume from its own last completed date. If no data exists, runs only `end_date` as a single day.
 
 ### Filter Results
 

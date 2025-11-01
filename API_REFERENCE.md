@@ -14,13 +14,19 @@ Complete reference for the AI-Trader-Server REST API service.
 
 Trigger a new simulation job for a specified date range and models.
 
+**Supports three operational modes:**
+1. **Explicit date range**: Provide both `start_date` and `end_date`
+2. **Single date**: Set `start_date` = `end_date`
+3. **Resume mode**: Set `start_date` to `null` to continue from each model's last completed date
+
 **Request Body:**
 
 ```json
 {
   "start_date": "2025-01-16",
   "end_date": "2025-01-17",
-  "models": ["gpt-4", "claude-3.7-sonnet"]
+  "models": ["gpt-4", "claude-3.7-sonnet"],
+  "replace_existing": false
 }
 ```
 
@@ -28,9 +34,10 @@ Trigger a new simulation job for a specified date range and models.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `start_date` | string | Yes | Start date in YYYY-MM-DD format |
-| `end_date` | string | No | End date in YYYY-MM-DD format. If omitted, simulates single day (uses `start_date`) |
-| `models` | array[string] | No | Model signatures to run. If omitted, uses all enabled models from server config |
+| `start_date` | string \| null | No | Start date in YYYY-MM-DD format. If `null`, enables resume mode (each model continues from its last completed date). Defaults to `null`. |
+| `end_date` | string | **Yes** | End date in YYYY-MM-DD format. **Required** - cannot be null or empty. |
+| `models` | array[string] | No | Model signatures to run. If omitted, uses all enabled models from server config. |
+| `replace_existing` | boolean | No | If `false` (default), skips already-completed model-days (idempotent). If `true`, re-runs all dates even if previously completed. |
 
 **Response (200 OK):**
 
@@ -86,7 +93,8 @@ Trigger a new simulation job for a specified date range and models.
 
 - **Date format:** Must be YYYY-MM-DD
 - **Date validity:** Must be valid calendar dates
-- **Date order:** `start_date` must be <= `end_date`
+- **Date order:** `start_date` must be <= `end_date` (when `start_date` is not null)
+- **end_date required:** Cannot be null or empty string
 - **Future dates:** Cannot simulate future dates (must be <= today)
 - **Date range limit:** Maximum 30 days (configurable via `MAX_SIMULATION_DAYS`)
 - **Model signatures:** Must match models defined in server configuration
@@ -96,12 +104,21 @@ Trigger a new simulation job for a specified date range and models.
 
 1. Validates date range and parameters
 2. Determines which models to run (from request or server config)
-3. Checks for missing price data in date range
-4. Downloads missing data if `AUTO_DOWNLOAD_PRICE_DATA=true` (default)
-5. Identifies trading dates with complete price data (all symbols available)
-6. Creates job in database with status `pending`
-7. Starts background worker thread
-8. Returns immediately with job ID
+3. **Resume mode** (if `start_date` is null):
+   - For each model, queries last completed simulation date
+   - If no previous data exists (cold start), uses `end_date` as single-day simulation
+   - Otherwise, resumes from day after last completed date
+   - Each model can have different resume start dates
+4. **Idempotent mode** (if `replace_existing=false`, default):
+   - Queries database for already-completed model-day combinations in date range
+   - Skips completed model-days, only creates tasks for gaps
+   - Returns error if all requested dates are already completed
+5. Checks for missing price data in date range
+6. Downloads missing data if `AUTO_DOWNLOAD_PRICE_DATA=true` (default)
+7. Identifies trading dates with complete price data (all symbols available)
+8. Creates job in database with status `pending` (only for model-days that will actually run)
+9. Starts background worker thread
+10. Returns immediately with job ID
 
 **Examples:**
 
@@ -111,6 +128,7 @@ curl -X POST http://localhost:8080/simulate/trigger \
   -H "Content-Type: application/json" \
   -d '{
     "start_date": "2025-01-16",
+    "end_date": "2025-01-16",
     "models": ["gpt-4"]
   }'
 ```
@@ -122,6 +140,41 @@ curl -X POST http://localhost:8080/simulate/trigger \
   -d '{
     "start_date": "2025-01-16",
     "end_date": "2025-01-20"
+  }'
+```
+
+Resume from last completed date:
+```bash
+curl -X POST http://localhost:8080/simulate/trigger \
+  -H "Content-Type: application/json" \
+  -d '{
+    "start_date": null,
+    "end_date": "2025-01-31",
+    "models": ["gpt-4"]
+  }'
+```
+
+Idempotent simulation (skip already-completed dates):
+```bash
+curl -X POST http://localhost:8080/simulate/trigger \
+  -H "Content-Type: application/json" \
+  -d '{
+    "start_date": "2025-01-16",
+    "end_date": "2025-01-20",
+    "models": ["gpt-4"],
+    "replace_existing": false
+  }'
+```
+
+Re-run existing dates (force replace):
+```bash
+curl -X POST http://localhost:8080/simulate/trigger \
+  -H "Content-Type: application/json" \
+  -d '{
+    "start_date": "2025-01-16",
+    "end_date": "2025-01-20",
+    "models": ["gpt-4"],
+    "replace_existing": true
   }'
 ```
 
@@ -484,6 +537,15 @@ JOB_ID=$(echo $RESPONSE | jq -r '.job_id')
 echo "Job ID: $JOB_ID"
 ```
 
+Or use resume mode:
+```bash
+RESPONSE=$(curl -X POST http://localhost:8080/simulate/trigger \
+  -H "Content-Type: application/json" \
+  -d '{"start_date": null, "end_date": "2025-01-31", "models": ["gpt-4"]}')
+
+JOB_ID=$(echo $RESPONSE | jq -r '.job_id')
+```
+
 2. **Poll for completion:**
 ```bash
 while true; do
@@ -507,9 +569,24 @@ curl "http://localhost:8080/results?job_id=$JOB_ID" | jq '.'
 
 Use a scheduler (cron, Airflow, etc.) to trigger simulations:
 
+**Option 1: Resume mode (recommended)**
 ```bash
 #!/bin/bash
-# daily_simulation.sh
+# daily_simulation.sh - Resume from last completed date
+
+# Calculate today's date
+TODAY=$(date +%Y-%m-%d)
+
+# Trigger simulation in resume mode
+curl -X POST http://localhost:8080/simulate/trigger \
+  -H "Content-Type: application/json" \
+  -d "{\"start_date\": null, \"end_date\": \"$TODAY\", \"models\": [\"gpt-4\"]}"
+```
+
+**Option 2: Explicit yesterday's date**
+```bash
+#!/bin/bash
+# daily_simulation.sh - Run specific date
 
 # Calculate yesterday's date
 DATE=$(date -d "yesterday" +%Y-%m-%d)
@@ -517,7 +594,7 @@ DATE=$(date -d "yesterday" +%Y-%m-%d)
 # Trigger simulation
 curl -X POST http://localhost:8080/simulate/trigger \
   -H "Content-Type: application/json" \
-  -d "{\"start_date\": \"$DATE\", \"models\": [\"gpt-4\"]}"
+  -d "{\"start_date\": \"$DATE\", \"end_date\": \"$DATE\", \"models\": [\"gpt-4\"]}"
 ```
 
 Add to crontab:
@@ -676,11 +753,19 @@ class AITraderServerClient:
     def __init__(self, base_url="http://localhost:8080"):
         self.base_url = base_url
 
-    def trigger_simulation(self, start_date, end_date=None, models=None):
-        """Trigger a simulation job."""
-        payload = {"start_date": start_date}
-        if end_date:
-            payload["end_date"] = end_date
+    def trigger_simulation(self, end_date, start_date=None, models=None, replace_existing=False):
+        """
+        Trigger a simulation job.
+
+        Args:
+            end_date: End date (YYYY-MM-DD), required
+            start_date: Start date (YYYY-MM-DD) or None for resume mode
+            models: List of model signatures or None for all enabled models
+            replace_existing: If False, skip already-completed dates (idempotent)
+        """
+        payload = {"end_date": end_date, "replace_existing": replace_existing}
+        if start_date is not None:
+            payload["start_date"] = start_date
         if models:
             payload["models"] = models
 
@@ -719,9 +804,19 @@ class AITraderServerClient:
         response.raise_for_status()
         return response.json()
 
-# Usage
+# Usage examples
 client = AITraderServerClient()
-job = client.trigger_simulation("2025-01-16", models=["gpt-4"])
+
+# Single day simulation
+job = client.trigger_simulation(end_date="2025-01-16", start_date="2025-01-16", models=["gpt-4"])
+
+# Date range simulation
+job = client.trigger_simulation(end_date="2025-01-20", start_date="2025-01-16")
+
+# Resume mode (continue from last completed)
+job = client.trigger_simulation(end_date="2025-01-31", models=["gpt-4"])
+
+# Wait for completion and get results
 result = client.wait_for_completion(job["job_id"])
 results = client.get_results(job_id=job["job_id"])
 ```
@@ -733,13 +828,23 @@ class AITraderServerClient {
   constructor(private baseUrl: string = "http://localhost:8080") {}
 
   async triggerSimulation(
-    startDate: string,
-    endDate?: string,
-    models?: string[]
+    endDate: string,
+    options: {
+      startDate?: string | null;
+      models?: string[];
+      replaceExisting?: boolean;
+    } = {}
   ) {
-    const body: any = { start_date: startDate };
-    if (endDate) body.end_date = endDate;
-    if (models) body.models = models;
+    const body: any = {
+      end_date: endDate,
+      replace_existing: options.replaceExisting ?? false
+    };
+    if (options.startDate !== undefined) {
+      body.start_date = options.startDate;
+    }
+    if (options.models) {
+      body.models = options.models;
+    }
 
     const response = await fetch(`${this.baseUrl}/simulate/trigger`, {
       method: "POST",
@@ -787,9 +892,27 @@ class AITraderServerClient {
   }
 }
 
-// Usage
+// Usage examples
 const client = new AITraderServerClient();
-const job = await client.triggerSimulation("2025-01-16", null, ["gpt-4"]);
-const result = await client.waitForCompletion(job.job_id);
-const results = await client.getResults({ jobId: job.job_id });
+
+// Single day simulation
+const job1 = await client.triggerSimulation("2025-01-16", {
+  startDate: "2025-01-16",
+  models: ["gpt-4"]
+});
+
+// Date range simulation
+const job2 = await client.triggerSimulation("2025-01-20", {
+  startDate: "2025-01-16"
+});
+
+// Resume mode (continue from last completed)
+const job3 = await client.triggerSimulation("2025-01-31", {
+  startDate: null,
+  models: ["gpt-4"]
+});
+
+// Wait for completion and get results
+const result = await client.waitForCompletion(job1.job_id);
+const results = await client.getResults({ jobId: job1.job_id });
 ```

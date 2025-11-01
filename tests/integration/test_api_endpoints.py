@@ -50,8 +50,8 @@ class TestSimulateTriggerEndpoint:
     def test_trigger_creates_job(self, api_client):
         """Should create job and return job_id."""
         response = api_client.post("/simulate/trigger", json={
-            "config_path": api_client.test_config_path,
-            "date_range": ["2025-01-16", "2025-01-17"],
+            "start_date": "2025-01-16",
+            "end_date": "2025-01-17",
             "models": ["gpt-4"]
         })
 
@@ -61,55 +61,106 @@ class TestSimulateTriggerEndpoint:
         assert data["status"] == "pending"
         assert data["total_model_days"] == 2
 
-    def test_trigger_validates_config_path(self, api_client):
-        """Should reject nonexistent config path."""
+    def test_trigger_single_date(self, api_client):
+        """Should create job for single date."""
         response = api_client.post("/simulate/trigger", json={
-            "config_path": "/nonexistent/config.json",
-            "date_range": ["2025-01-16"],
+            "start_date": "2025-01-16",
+            "end_date": "2025-01-16",
             "models": ["gpt-4"]
         })
 
-        assert response.status_code == 400
-        assert "does not exist" in response.json()["detail"].lower()
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_model_days"] == 1
 
-    def test_trigger_validates_date_range(self, api_client):
-        """Should reject invalid date range."""
+    def test_trigger_resume_mode_cold_start(self, api_client):
+        """Should use end_date as single day when no existing data (cold start)."""
         response = api_client.post("/simulate/trigger", json={
-            "config_path": api_client.test_config_path,
-            "date_range": [],  # Empty date range
+            "start_date": None,
+            "end_date": "2025-01-16",
             "models": ["gpt-4"]
         })
 
-        assert response.status_code == 422  # Pydantic validation error
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_model_days"] == 1
+        assert "resume mode" in data["message"]
+
+    def test_trigger_requires_end_date(self, api_client):
+        """Should reject request with missing end_date."""
+        response = api_client.post("/simulate/trigger", json={
+            "start_date": "2025-01-16",
+            "end_date": "",
+            "models": ["gpt-4"]
+        })
+
+        assert response.status_code == 422
+        assert "end_date" in str(response.json()["detail"]).lower()
+
+    def test_trigger_rejects_null_end_date(self, api_client):
+        """Should reject request with null end_date."""
+        response = api_client.post("/simulate/trigger", json={
+            "start_date": "2025-01-16",
+            "end_date": None,
+            "models": ["gpt-4"]
+        })
+
+        assert response.status_code == 422
 
     def test_trigger_validates_models(self, api_client):
-        """Should reject empty model list."""
+        """Should use enabled models from config when models not specified."""
         response = api_client.post("/simulate/trigger", json={
-            "config_path": api_client.test_config_path,
-            "date_range": ["2025-01-16"],
-            "models": []  # Empty models
+            "start_date": "2025-01-16",
+            "end_date": "2025-01-16"
+            # models not specified - should use enabled models from config
         })
 
-        assert response.status_code == 422  # Pydantic validation error
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_model_days"] >= 1
 
     def test_trigger_enforces_single_job_limit(self, api_client):
         """Should reject trigger when job already running."""
         # Create first job
         api_client.post("/simulate/trigger", json={
-            "config_path": api_client.test_config_path,
-            "date_range": ["2025-01-16"],
+            "start_date": "2025-01-16",
+            "end_date": "2025-01-16",
             "models": ["gpt-4"]
         })
 
         # Try to create second job
         response = api_client.post("/simulate/trigger", json={
-            "config_path": api_client.test_config_path,
-            "date_range": ["2025-01-17"],
+            "start_date": "2025-01-17",
+            "end_date": "2025-01-17",
             "models": ["gpt-4"]
         })
 
         assert response.status_code == 400
         assert "already running" in response.json()["detail"].lower()
+
+    def test_trigger_idempotent_behavior(self, api_client):
+        """Should skip already completed dates when replace_existing=false."""
+        # This test would need a completed job first
+        # For now, just verify the parameter is accepted
+        response = api_client.post("/simulate/trigger", json={
+            "start_date": "2025-01-16",
+            "end_date": "2025-01-16",
+            "models": ["gpt-4"],
+            "replace_existing": False
+        })
+
+        assert response.status_code == 200
+
+    def test_trigger_replace_existing_flag(self, api_client):
+        """Should accept replace_existing flag."""
+        response = api_client.post("/simulate/trigger", json={
+            "start_date": "2025-01-16",
+            "end_date": "2025-01-16",
+            "models": ["gpt-4"],
+            "replace_existing": True
+        })
+
+        assert response.status_code == 200
 
 
 @pytest.mark.integration
@@ -120,8 +171,8 @@ class TestSimulateStatusEndpoint:
         """Should return job status and progress."""
         # Create job
         create_response = api_client.post("/simulate/trigger", json={
-            "config_path": api_client.test_config_path,
-            "date_range": ["2025-01-16"],
+            "start_date": "2025-01-16",
+            "end_date": "2025-01-16",
             "models": ["gpt-4"]
         })
         job_id = create_response.json()["job_id"]
@@ -147,8 +198,8 @@ class TestSimulateStatusEndpoint:
         """Should include model-day execution details."""
         # Create job
         create_response = api_client.post("/simulate/trigger", json={
-            "config_path": api_client.test_config_path,
-            "date_range": ["2025-01-16", "2025-01-17"],
+            "start_date": "2025-01-16",
+            "end_date": "2025-01-17",
             "models": ["gpt-4"]
         })
         job_id = create_response.json()["job_id"]
@@ -182,8 +233,8 @@ class TestResultsEndpoint:
         """Should filter results by job_id."""
         # Create job
         create_response = api_client.post("/simulate/trigger", json={
-            "config_path": api_client.test_config_path,
-            "date_range": ["2025-01-16"],
+            "start_date": "2025-01-16",
+            "end_date": "2025-01-16",
             "models": ["gpt-4"]
         })
         job_id = create_response.json()["job_id"]
@@ -279,8 +330,8 @@ class TestErrorHandling:
     def test_missing_required_fields_returns_422(self, api_client):
         """Should validate required fields."""
         response = api_client.post("/simulate/trigger", json={
-            "config_path": api_client.test_config_path
-            # Missing date_range and models
+            "start_date": "2025-01-16"
+            # Missing end_date
         })
 
         assert response.status_code == 422

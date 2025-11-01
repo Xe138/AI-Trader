@@ -108,6 +108,7 @@ curl -X POST http://localhost:8080/simulate/trigger \
   -H "Content-Type: application/json" \
   -d '{
     "start_date": "2025-01-16",
+    "end_date": "2025-01-16",
     "models": ["gpt-4"]
   }'
 ```
@@ -119,11 +120,13 @@ curl -X POST http://localhost:8080/simulate/trigger \
   "job_id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "pending",
   "total_model_days": 1,
-  "message": "Simulation job created with 1 trading dates"
+  "message": "Simulation job created with 1 model-day tasks"
 }
 ```
 
 **Save the `job_id`** - you'll need it to check status.
+
+**Note:** Both `start_date` and `end_date` are required. For a single day, set them to the same value. To simulate a range, use different dates (e.g., `"start_date": "2025-01-16", "end_date": "2025-01-20"`).
 
 ---
 
@@ -234,11 +237,31 @@ curl -X POST http://localhost:8080/simulate/trigger \
   -H "Content-Type: application/json" \
   -d '{
     "start_date": "2025-01-16",
+    "end_date": "2025-01-16",
     "models": ["gpt-4", "claude-3.7-sonnet"]
   }'
 ```
 
 **Note:** Models must be defined and enabled in `configs/default_config.json`.
+
+### Resume from Last Completed Date
+
+Continue simulations from where you left off (useful for daily automation):
+
+```bash
+curl -X POST http://localhost:8080/simulate/trigger \
+  -H "Content-Type: application/json" \
+  -d '{
+    "start_date": null,
+    "end_date": "2025-01-31",
+    "models": ["gpt-4"]
+  }'
+```
+
+This will:
+- Check the last completed date for each model
+- Resume from the next day after the last completed date
+- If no previous data exists, run only the `end_date` as a single day
 
 ### Query Specific Results
 
