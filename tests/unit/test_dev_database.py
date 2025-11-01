@@ -4,8 +4,26 @@ from pathlib import Path
 from api.database import initialize_dev_database, cleanup_dev_database
 
 
-def test_initialize_dev_database_creates_fresh_db(tmp_path):
+@pytest.fixture
+def clean_env():
+    """Fixture to ensure clean environment variables for each test"""
+    original_preserve = os.environ.get("PRESERVE_DEV_DATA")
+    os.environ.pop("PRESERVE_DEV_DATA", None)
+
+    yield
+
+    # Restore original state
+    if original_preserve:
+        os.environ["PRESERVE_DEV_DATA"] = original_preserve
+    else:
+        os.environ.pop("PRESERVE_DEV_DATA", None)
+
+
+def test_initialize_dev_database_creates_fresh_db(tmp_path, clean_env):
     """Test dev database initialization creates clean schema"""
+    # Ensure PRESERVE_DEV_DATA is false for this test
+    os.environ["PRESERVE_DEV_DATA"] = "false"
+
     db_path = str(tmp_path / "test_dev.db")
 
     # Create initial database with some data
@@ -57,7 +75,7 @@ def test_cleanup_dev_database_removes_files(tmp_path):
     assert not Path(data_path).exists()
 
 
-def test_initialize_dev_respects_preserve_flag(tmp_path):
+def test_initialize_dev_respects_preserve_flag(tmp_path, clean_env):
     """Test that PRESERVE_DEV_DATA flag prevents cleanup"""
     os.environ["PRESERVE_DEV_DATA"] = "true"
     db_path = str(tmp_path / "test_dev.db")
@@ -80,8 +98,6 @@ def test_initialize_dev_respects_preserve_flag(tmp_path):
     cursor.execute("SELECT COUNT(*) FROM jobs")
     assert cursor.fetchone()[0] == 1
     conn.close()
-
-    os.environ.pop("PRESERVE_DEV_DATA")
 
 
 def test_get_db_connection_resolves_dev_path():
