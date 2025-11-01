@@ -62,6 +62,8 @@ class MockChatModel(BaseChatModel):
         Returns:
             ChatResult with mock AI response
         """
+        # Parameters are required by BaseChatModel interface but unused in mock
+        _ = messages, stop, run_manager, kwargs
         response_text = self.provider.generate_response(self.date, self.step_counter)
         self.step_counter += 1
 
