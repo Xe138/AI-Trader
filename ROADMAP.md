@@ -66,6 +66,18 @@ This document outlines planned features and improvements for the AI-Trader proje
     - Chart library (Plotly.js, Chart.js, or Recharts)
     - Served alongside API (single container deployment)
 
+#### Development Infrastructure
+- **Migration to uv Package Manager** - Modern Python package management
+  - Replace pip with uv for dependency management
+  - Create pyproject.toml with project metadata and dependencies
+  - Update Dockerfile to use uv for faster, more reliable builds
+  - Update development documentation and workflows
+  - Benefits:
+    - 10-100x faster dependency resolution and installation
+    - Better dependency locking and reproducibility
+    - Unified tool for virtual environments and package management
+    - Drop-in pip replacement with improved UX
+
 ## Contributing
 
 We welcome contributions to any of these planned features! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.

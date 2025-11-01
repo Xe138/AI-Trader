@@ -303,6 +303,48 @@ When modifying agent behavior or adding tools:
 4. Verify position updates in `position/position.jsonl`
 5. Use `main.sh` only for full end-to-end testing
 
+See [docs/developer/testing.md](docs/developer/testing.md) for complete testing guide.
+
+## Documentation Structure
+
+The project uses a well-organized documentation structure:
+
+### Root Level (User-facing)
+- **README.md** - Project overview, quick start, API overview
+- **QUICK_START.md** - 5-minute getting started guide
+- **API_REFERENCE.md** - Complete API endpoint documentation
+- **CHANGELOG.md** - Release notes and version history
+- **TESTING_GUIDE.md** - Testing and validation procedures
+
+### docs/user-guide/
+- `configuration.md` - Environment setup and model configuration
+- `using-the-api.md` - Common workflows and best practices
+- `integration-examples.md` - Python, TypeScript, automation examples
+- `troubleshooting.md` - Common issues and solutions
+
+### docs/developer/
+- `CONTRIBUTING.md` - Contribution guidelines
+- `development-setup.md` - Local development without Docker
+- `testing.md` - Running tests and validation
+- `architecture.md` - System design and components
+- `database-schema.md` - SQLite table reference
+- `adding-models.md` - How to add custom AI models
+
+### docs/deployment/
+- `docker-deployment.md` - Production Docker setup
+- `production-checklist.md` - Pre-deployment verification
+- `monitoring.md` - Health checks, logging, metrics
+- `scaling.md` - Multiple instances and load balancing
+
+### docs/reference/
+- `environment-variables.md` - Configuration reference
+- `mcp-tools.md` - Trading tool documentation
+- `data-formats.md` - File formats and schemas
+
+### docs/ (Maintainer docs)
+- `DOCKER.md` - Docker deployment details
+- `RELEASING.md` - Release process for maintainers
+
 ## Common Issues
 
 **MCP Services Not Running:**
