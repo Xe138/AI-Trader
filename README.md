@@ -365,6 +365,71 @@ Edit `configs/default_config.json`:
 
 ---
 
+## 🛠️ Development Mode
+
+AI-Trader supports a development mode that mocks AI API calls for testing without costs.
+
+### Quick Start
+
+```bash
+# Set environment variables
+export DEPLOYMENT_MODE=DEV
+export PRESERVE_DEV_DATA=false
+
+# Run simulation (uses mock AI, isolated dev database)
+python main.py configs/default_config.json
+```
+
+### How It Works
+
+**DEPLOYMENT_MODE=DEV:**
+- Mock AI responses (no API calls to OpenAI/Anthropic)
+- Separate database: `data/trading_dev.db`
+- Separate data directory: `data/dev_agent_data/`
+- Dev database reset on startup (unless PRESERVE_DEV_DATA=true)
+- Warnings logged if production API keys detected
+
+**DEPLOYMENT_MODE=PROD** (default):
+- Real AI API calls
+- Production database: `data/trading.db`
+- Production data directory: `data/agent_data/`
+
+### Mock AI Behavior
+
+The mock provider returns deterministic responses that rotate through stocks:
+- Day 1: AAPL
+- Day 2: MSFT
+- Day 3: GOOGL
+- Etc. (cycles through 10 stocks)
+
+Each mock response includes:
+- Price queries for selected stock
+- Buy order for 5 shares
+- Finish signal to end session
+
+### Environment Variables
+
+```bash
+DEPLOYMENT_MODE=PROD          # PROD or DEV (default: PROD)
+PRESERVE_DEV_DATA=false      # Keep dev data between runs (default: false)
+```
+
+### Use Cases
+
+- **Orchestration testing:** Verify agent loop, position tracking, logging
+- **CI/CD pipelines:** Run tests without API costs
+- **Configuration validation:** Test date ranges, model configs
+- **Development iteration:** Rapid testing of code changes
+
+### Limitations
+
+- Mock responses are static (not context-aware)
+- No actual market analysis
+- Fixed trading pattern
+- For logic testing only, not trading strategy validation
+
+---
+
 ## 📊 Database Schema
 
 SQLite database at `data/jobs.db` contains:

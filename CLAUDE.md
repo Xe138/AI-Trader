@@ -294,6 +294,37 @@ bash main.sh
 - Logs include timestamps, signature, and all message exchanges
 - Position updates append to single `position/position.jsonl`
 
+**Development Mode:**
+
+AI-Trader supports a development mode that mocks AI API calls for testing without costs.
+
+**Deployment Modes:**
+- `DEPLOYMENT_MODE=PROD`: Real AI calls, production data paths
+- `DEPLOYMENT_MODE=DEV`: Mock AI, isolated dev environment
+
+**DEV Mode Characteristics:**
+- Uses `MockChatModel` from `agent/mock_provider/`
+- Data paths: `data/dev_agent_data/` and `data/trading_dev.db`
+- Dev database reset on startup (controlled by `PRESERVE_DEV_DATA`)
+- API responses flagged with `deployment_mode` field
+
+**Implementation Details:**
+- Deployment config: `tools/deployment_config.py`
+- Mock provider: `agent/mock_provider/mock_ai_provider.py`
+- LangChain wrapper: `agent/mock_provider/mock_langchain_model.py`
+- BaseAgent integration: `agent/base_agent/base_agent.py:146-189`
+- Database handling: `api/database.py` (automatic path resolution)
+
+**Testing Dev Mode:**
+```bash
+DEPLOYMENT_MODE=DEV python main.py configs/default_config.json
+```
+
+**Mock AI Behavior:**
+- Deterministic stock rotation (AAPL → MSFT → GOOGL → etc.)
+- Each response includes price query, buy order, and finish signal
+- No actual AI API calls or costs
+
 ## Testing Changes
 
 When modifying agent behavior or adding tools:

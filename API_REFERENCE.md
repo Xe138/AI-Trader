@@ -414,6 +414,62 @@ curl http://localhost:8080/health
 
 ---
 
+## Deployment Mode
+
+All API responses include a `deployment_mode` field indicating whether the service is running in production or development mode.
+
+### Response Format
+
+```json
+{
+  "job_id": "abc123",
+  "status": "completed",
+  "deployment_mode": "DEV",
+  "is_dev_mode": true,
+  "preserve_dev_data": false
+}
+```
+
+**Fields:**
+- `deployment_mode`: "PROD" or "DEV"
+- `is_dev_mode`: Boolean flag
+- `preserve_dev_data`: Null in PROD, boolean in DEV
+
+### DEV Mode Behavior
+
+When `DEPLOYMENT_MODE=DEV` is set:
+- No AI API calls (mock responses)
+- Separate dev database (`jobs_dev.db`)
+- Separate data directory (`dev_agent_data/`)
+- Database reset on startup (unless PRESERVE_DEV_DATA=true)
+
+**Health Check Example:**
+
+```bash
+curl http://localhost:8080/health
+```
+
+Response in DEV mode:
+```json
+{
+  "status": "healthy",
+  "database": "connected",
+  "timestamp": "2025-01-16T10:00:00Z",
+  "deployment_mode": "DEV",
+  "is_dev_mode": true,
+  "preserve_dev_data": false
+}
+```
+
+### Use Cases
+
+- **Testing:** Validate orchestration without AI API costs
+- **CI/CD:** Automated testing in pipelines
+- **Development:** Rapid iteration on system logic
+- **Configuration validation:** Test settings before production
+
+---
+
 ## Common Workflows
 
 ### Trigger and Monitor a Simulation
