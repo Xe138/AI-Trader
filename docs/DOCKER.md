@@ -11,8 +11,8 @@
 
 1. **Clone repository:**
    ```bash
-   git clone https://github.com/Xe138/AI-Trader.git
-   cd AI-Trader
+   git clone https://github.com/Xe138/AI-Trader-Server.git
+   cd AI-Trader-Server
    ```
 
 2. **Configure environment:**
@@ -70,13 +70,13 @@ docker-compose up
 
 **Priority order:**
 1. `configs/custom_config.json` (if exists) - **Highest priority**
-2. Command-line argument: `docker-compose run ai-trader configs/other.json`
+2. Command-line argument: `docker-compose run ai-trader-server configs/other.json`
 3. `configs/default_config.json` (fallback)
 
 **Advanced: Use a different config file name:**
 
 ```bash
-docker-compose run ai-trader configs/my_special_config.json
+docker-compose run ai-trader-server configs/my_special_config.json
 ```
 
 ## Usage Examples
@@ -94,7 +94,7 @@ docker-compose logs -f  # Follow logs
 
 ### Run with custom config
 ```bash
-docker-compose run ai-trader configs/custom_config.json
+docker-compose run ai-trader-server configs/custom_config.json
 ```
 
 ### Stop containers
@@ -156,10 +156,10 @@ docker-compose up
 
 ```bash
 # Backup
-tar -czf ai-trader-backup-$(date +%Y%m%d).tar.gz data/agent_data/
+tar -czf ai-trader-server-backup-$(date +%Y%m%d).tar.gz data/agent_data/
 
 # Restore
-tar -xzf ai-trader-backup-YYYYMMDD.tar.gz
+tar -xzf ai-trader-server-backup-YYYYMMDD.tar.gz
 ```
 
 ## Using Pre-built Images
@@ -167,7 +167,7 @@ tar -xzf ai-trader-backup-YYYYMMDD.tar.gz
 ### Pull from GitHub Container Registry
 
 ```bash
-docker pull ghcr.io/hkuds/ai-trader:latest
+docker pull ghcr.io/xe138/ai-trader-server:latest
 ```
 
 ### Run without Docker Compose
@@ -177,12 +177,12 @@ docker run --env-file .env \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/logs:/app/logs \
   -p 8000-8003:8000-8003 \
-  ghcr.io/hkuds/ai-trader:latest
+  ghcr.io/xe138/ai-trader-server:latest
 ```
 
 ### Specific version
 ```bash
-docker pull ghcr.io/hkuds/ai-trader:v1.0.0
+docker pull ghcr.io/xe138/ai-trader-server:v1.0.0
 ```
 
 ## Troubleshooting
@@ -239,7 +239,7 @@ docker pull ghcr.io/hkuds/ai-trader:v1.0.0
 Run bash inside container for debugging:
 
 ```bash
-docker-compose run --entrypoint /bin/bash ai-trader
+docker-compose run --entrypoint /bin/bash ai-trader-server
 ```
 
 ### Build Multi-platform Images
@@ -247,13 +247,13 @@ docker-compose run --entrypoint /bin/bash ai-trader
 For ARM64 (Apple Silicon) and AMD64:
 
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 -t ai-trader .
+docker buildx build --platform linux/amd64,linux/arm64 -t ai-trader-server .
 ```
 
 ### View Container Resource Usage
 
 ```bash
-docker stats ai-trader-app
+docker stats ai-trader-server
 ```
 
 ### Access MCP Services Directly
@@ -295,10 +295,10 @@ cp configs/default_config.json configs/aggressive.json
 # Edit each config...
 
 # Test conservative strategy
-docker-compose run ai-trader configs/conservative.json
+docker-compose run ai-trader-server configs/conservative.json
 
 # Test aggressive strategy
-docker-compose run ai-trader configs/aggressive.json
+docker-compose run ai-trader-server configs/aggressive.json
 ```
 
 **Method 3: Temporarily switch configs**
