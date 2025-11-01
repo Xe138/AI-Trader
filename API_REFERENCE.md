@@ -1,6 +1,6 @@
-# AI-Trader API Reference
+# AI-Trader-Server API Reference
 
-Complete reference for the AI-Trader REST API service.
+Complete reference for the AI-Trader-Server REST API service.
 
 **Base URL:** `http://localhost:8080` (default)
 
@@ -616,7 +616,7 @@ Interactive API documentation available at:
 import requests
 import time
 
-class AITraderClient:
+class AITraderServerClient:
     def __init__(self, base_url="http://localhost:8080"):
         self.base_url = base_url
 
@@ -664,7 +664,7 @@ class AITraderClient:
         return response.json()
 
 # Usage
-client = AITraderClient()
+client = AITraderServerClient()
 job = client.trigger_simulation("2025-01-16", models=["gpt-4"])
 result = client.wait_for_completion(job["job_id"])
 results = client.get_results(job_id=job["job_id"])
@@ -673,7 +673,7 @@ results = client.get_results(job_id=job["job_id"])
 ### TypeScript/JavaScript
 
 ```typescript
-class AITraderClient {
+class AITraderServerClient {
   constructor(private baseUrl: string = "http://localhost:8080") {}
 
   async triggerSimulation(
@@ -732,7 +732,7 @@ class AITraderClient {
 }
 
 // Usage
-const client = new AITraderClient();
+const client = new AITraderServerClient();
 const job = await client.triggerSimulation("2025-01-16", null, ["gpt-4"]);
 const result = await client.waitForCompletion(job.job_id);
 const results = await client.getResults({ jobId: job.job_id });
