@@ -23,6 +23,7 @@ from api.simulation_worker import SimulationWorker
 from api.database import get_db_connection
 from api.price_data_manager import PriceDataManager
 from api.date_utils import validate_date_range, expand_date_range, get_max_simulation_days
+from tools.deployment_config import get_deployment_mode_dict
 import threading
 import time
 
@@ -62,6 +63,9 @@ class SimulateTriggerResponse(BaseModel):
     status: str
     total_model_days: int
     message: str
+    deployment_mode: str
+    is_dev_mode: bool
+    preserve_dev_data: Optional[bool] = None
 
 
 class JobProgress(BaseModel):
@@ -85,6 +89,9 @@ class JobStatusResponse(BaseModel):
     total_duration_seconds: Optional[float] = None
     error: Optional[str] = None
     details: List[Dict[str, Any]]
+    deployment_mode: str
+    is_dev_mode: bool
+    preserve_dev_data: Optional[bool] = None
 
 
 class HealthResponse(BaseModel):
@@ -92,6 +99,9 @@ class HealthResponse(BaseModel):
     status: str
     database: str
     timestamp: str
+    deployment_mode: str
+    is_dev_mode: bool
+    preserve_dev_data: Optional[bool] = None
 
 
 def create_app(
@@ -263,11 +273,15 @@ def create_app(
             if download_info and download_info["rate_limited"]:
                 message += " (rate limit reached - partial data)"
 
+            # Get deployment mode info
+            deployment_info = get_deployment_mode_dict()
+
             response = SimulateTriggerResponse(
                 job_id=job_id,
                 status="pending",
                 total_model_days=len(available_dates) * len(models_to_run),
-                message=message
+                message=message,
+                **deployment_info
             )
 
             # Add download info if we downloaded
@@ -317,6 +331,9 @@ def create_app(
             # Calculate pending (total - completed - failed)
             pending = progress["total_model_days"] - progress["completed"] - progress["failed"]
 
+            # Get deployment mode info
+            deployment_info = get_deployment_mode_dict()
+
             return JobStatusResponse(
                 job_id=job["job_id"],
                 status=job["status"],
@@ -333,7 +350,8 @@ def create_app(
                 completed_at=job.get("completed_at"),
                 total_duration_seconds=job.get("total_duration_seconds"),
                 error=job.get("error"),
-                details=details
+                details=details,
+                **deployment_info
             )
 
         except HTTPException:
@@ -469,10 +487,14 @@ def create_app(
             logger.error(f"Database health check failed: {e}")
             database_status = "disconnected"
 
+        # Get deployment mode info
+        deployment_info = get_deployment_mode_dict()
+
         return HealthResponse(
             status="healthy" if database_status == "connected" else "unhealthy",
             database=database_status,
-            timestamp=datetime.utcnow().isoformat() + "Z"
+            timestamp=datetime.utcnow().isoformat() + "Z",
+            **deployment_info
         )
 
     return app
