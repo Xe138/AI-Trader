@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Get AI-Trader running in under 5 minutes using Docker.
+Get AI-Trader-Server running in under 5 minutes using Docker.
 
 ---
 
@@ -21,8 +21,8 @@ Get AI-Trader running in under 5 minutes using Docker.
 ## Step 1: Clone Repository
 
 ```bash
-git clone https://github.com/Xe138/AI-Trader.git
-cd AI-Trader
+git clone https://github.com/Xe138/AI-Trader-Server.git
+cd AI-Trader-Server
 ```
 
 ---
@@ -62,7 +62,7 @@ docker-compose up -d
 
 This will:
 - Build the Docker image (~5-10 minutes first time)
-- Start the AI-Trader API service
+- Start the AI-Trader-Server API service
 - Start internal MCP services (math, search, trade, price)
 - Initialize the SQLite database
 
@@ -70,7 +70,7 @@ This will:
 
 ```bash
 # View logs
-docker logs -f ai-trader
+docker logs -f ai-trader-server
 
 # Wait for this message:
 # "Application startup complete"
@@ -261,7 +261,7 @@ curl "http://localhost:8080/results?date=2025-01-16&model=gpt-4"
 
 ```bash
 # Check logs
-docker logs ai-trader
+docker logs ai-trader-server
 
 # Common issues:
 # - Missing API keys in .env
@@ -288,13 +288,13 @@ docker-compose up -d
 
 ```bash
 # Check if container is running
-docker ps | grep ai-trader
+docker ps | grep ai-trader-server
 
 # Restart service
 docker-compose restart
 
 # Check for errors in logs
-docker logs ai-trader | grep -i error
+docker logs ai-trader-server | grep -i error
 ```
 
 ### Job stays "pending"
@@ -303,7 +303,7 @@ The simulation might still be downloading price data on first run.
 
 ```bash
 # Watch logs in real-time
-docker logs -f ai-trader
+docker logs -f ai-trader-server
 
 # Look for messages like:
 # "Downloading missing price data..."
@@ -321,7 +321,7 @@ This means price data is missing for the requested date range.
 **Solution 2:** Manually download price data:
 
 ```bash
-docker exec -it ai-trader bash
+docker exec -it ai-trader-server bash
 cd data
 python get_daily_price.py
 python merge_jsonl.py
@@ -334,7 +334,7 @@ exit
 
 ```bash
 # View logs
-docker logs -f ai-trader
+docker logs -f ai-trader-server
 
 # Stop service
 docker-compose down
@@ -349,10 +349,10 @@ docker-compose restart
 curl http://localhost:8080/health
 
 # Access container shell
-docker exec -it ai-trader bash
+docker exec -it ai-trader-server bash
 
 # View database
-docker exec -it ai-trader sqlite3 /app/data/jobs.db
+docker exec -it ai-trader-server sqlite3 /app/data/jobs.db
 ```
 
 ---
@@ -369,5 +369,5 @@ docker exec -it ai-trader sqlite3 /app/data/jobs.db
 ## Need Help?
 
 - Check [docs/user-guide/troubleshooting.md](docs/user-guide/troubleshooting.md)
-- Review logs: `docker logs ai-trader`
-- Open an issue: [GitHub Issues](https://github.com/Xe138/AI-Trader/issues)
+- Review logs: `docker logs ai-trader-server`
+- Open an issue: [GitHub Issues](https://github.com/Xe138/AI-Trader-Server/issues)
