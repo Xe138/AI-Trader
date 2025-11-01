@@ -1,6 +1,6 @@
 # Testing Guide
 
-Guide for testing AI-Trader during development.
+Guide for testing AI-Trader-Server during development.
 
 ---
 
