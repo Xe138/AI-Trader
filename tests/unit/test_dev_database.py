@@ -82,3 +82,20 @@ def test_initialize_dev_respects_preserve_flag(tmp_path):
     conn.close()
 
     os.environ.pop("PRESERVE_DEV_DATA")
+
+
+def test_get_db_connection_resolves_dev_path():
+    """Test that get_db_connection uses dev path in DEV mode"""
+    import os
+    os.environ["DEPLOYMENT_MODE"] = "DEV"
+
+    # This should automatically resolve to dev database
+    # We're just testing the path logic, not actually creating DB
+    from api.database import resolve_db_path
+
+    prod_path = "data/trading.db"
+    dev_path = resolve_db_path(prod_path)
+
+    assert dev_path == "data/trading_dev.db"
+
+    os.environ["DEPLOYMENT_MODE"] = "PROD"

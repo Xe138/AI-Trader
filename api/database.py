@@ -9,13 +9,15 @@ This module provides:
 
 import sqlite3
 from pathlib import Path
-from typing import Optional
 import os
+from tools.deployment_config import get_db_path
 
 
 def get_db_connection(db_path: str = "data/jobs.db") -> sqlite3.Connection:
     """
     Get SQLite database connection with proper configuration.
+
+    Automatically resolves to dev database if DEPLOYMENT_MODE=DEV.
 
     Args:
         db_path: Path to SQLite database file
@@ -28,15 +30,33 @@ def get_db_connection(db_path: str = "data/jobs.db") -> sqlite3.Connection:
         - Row factory for dict-like access
         - Check same thread disabled for FastAPI async compatibility
     """
+    # Resolve path based on deployment mode
+    resolved_path = get_db_path(db_path)
+
     # Ensure data directory exists
-    db_path_obj = Path(db_path)
+    db_path_obj = Path(resolved_path)
     db_path_obj.parent.mkdir(parents=True, exist_ok=True)
 
-    conn = sqlite3.connect(db_path, check_same_thread=False)
+    conn = sqlite3.connect(resolved_path, check_same_thread=False)
     conn.execute("PRAGMA foreign_keys = ON")
     conn.row_factory = sqlite3.Row
 
     return conn
+
+
+def resolve_db_path(db_path: str) -> str:
+    """
+    Resolve database path based on deployment mode
+
+    Convenience function for testing.
+
+    Args:
+        db_path: Base database path
+
+    Returns:
+        Resolved path (dev or prod)
+    """
+    return get_db_path(db_path)
 
 
 def initialize_database(db_path: str = "data/jobs.db") -> None:
