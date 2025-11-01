@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Dev Mode Warning in Docker** - DEV mode startup warning now displays correctly in Docker logs
+  - Added FastAPI `@app.on_event("startup")` handler to trigger warning on API server startup
+  - Previously only appeared when running `python api/main.py` directly (not via uvicorn)
+  - Docker compose now includes `DEPLOYMENT_MODE` and `PRESERVE_DEV_DATA` environment variables
+
 ## [0.3.0] - 2025-10-31
 
 ### Added - Price Data Management & On-Demand Downloads

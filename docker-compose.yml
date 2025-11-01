@@ -10,6 +10,10 @@ services:
       - ${VOLUME_PATH:-.}/logs:/app/logs
       - ${VOLUME_PATH:-.}/configs:/app/configs
     environment:
+      # Deployment Configuration
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-PROD}
+      - PRESERVE_DEV_DATA=${PRESERVE_DEV_DATA:-false}
+
       # AI Model API Configuration
       - OPENAI_API_BASE=${OPENAI_API_BASE}
       - OPENAI_API_KEY=${OPENAI_API_KEY}

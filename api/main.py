@@ -136,6 +136,11 @@ def create_app(
     app.state.db_path = db_path
     app.state.config_path = config_path
 
+    @app.on_event("startup")
+    async def startup_event():
+        """Display DEV mode warning on startup if applicable"""
+        log_dev_mode_startup_warning()
+
     @app.post("/simulate/trigger", response_model=SimulateTriggerResponse, status_code=200)
     async def trigger_simulation(request: SimulateTriggerRequest):
         """
