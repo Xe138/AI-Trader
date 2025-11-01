@@ -5,7 +5,7 @@
 set -e
 
 echo "=========================================="
-echo "AI-Trader API Endpoint Testing"
+echo "AI-Trader-Server API Endpoint Testing"
 echo "=========================================="
 echo ""
 
@@ -34,7 +34,7 @@ echo "Checking if API is accessible..."
 if ! curl -f "$API_BASE_URL/health" &> /dev/null; then
     echo -e "${RED}✗${NC} API is not accessible at $API_BASE_URL"
     echo "Make sure the container is running:"
-    echo "  docker-compose up -d ai-trader"
+    echo "  docker-compose up -d ai-trader-server"
     exit 1
 fi
 echo -e "${GREEN}✓${NC} API is accessible"

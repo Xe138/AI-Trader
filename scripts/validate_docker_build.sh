@@ -5,7 +5,7 @@
 set -e  # Exit on error
 
 echo "=========================================="
-echo "AI-Trader Docker Build Validation"
+echo "AI-Trader-Server Docker Build Validation"
 echo "=========================================="
 echo ""
 
@@ -112,7 +112,7 @@ echo "Step 3: Building Docker image..."
 echo "This may take several minutes on first build..."
 echo ""
 
-if docker build -t ai-trader-test . ; then
+if docker build -t ai-trader-server-test . ; then
     print_status 0 "Docker image built successfully"
 else
     print_status 1 "Docker build failed"
@@ -124,11 +124,11 @@ echo ""
 # Step 4: Check image
 echo "Step 4: Verifying Docker image..."
 
-IMAGE_SIZE=$(docker images ai-trader-test --format "{{.Size}}")
+IMAGE_SIZE=$(docker images ai-trader-server-test --format "{{.Size}}")
 print_status 0 "Image size: $IMAGE_SIZE"
 
 # List exposed ports
-EXPOSED_PORTS=$(docker inspect ai-trader-test --format '{{range $p, $conf := .Config.ExposedPorts}}{{$p}} {{end}}')
+EXPOSED_PORTS=$(docker inspect ai-trader-server-test --format '{{range $p, $conf := .Config.ExposedPorts}}{{$p}} {{end}}')
 print_status 0 "Exposed ports: $EXPOSED_PORTS"
 
 echo ""
@@ -137,7 +137,7 @@ echo ""
 echo "Step 5: Testing API mode startup..."
 echo "Starting container in background..."
 
-$COMPOSE_CMD up -d ai-trader
+$COMPOSE_CMD up -d ai-trader-server
 
 if [ $? -eq 0 ]; then
     print_status 0 "Container started successfully"
@@ -146,20 +146,20 @@ if [ $? -eq 0 ]; then
     sleep 10
 
     # Check if container is still running
-    if docker ps | grep -q ai-trader; then
+    if docker ps | grep -q ai-trader-server; then
         print_status 0 "Container is running"
 
         # Check logs for errors
-        ERROR_COUNT=$(docker logs ai-trader 2>&1 | grep -i "error" | grep -v "ERROR:" | wc -l)
+        ERROR_COUNT=$(docker logs ai-trader-server 2>&1 | grep -i "error" | grep -v "ERROR:" | wc -l)
         if [ $ERROR_COUNT -gt 0 ]; then
             print_warning "Found $ERROR_COUNT error messages in logs"
-            echo "Check logs with: docker logs ai-trader"
+            echo "Check logs with: docker logs ai-trader-server"
         else
             print_status 0 "No critical errors in logs"
         fi
     else
         print_status 1 "Container stopped unexpectedly"
-        echo "Check logs with: docker logs ai-trader"
+        echo "Check logs with: docker logs ai-trader-server"
         exit 1
     fi
 else
@@ -209,14 +209,14 @@ else
     print_warning "Diagnostics:"
 
     # Check if container is still running
-    if docker ps | grep -q ai-trader; then
+    if docker ps | grep -q ai-trader-server; then
         echo "  ✓ Container is running"
     else
         echo "  ✗ Container has stopped"
     fi
 
     # Check if port is listening
-    if docker exec ai-trader netstat -tuln 2>/dev/null | grep -q ":8080"; then
+    if docker exec ai-trader-server netstat -tuln 2>/dev/null | grep -q ":8080"; then
         echo "  ✓ Port 8080 is listening inside container"
     else
         echo "  ✗ Port 8080 is NOT listening inside container"
@@ -224,7 +224,7 @@ else
 
     # Try curl from inside container
     echo "  Testing from inside container..."
-    INTERNAL_TEST=$(docker exec ai-trader curl -f -s http://localhost:8080/health 2>&1)
+    INTERNAL_TEST=$(docker exec ai-trader-server curl -f -s http://localhost:8080/health 2>&1)
     if [ $? -eq 0 ]; then
         echo "  ✓ Health endpoint works inside container: $INTERNAL_TEST"
         echo "  ✗ Issue is with port mapping or host networking"
@@ -235,7 +235,7 @@ else
 
     echo ""
     echo "Recent logs:"
-    docker logs ai-trader 2>&1 | tail -20
+    docker logs ai-trader-server 2>&1 | tail -20
 fi
 
 echo ""
@@ -262,7 +262,7 @@ echo "2. Test batch mode:"
 echo "   bash scripts/test_batch_mode.sh"
 echo ""
 echo "3. If any checks failed, review logs:"
-echo "   docker logs ai-trader"
+echo "   docker logs ai-trader-server"
 echo ""
 echo "4. For troubleshooting, see: DOCKER_API.md"
 echo ""

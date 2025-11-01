@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# AI-Trader 主启动脚本
+# AI-Trader-Server 主启动脚本
 # 用于启动完整的交易环境
 
 set -e  # 遇到错误时退出
 
-echo "🚀 Launching AI Trader Environment..."
+echo "🚀 Launching AI-Trader-Server Environment..."
 
 
 echo "📊 Now getting and merging price data..."
@@ -25,7 +25,7 @@ sleep 2
 echo "🤖 Now starting the main trading agent..."
 python main.py configs/default_config.json
 
-echo "✅ AI-Trader stopped"
+echo "✅ AI-Trader-Server stopped"
 
 echo "🔄 Starting web server..."
 cd ./docs
