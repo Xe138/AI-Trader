@@ -19,15 +19,15 @@ For parallel simulations, deploy multiple instances:
 ```yaml
 # docker-compose.yml
 services:
-  ai-trader-1:
-    image: ghcr.io/xe138/ai-trader:latest
+  ai-trader-server-1:
+    image: ghcr.io/xe138/ai-trader-server:latest
     ports:
       - "8081:8080"
     volumes:
       - ./data1:/app/data
 
-  ai-trader-2:
-    image: ghcr.io/xe138/ai-trader:latest
+  ai-trader-server-2:
+    image: ghcr.io/xe138/ai-trader-server:latest
     ports:
       - "8082:8080"
     volumes:

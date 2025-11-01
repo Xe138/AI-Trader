@@ -7,8 +7,8 @@ Production Docker deployment guide.
 ## Quick Deployment
 
 ```bash
-git clone https://github.com/Xe138/AI-Trader.git
-cd AI-Trader
+git clone https://github.com/Xe138/AI-Trader-Server.git
+cd AI-Trader-Server
 cp .env.example .env
 # Edit .env with API keys
 docker-compose up -d
@@ -23,8 +23,8 @@ docker-compose up -d
 ```yaml
 # docker-compose.yml
 services:
-  ai-trader:
-    image: ghcr.io/xe138/ai-trader:latest
+  ai-trader-server:
+    image: ghcr.io/xe138/ai-trader-server:latest
     # ... rest of config
 ```
 
@@ -33,7 +33,7 @@ services:
 ```yaml
 # docker-compose.yml
 services:
-  ai-trader:
+  ai-trader-server:
     build: .
     # ... rest of config
 ```
@@ -84,10 +84,10 @@ healthcheck:
 docker ps
 
 # Resource usage
-docker stats ai-trader
+docker stats ai-trader-server
 
 # Logs
-docker logs -f ai-trader
+docker logs -f ai-trader-server
 ```
 
 ---
