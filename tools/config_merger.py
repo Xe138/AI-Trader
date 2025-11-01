@@ -145,3 +145,84 @@ def validate_config(config: Dict[str, Any]) -> None:
                 raise ConfigValidationError(
                     f"init_date must be <= end_date (got {date_range['init_date']} > {date_range['end_date']})"
                 )
+
+
+# File path constants (can be overridden for testing)
+DEFAULT_CONFIG_PATH = "configs/default_config.json"
+CUSTOM_CONFIG_PATH = "user-configs/config.json"
+OUTPUT_CONFIG_PATH = "/tmp/runtime_config.json"
+
+
+def format_error_message(error: str, location: str, file: str) -> str:
+    """Format validation error for display."""
+    border = "━" * 60
+    return f"""
+❌ CONFIG VALIDATION FAILED
+{border}
+
+Error: {error}
+Location: {location}
+File: {file}
+
+Merged config written to: {OUTPUT_CONFIG_PATH} (for debugging)
+
+Container will exit. Fix config and restart.
+"""
+
+
+def merge_and_validate() -> None:
+    """
+    Main entry point for config merging and validation.
+
+    Loads default config, optionally merges custom config,
+    validates the result, and writes to output path.
+
+    Exits with code 1 on any error.
+    """
+    try:
+        # Load default config
+        print(f"📄 Loading default config from {DEFAULT_CONFIG_PATH}")
+        default_config = load_config(DEFAULT_CONFIG_PATH)
+
+        # Load custom config if exists
+        custom_config = {}
+        if Path(CUSTOM_CONFIG_PATH).exists():
+            print(f"📝 Loading custom config from {CUSTOM_CONFIG_PATH}")
+            custom_config = load_config(CUSTOM_CONFIG_PATH)
+        else:
+            print(f"ℹ️  No custom config found at {CUSTOM_CONFIG_PATH}, using defaults")
+
+        # Merge configs
+        print("🔧 Merging configurations...")
+        merged_config = merge_configs(default_config, custom_config)
+
+        # Write merged config (for debugging even if validation fails)
+        output_path = Path(OUTPUT_CONFIG_PATH)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(output_path, 'w') as f:
+            json.dump(merged_config, f, indent=2)
+
+        # Validate merged config
+        print("✅ Validating merged configuration...")
+        validate_config(merged_config)
+
+        print(f"✅ Configuration validated successfully")
+        print(f"📦 Merged config written to {OUTPUT_CONFIG_PATH}")
+
+    except ConfigValidationError as e:
+        # Determine which file caused the error
+        error_file = CUSTOM_CONFIG_PATH if Path(CUSTOM_CONFIG_PATH).exists() else DEFAULT_CONFIG_PATH
+
+        error_msg = format_error_message(
+            error=str(e),
+            location="Root level",
+            file=error_file
+        )
+
+        print(error_msg, file=sys.stderr)
+        sys.exit(1)
+
+    except Exception as e:
+        print(f"❌ Unexpected error during config processing: {e}", file=sys.stderr)
+        sys.exit(1)

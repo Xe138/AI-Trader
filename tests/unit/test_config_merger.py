@@ -174,3 +174,120 @@ def test_validate_config_end_before_init():
 
     with pytest.raises(ConfigValidationError, match="init_date must be <= end_date"):
         validate_config(config)
+
+
+import os
+from tools.config_merger import merge_and_validate
+
+
+def test_merge_and_validate_success(tmp_path, monkeypatch):
+    """Test successful merge and validation"""
+    # Create default config
+    default_config = {
+        "agent_type": "BaseAgent",
+        "models": [{"name": "default", "basemodel": "openai/gpt-4", "signature": "default", "enabled": True}],
+        "agent_config": {"max_steps": 30, "max_retries": 3, "initial_cash": 10000.0},
+        "log_config": {"log_path": "./data"}
+    }
+
+    default_path = tmp_path / "default_config.json"
+    with open(default_path, 'w') as f:
+        json.dump(default_config, f)
+
+    # Create custom config (only overrides models)
+    custom_config = {
+        "models": [{"name": "custom", "basemodel": "openai/gpt-5", "signature": "custom", "enabled": True}]
+    }
+
+    custom_path = tmp_path / "config.json"
+    with open(custom_path, 'w') as f:
+        json.dump(custom_config, f)
+
+    output_path = tmp_path / "runtime_config.json"
+
+    # Mock file paths
+    monkeypatch.setattr("tools.config_merger.DEFAULT_CONFIG_PATH", str(default_path))
+    monkeypatch.setattr("tools.config_merger.CUSTOM_CONFIG_PATH", str(custom_path))
+    monkeypatch.setattr("tools.config_merger.OUTPUT_CONFIG_PATH", str(output_path))
+
+    # Run merge and validate
+    merge_and_validate()
+
+    # Verify output file was created
+    assert output_path.exists()
+
+    # Verify merged content
+    with open(output_path, 'r') as f:
+        result = json.load(f)
+
+    assert result["models"] == [{"name": "custom", "basemodel": "openai/gpt-5", "signature": "custom", "enabled": True}]
+    assert result["agent_config"] == {"max_steps": 30, "max_retries": 3, "initial_cash": 10000.0}
+
+
+def test_merge_and_validate_no_custom_config(tmp_path, monkeypatch):
+    """Test when no custom config exists (uses default only)"""
+    default_config = {
+        "agent_type": "BaseAgent",
+        "models": [{"name": "default", "basemodel": "openai/gpt-4", "signature": "default", "enabled": True}],
+        "agent_config": {"max_steps": 30, "max_retries": 3, "initial_cash": 10000.0},
+        "log_config": {"log_path": "./data"}
+    }
+
+    default_path = tmp_path / "default_config.json"
+    with open(default_path, 'w') as f:
+        json.dump(default_config, f)
+
+    custom_path = tmp_path / "config.json"  # Does not exist
+    output_path = tmp_path / "runtime_config.json"
+
+    monkeypatch.setattr("tools.config_merger.DEFAULT_CONFIG_PATH", str(default_path))
+    monkeypatch.setattr("tools.config_merger.CUSTOM_CONFIG_PATH", str(custom_path))
+    monkeypatch.setattr("tools.config_merger.OUTPUT_CONFIG_PATH", str(output_path))
+
+    merge_and_validate()
+
+    # Verify output matches default
+    with open(output_path, 'r') as f:
+        result = json.load(f)
+
+    assert result == default_config
+
+
+def test_merge_and_validate_validation_fails(tmp_path, monkeypatch, capsys):
+    """Test validation failure exits with error"""
+    default_config = {
+        "agent_type": "BaseAgent",
+        "models": [{"name": "default", "basemodel": "openai/gpt-4", "signature": "default", "enabled": True}],
+        "agent_config": {"max_steps": 30, "max_retries": 3, "initial_cash": 10000.0},
+        "log_config": {"log_path": "./data"}
+    }
+
+    default_path = tmp_path / "default_config.json"
+    with open(default_path, 'w') as f:
+        json.dump(default_config, f)
+
+    # Custom config with no enabled models
+    custom_config = {
+        "models": [{"name": "custom", "basemodel": "openai/gpt-5", "signature": "custom", "enabled": False}]
+    }
+
+    custom_path = tmp_path / "config.json"
+    with open(custom_path, 'w') as f:
+        json.dump(custom_config, f)
+
+    output_path = tmp_path / "runtime_config.json"
+
+    monkeypatch.setattr("tools.config_merger.DEFAULT_CONFIG_PATH", str(default_path))
+    monkeypatch.setattr("tools.config_merger.CUSTOM_CONFIG_PATH", str(custom_path))
+    monkeypatch.setattr("tools.config_merger.OUTPUT_CONFIG_PATH", str(output_path))
+
+    # Should exit with error
+    with pytest.raises(SystemExit) as exc_info:
+        merge_and_validate()
+
+    assert exc_info.value.code == 1
+
+    # Check error output (should be in stderr, not stdout)
+    captured = capsys.readouterr()
+    assert "CONFIG VALIDATION FAILED" in captured.err
+    assert "At least one model must be enabled" in captured.err
