@@ -9,6 +9,12 @@ load_dotenv()
 # Import tools and prompts
 from tools.general_tools import get_config_value, write_config_value
 from prompts.agent_prompt import all_nasdaq_100_symbols
+from tools.deployment_config import (
+    is_dev_mode,
+    get_deployment_mode,
+    log_api_key_warning
+)
+from api.database import initialize_dev_database
 
 
 # Agent class mapping table - for dynamic import and instantiation
@@ -99,7 +105,18 @@ async def main(config_path=None):
     """
     # Load configuration file
     config = load_config(config_path)
-    
+
+    # Initialize dev environment if needed
+    if is_dev_mode():
+        print("=" * 60)
+        print("🛠️  DEVELOPMENT MODE ACTIVE")
+        print("=" * 60)
+        log_api_key_warning()
+
+        # Initialize dev database (reset unless PRESERVE_DEV_DATA=true)
+        initialize_dev_database("data/jobs.db")
+        print("=" * 60)
+
     # Get Agent type
     agent_type = config.get("agent_type", "BaseAgent")
     try:
