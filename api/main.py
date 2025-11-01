@@ -23,7 +23,7 @@ from api.simulation_worker import SimulationWorker
 from api.database import get_db_connection
 from api.price_data_manager import PriceDataManager
 from api.date_utils import validate_date_range, expand_date_range, get_max_simulation_days
-from tools.deployment_config import get_deployment_mode_dict
+from tools.deployment_config import get_deployment_mode_dict, log_dev_mode_startup_warning
 import threading
 import time
 
@@ -506,4 +506,8 @@ app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
+
+    # Display DEV mode warning if applicable
+    log_dev_mode_startup_warning()
+
     uvicorn.run(app, host="0.0.0.0", port=8080)

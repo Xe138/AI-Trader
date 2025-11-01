@@ -119,6 +119,43 @@ def log_api_key_warning() -> None:
         print("   This is expected if you're testing dev mode with existing .env file")
 
 
+def log_dev_mode_startup_warning() -> None:
+    """
+    Display prominent warning when server starts in DEV mode
+
+    Warns users that:
+    - AI calls will be simulated/mocked
+    - Data may not be retained between runs
+    - This is a development environment
+    """
+    if not is_dev_mode():
+        return
+
+    preserve_data = should_preserve_dev_data()
+
+    print()
+    print("=" * 70)
+    print("⚠️  " + "DEVELOPMENT MODE WARNING".center(64) + "  ⚠️")
+    print("=" * 70)
+    print()
+    print("  🚧 This server is running in DEVELOPMENT mode (DEPLOYMENT_MODE=DEV)")
+    print()
+    print("  📌 IMPORTANT:")
+    print("     • AI API calls will be SIMULATED (mock responses)")
+    print("     • No real AI model costs will be incurred")
+    if preserve_data:
+        print("     • Dev data WILL BE PRESERVED between runs (PRESERVE_DEV_DATA=true)")
+    else:
+        print("     • Dev data WILL BE RESET on each startup (PRESERVE_DEV_DATA=false)")
+    print("     • Using isolated dev database and data paths")
+    print()
+    print("  💡 To use PRODUCTION mode:")
+    print("     Set environment variable: DEPLOYMENT_MODE=PROD")
+    print()
+    print("=" * 70)
+    print()
+
+
 def get_deployment_mode_dict() -> dict:
     """
     Get deployment mode information as dictionary (for API responses)

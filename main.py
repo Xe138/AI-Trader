@@ -12,7 +12,8 @@ from prompts.agent_prompt import all_nasdaq_100_symbols
 from tools.deployment_config import (
     is_dev_mode,
     get_deployment_mode,
-    log_api_key_warning
+    log_api_key_warning,
+    log_dev_mode_startup_warning
 )
 from api.database import initialize_dev_database
 
@@ -108,16 +109,13 @@ async def main(config_path=None):
 
     # Initialize dev environment if needed
     if is_dev_mode():
-        print("=" * 60)
-        print("🛠️  DEVELOPMENT MODE ACTIVE")
-        print("=" * 60)
+        log_dev_mode_startup_warning()
         log_api_key_warning()
 
         # Initialize dev database (reset unless PRESERVE_DEV_DATA=true)
         from tools.deployment_config import get_db_path
         dev_db_path = get_db_path("data/jobs.db")
         initialize_dev_database(dev_db_path)
-        print("=" * 60)
 
     # Get Agent type
     agent_type = config.get("agent_type", "BaseAgent")
