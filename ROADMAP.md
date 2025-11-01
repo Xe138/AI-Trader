@@ -132,7 +132,7 @@ curl -X POST http://localhost:5000/simulate/to-date \
 
 #### Security & Best Practices
 - **Security Hardening** - Production security review
-  - API authentication/authorization review (if applicable)
+  - **⚠️ SECURITY WARNING:** v1.0.0 does not include API authentication. The server should only be deployed in trusted environments (local development, private networks). Documentation must clearly warn users that the API is insecure and accessible to anyone with network access. API authentication is planned for v1.1.0.
   - API key management best practices documentation
   - Input validation and sanitization review
   - SQL injection prevention validation
@@ -167,7 +167,100 @@ All of the following must be met before v1.0.0 release:
 - [ ] At least 2 weeks of community testing (beta period)
 - [ ] Zero known data integrity issues
 
-### v1.1.0 - Position History & Analytics (Planned)
+### v1.1.0 - API Authentication & Security (Planned)
+
+**Focus:** Secure the API with authentication and authorization
+
+#### Authentication System
+- **API Key Authentication** - Token-based access control
+  - API key generation and management:
+    - `POST /auth/keys` - Generate new API key (admin only)
+    - `GET /auth/keys` - List API keys with metadata (admin only)
+    - `DELETE /auth/keys/{key_id}` - Revoke API key (admin only)
+  - Key features:
+    - Cryptographically secure random key generation
+    - Hashed storage (never store plaintext keys)
+    - Key expiration dates (optional)
+    - Key scoping (read-only vs. full access)
+    - Usage tracking per key
+  - Authentication header: `Authorization: Bearer <api_key>`
+  - Backward compatibility: Optional authentication mode for migration
+
+#### Authorization & Permissions
+- **Role-Based Access Control** - Different permission levels
+  - Permission levels:
+    - **Admin** - Full access (create/delete keys, all operations)
+    - **Read-Write** - Start simulations, modify data
+    - **Read-Only** - View results and status only
+  - Per-endpoint authorization checks
+  - API key metadata includes role/permissions
+  - Admin bootstrap process (initial setup)
+
+#### Security Features
+- **Enhanced Security Measures** - Defense in depth
+  - Rate limiting per API key:
+    - Configurable requests per minute/hour
+    - Different limits per permission level
+    - 429 Too Many Requests responses
+  - Request logging and audit trail:
+    - Log all API requests with key ID
+    - Track failed authentication attempts
+    - Alert on suspicious patterns
+  - CORS configuration:
+    - Configurable allowed origins
+    - Secure defaults for production
+  - HTTPS enforcement options:
+    - Redirect HTTP to HTTPS
+    - HSTS headers
+  - API key rotation:
+    - Support for multiple active keys
+    - Graceful key migration
+
+#### Configuration
+- **Security Settings** - Environment-based configuration
+  - Environment variables:
+    - `AUTH_ENABLED` - Enable/disable authentication (default: false for v1.0.0 compatibility)
+    - `ADMIN_API_KEY` - Bootstrap admin key (first-time setup)
+    - `KEY_EXPIRATION_DAYS` - Default key expiration
+    - `RATE_LIMIT_PER_MINUTE` - Default rate limit
+    - `REQUIRE_HTTPS` - Force HTTPS in production
+  - Migration path:
+    - v1.0 users can upgrade with `AUTH_ENABLED=false`
+    - Enable authentication when ready
+    - Clear migration documentation
+
+#### Documentation Updates
+- **Security Documentation** - Comprehensive security guidance
+  - Authentication setup guide:
+    - Initial admin key setup
+    - Creating API keys for clients
+    - Key rotation procedures
+  - Security best practices:
+    - Network security considerations
+    - HTTPS deployment requirements
+    - Firewall rules recommendations
+  - API documentation updates:
+    - Authentication examples for all endpoints
+    - Error responses (401, 403, 429)
+    - Rate limit headers documentation
+
+#### Benefits
+- **Secure Public Deployment** - Safe to expose over internet
+- **Multi-User Support** - Different users/applications with separate keys
+- **Usage Tracking** - Monitor API usage per key
+- **Compliance** - Meet security requirements for production deployments
+- **Accountability** - Audit trail of who did what
+
+#### Technical Implementation
+- Authentication middleware for Flask
+- Database schema for API keys:
+  - `api_keys` table (id, key_hash, name, role, created_at, expires_at, last_used)
+  - `api_requests` table (id, key_id, endpoint, timestamp, status_code)
+- Secure key generation using `secrets` module
+- Password hashing with bcrypt/argon2
+- JWT tokens as alternative to static API keys (future consideration)
+
+### v1.2.0 - Position History & Analytics (Planned)
 
 **Focus:** Track and analyze trading behavior over time
 
@@ -207,7 +300,7 @@ All of the following must be met before v1.0.0 release:
 - Debug unexpected trading decisions
 - Compare trading styles across models
 
-### v1.2.0 - Performance Metrics & Analytics (Planned)
+### v1.3.0 - Performance Metrics & Analytics (Planned)
 
 **Focus:** Calculate standard financial performance metrics
 
@@ -264,7 +357,7 @@ All of the following must be met before v1.0.0 release:
 - Compare effectiveness of different AI models
 - Detect performance changes over time
 
-### v1.3.0 - Data Management API (Planned)
+### v1.4.0 - Data Management API (Planned)
 
 **Focus:** Price data operations and coverage management
 
@@ -318,7 +411,7 @@ All of the following must be met before v1.0.0 release:
 - Ability to fill gaps in historical data
 - Prevent simulations with incomplete data
 
-### v1.4.0 - Web Dashboard UI (Planned)
+### v1.5.0 - Web Dashboard UI (Planned)
 
 **Focus:** Browser-based interface for monitoring and control
 
@@ -391,7 +484,7 @@ All of the following must be met before v1.0.0 release:
 - Easy model comparison through charts
 - Quick access to results without API queries
 
-### v1.5.0 - Advanced Configuration & Customization (Planned)
+### v1.6.0 - Advanced Configuration & Customization (Planned)
 
 **Focus:** Enhanced configuration options and extensibility
 
@@ -526,11 +619,12 @@ To propose a new feature:
 - **v0.3.0** - REST API, on-demand downloads, database storage (current)
 - **v0.4.0** - Simplified simulation control (planned)
 - **v1.0.0** - Production stability & validation (planned)
-- **v1.1.0** - Position history & analytics (planned)
-- **v1.2.0** - Performance metrics & analytics (planned)
-- **v1.3.0** - Data management API (planned)
-- **v1.4.0** - Web dashboard UI (planned)
-- **v1.5.0** - Advanced configuration & customization (planned)
+- **v1.1.0** - API authentication & security (planned)
+- **v1.2.0** - Position history & analytics (planned)
+- **v1.3.0** - Performance metrics & analytics (planned)
+- **v1.4.0** - Data management API (planned)
+- **v1.5.0** - Web dashboard UI (planned)
+- **v1.6.0** - Advanced configuration & customization (planned)
 - **v2.0.0** - Advanced quantitative modeling (planned)
 
 ---
