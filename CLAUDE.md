@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI-Trader is an autonomous AI trading competition platform where multiple AI models compete in NASDAQ 100 trading with zero human intervention. Each AI starts with $10,000 and uses standardized MCP (Model Context Protocol) tools to make fully autonomous trading decisions.
+AI-Trader-Server is a REST API service for autonomous AI trading competitions where multiple AI models compete in NASDAQ 100 trading with zero human intervention. Each AI starts with $10,000 and uses standardized MCP (Model Context Protocol) tools to make fully autonomous trading decisions.
 
 **Key Innovation:** Historical replay architecture with anti-look-ahead controls ensures AI agents can only access data from the current simulation date and earlier.
 
@@ -56,7 +56,7 @@ docker-compose up
 docker-compose up -d
 
 # Run with custom config
-docker-compose run ai-trader configs/my_config.json
+docker-compose run ai-trader-server configs/my_config.json
 
 # View logs
 docker-compose logs -f
@@ -65,11 +65,11 @@ docker-compose logs -f
 docker-compose down
 
 # Pull pre-built image
-docker pull ghcr.io/hkuds/ai-trader:latest
+docker pull ghcr.io/xe138/ai-trader-server:latest
 
 # Test local Docker build
-docker build -t ai-trader-test .
-docker run --env-file .env -v $(pwd)/data:/app/data ai-trader-test
+docker build -t ai-trader-server-test .
+docker run --env-file .env -v $(pwd)/data:/app/data ai-trader-server-test
 ```
 
 ### Releasing Docker Images
@@ -82,10 +82,10 @@ git push origin v1.0.0
 # GitHub Actions automatically:
 # 1. Builds Docker image
 # 2. Tags with version and latest
-# 3. Pushes to ghcr.io/hkuds/ai-trader
+# 3. Pushes to ghcr.io/xe138/ai-trader-server
 
 # Verify build in Actions tab
-# https://github.com/HKUDS/AI-Trader/actions
+# https://github.com/Xe138/AI-Trader-Server/actions
 ```
 
 ### Running Trading Simulations
