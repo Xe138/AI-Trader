@@ -1,0 +1,24 @@
+{
+  "agent_type": "BaseAgent",
+  "date_range": {
+    "init_date": "2025-01-01",
+    "end_date": "2025-01-02"
+  },
+  "models": [
+    {
+      "name": "test-dev-model",
+      "basemodel": "mock/test-trader",
+      "signature": "test-dev-agent",
+      "enabled": true
+    }
+  ],
+  "agent_config": {
+    "max_steps": 5,
+    "max_retries": 1,
+    "base_delay": 0.5,
+    "initial_cash": 10000.0
+  },
+  "log_config": {
+    "log_path": "./data/agent_data"
+  }
+}
