@@ -66,6 +66,7 @@ configs/test_day_config.json
 # Data directories (optional - uncomment if needed)
 data/agent_data/test*/
 data/agent_data/*test*/
+data/dev_agent_data/
 data/merged_daily.jsonl
 data/merged_hour.jsonl
 
@@ -86,3 +87,5 @@ dmypy.json
 .worktrees/
 
 data/jobs.db
+data/jobs_dev.db
+data/*_dev.db
