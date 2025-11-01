@@ -17,8 +17,8 @@ Local development without Docker.
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/Xe138/AI-Trader.git
-cd AI-Trader
+git clone https://github.com/Xe138/AI-Trader-Server.git
+cd AI-Trader-Server
 ```
 
 ### 2. Create Virtual Environment

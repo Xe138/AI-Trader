@@ -31,30 +31,30 @@ Tag push automatically triggers `.github/workflows/docker-release.yml`:
 3. ✅ Logs into GitHub Container Registry
 4. ✅ Extracts version from tag
 5. ✅ Builds Docker image with caching
-6. ✅ Pushes to `ghcr.io/hkuds/ai-trader:VERSION`
-7. ✅ Pushes to `ghcr.io/hkuds/ai-trader:latest`
+6. ✅ Pushes to `ghcr.io/xe138/ai-trader-server:VERSION`
+7. ✅ Pushes to `ghcr.io/xe138/ai-trader-server:latest`
 
 ### 4. Verify Build
 
-1. Check GitHub Actions: https://github.com/Xe138/AI-Trader/actions
+1. Check GitHub Actions: https://github.com/Xe138/AI-Trader-Server/actions
 2. Verify workflow completed successfully (green checkmark)
-3. Check packages: https://github.com/Xe138/AI-Trader/pkgs/container/ai-trader
+3. Check packages: https://github.com/Xe138/AI-Trader-Server/pkgs/container/ai-trader-server
 
 ### 5. Test Release
 
 ```bash
 # Pull released image
-docker pull ghcr.io/hkuds/ai-trader:v1.0.0
+docker pull ghcr.io/xe138/ai-trader-server:v1.0.0
 
 # Test run
 docker run --env-file .env \
   -v $(pwd)/data:/app/data \
-  ghcr.io/hkuds/ai-trader:v1.0.0
+  ghcr.io/xe138/ai-trader-server:v1.0.0
 ```
 
 ### 6. Create GitHub Release (Optional)
 
-1. Go to https://github.com/Xe138/AI-Trader/releases/new
+1. Go to https://github.com/Xe138/AI-Trader-Server/releases/new
 2. Select tag: `v1.0.0`
 3. Release title: `v1.0.0 - Docker Deployment Support`
 4. Add release notes:
@@ -67,8 +67,8 @@ This release adds full Docker support for easy deployment.
 ### Pull and Run
 
 ```bash
-docker pull ghcr.io/hkuds/ai-trader:v1.0.0
-docker run --env-file .env -v $(pwd)/data:/app/data ghcr.io/hkuds/ai-trader:v1.0.0
+docker pull ghcr.io/xe138/ai-trader-server:v1.0.0
+docker run --env-file .env -v $(pwd)/data:/app/data ghcr.io/xe138/ai-trader-server:v1.0.0
 ```
 
 Or use Docker Compose:
@@ -137,13 +137,13 @@ If automated build fails, manual push:
 
 ```bash
 # Build locally
-docker build -t ghcr.io/hkuds/ai-trader:v1.0.0 .
+docker build -t ghcr.io/xe138/ai-trader-server:v1.0.0 .
 
 # Login to GHCR
 echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
 
 # Push
-docker push ghcr.io/hkuds/ai-trader:v1.0.0
-docker tag ghcr.io/hkuds/ai-trader:v1.0.0 ghcr.io/hkuds/ai-trader:latest
-docker push ghcr.io/hkuds/ai-trader:latest
+docker push ghcr.io/xe138/ai-trader-server:v1.0.0
+docker tag ghcr.io/xe138/ai-trader-server:v1.0.0 ghcr.io/xe138/ai-trader-server:latest
+docker push ghcr.io/xe138/ai-trader-server:latest
 ```

@@ -1,4 +1,4 @@
-# Contributing to AI-Trader
+# Contributing to AI-Trader-Server
 
 Guidelines for contributing to the project.
 

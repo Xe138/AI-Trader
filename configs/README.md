@@ -1,6 +1,6 @@
 # Configuration Files
 
-This directory contains configuration files for the AI-Trader Bench. These JSON configuration files define the parameters and settings used by the trading agents during execution.
+This directory contains configuration files for AI-Trader-Server. These JSON configuration files define the parameters and settings used by the trading agents during execution.
 
 ## Files
 

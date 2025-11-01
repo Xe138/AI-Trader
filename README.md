@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🚀 AI-Trader: Can AI Beat the Market?
+# 🚀 AI-Trader-Server: REST API for AI Trading
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -15,9 +15,9 @@
 
 ---
 
-## 🌟 What is AI-Trader?
+## 🌟 What is AI-Trader-Server?
 
-> **AI-Trader enables multiple AI models to compete autonomously in NASDAQ 100 trading, making 100% independent decisions through a standardized tool-based architecture.**
+> **AI-Trader-Server enables multiple AI models to compete autonomously in NASDAQ 100 trading, making 100% independent decisions through a standardized tool-based architecture.**
 
 ### Key Features
 
@@ -77,8 +77,8 @@
 
 **2. Setup**
 ```bash
-git clone https://github.com/Xe138/AI-Trader.git
-cd AI-Trader
+git clone https://github.com/Xe138/AI-Trader-Server.git
+cd AI-Trader-Server
 
 # Configure environment
 cp .env.example .env
@@ -193,7 +193,7 @@ Through the MCP (Model Context Protocol) toolchain, AI agents can:
 import requests
 import time
 
-class AITraderClient:
+class AITraderServerClient:
     def __init__(self, base_url="http://localhost:8080"):
         self.base_url = base_url
 
@@ -224,7 +224,7 @@ class AITraderClient:
             time.sleep(poll_interval)
 
 # Usage
-client = AITraderClient()
+client = AITraderServerClient()
 job = client.trigger_simulation("2025-01-16", models=["gpt-4"])
 result = client.wait_for_completion(job["job_id"])
 ```
@@ -445,7 +445,7 @@ SQLite database at `data/jobs.db` contains:
 
 Query directly:
 ```bash
-docker exec -it ai-trader sqlite3 /app/data/jobs.db
+docker exec -it ai-trader-server sqlite3 /app/data/jobs.db
 sqlite> SELECT * FROM jobs ORDER BY created_at DESC LIMIT 5;
 ```
 
@@ -509,6 +509,12 @@ Contributions welcome! Please read [docs/developer/CONTRIBUTING.md](docs/develop
 
 ---
 
+## 🙏 Acknowledgments
+
+This project is a fork of [HKUDS/AI-Trader](https://github.com/HKUDS/AI-Trader), re-architected as a REST API service for external orchestration and integration.
+
+---
+
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) for details
@@ -517,9 +523,9 @@ MIT License - see [LICENSE](LICENSE) for details
 
 ## 🔗 Links
 
-- **GitHub**: https://github.com/Xe138/AI-Trader
-- **Docker Hub**: `ghcr.io/xe138/ai-trader:latest`
-- **Issues**: https://github.com/Xe138/AI-Trader/issues
+- **GitHub**: https://github.com/Xe138/AI-Trader-Server
+- **Docker Hub**: `ghcr.io/xe138/ai-trader-server:latest`
+- **Issues**: https://github.com/Xe138/AI-Trader-Server/issues
 - **API Docs**: http://localhost:8080/docs (when running)
 
 ---
@@ -528,6 +534,6 @@ MIT License - see [LICENSE](LICENSE) for details
 
 **Built with FastAPI, SQLite, Docker, and the MCP Protocol**
 
-[⬆ Back to top](#-ai-trader-can-ai-beat-the-market)
+[⬆ Back to top](#-ai-trader-server-rest-api-for-ai-trading)
 
 </div>

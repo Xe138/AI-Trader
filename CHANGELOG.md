@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the AI-Trader project will be documented in this file.
+All notable changes to the AI-Trader-Server project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -61,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 8 existing integration tests
 - **Docker Deployment** - Persistent REST API service
   - API-only deployment (batch mode removed for simplicity)
-  - Single docker-compose service (ai-trader)
+  - Single docker-compose service (ai-trader-server)
   - Health check configuration (30s interval, 3 retries)
   - Volume persistence for SQLite database and logs
   - Configurable API_PORT for flexible deployment
@@ -95,7 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Only API port (8080) is exposed to host
   - Reduces configuration complexity and attack surface
 - **Requirements** - Added fastapi>=0.120.0, uvicorn[standard]>=0.27.0, pydantic>=2.0.0
-- **Docker Compose** - Single service (ai-trader) instead of dual-mode
+- **Docker Compose** - Single service (ai-trader-server) instead of dual-mode
 - **Dockerfile** - Added system dependencies (curl, procps) and port 8080 exposure
 - **.env.example** - Simplified configuration with only essential variables
 - **Entrypoint** - Unified entrypoint.sh with proper signal handling (exec uvicorn)
@@ -162,7 +162,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Environment variable configuration via docker-compose
 - Sequential startup script (entrypoint.sh) for data fetch, MCP services, and trading agent
 - Volume mounts for data and logs persistence
-- Pre-built image support from ghcr.io/xe138/ai-trader
+- Pre-built image support from ghcr.io/xe138/ai-trader-server
 - Configurable volume path for persistent data
 - Configurable web interface host port
 - Automated merged.jsonl creation during price fetching
@@ -172,7 +172,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated .env.example with Docker-specific configuration, API key URLs, and paths
 - Updated .gitignore to exclude git worktrees directory
 - Removed deprecated version tag from docker-compose.yml
-- Updated repository URLs to Xe138/AI-Trader fork
+- Updated repository URLs to Xe138/AI-Trader-Server fork
 - Docker Compose now uses pre-built image by default
 - Simplified Docker config file selection with convention over configuration
 - Fixed internal ports with configurable host ports
@@ -251,7 +251,7 @@ For future releases, use this template:
 
 ---
 
-[Unreleased]: https://github.com/Xe138/AI-Trader/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/Xe138/AI-Trader/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/Xe138/AI-Trader/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/Xe138/AI-Trader/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Xe138/AI-Trader-Server/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Xe138/AI-Trader-Server/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/Xe138/AI-Trader-Server/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/Xe138/AI-Trader-Server/releases/tag/v0.1.0

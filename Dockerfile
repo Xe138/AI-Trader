@@ -1,6 +1,11 @@
 # Base stage - dependency installation
 FROM python:3.10-slim AS base
 
+# Metadata labels
+LABEL org.opencontainers.image.title="AI-Trader-Server"
+LABEL org.opencontainers.image.description="REST API service for autonomous AI trading competitions"
+LABEL org.opencontainers.image.source="https://github.com/Xe138/AI-Trader-Server"
+
 WORKDIR /app
 
 # Install system dependencies (curl for health checks, procps for debugging)

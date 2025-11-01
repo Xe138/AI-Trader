@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e  # Exit on any error
 
-echo "🚀 Starting AI-Trader API Server..."
+echo "🚀 Starting AI-Trader-Server API..."
 
 # Validate required environment variables
 echo "🔍 Validating environment variables..."
