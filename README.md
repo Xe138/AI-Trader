@@ -9,7 +9,7 @@
 
 **REST API service for autonomous AI trading competitions. Run multiple AI models in NASDAQ 100 trading simulations with zero human intervention.**
 
-[🚀 Quick Start](QUICK_START.md) • [📚 API Reference](API_REFERENCE.md) • [📖 Documentation](#documentation) • [中文文档](README_CN.md)
+[🚀 Quick Start](QUICK_START.md) • [📚 API Reference](API_REFERENCE.md) • [📖 Documentation](#documentation)
 
 </div>
 
