@@ -34,3 +34,25 @@ def load_config(path: str) -> Dict[str, Any]:
             return json.load(f)
     except json.JSONDecodeError as e:
         raise ConfigValidationError(f"Invalid JSON in {path}: {e}")
+
+
+def merge_configs(default: Dict[str, Any], custom: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Merge custom config into default config (root-level override).
+
+    Custom config sections completely replace default sections.
+    Does not mutate input dictionaries.
+
+    Args:
+        default: Default configuration dict
+        custom: Custom configuration dict (overrides)
+
+    Returns:
+        Merged configuration dict
+    """
+    merged = dict(default)  # Shallow copy
+
+    for key, value in custom.items():
+        merged[key] = value
+
+    return merged
