@@ -50,7 +50,7 @@ def test_dev_mode_full_simulation(dev_mode_env, tmp_path):
     - BaseAgent can initialize with mock model
     - Mock model is used instead of real AI
     - Trading session executes successfully
-    - Logs are created correctly
+    - Conversation history is captured correctly
     - Mock responses contain expected content (AAPL on day 1)
 
     NOTE: This test requires the full agent stack including MCP adapters.
@@ -108,17 +108,13 @@ def test_dev_mode_full_simulation(dev_mode_env, tmp_path):
         # Run single day
         asyncio.run(agent.run_trading_session("2025-01-01"))
 
-        # Verify logs were created
-        log_path = Path(agent.base_log_path) / agent.signature / "log" / "2025-01-01" / "log.jsonl"
-        assert log_path.exists()
+        # Verify conversation history was captured (JSONL logging removed)
+        conversation = agent.get_conversation_history()
+        assert len(conversation) > 0
 
-        # Verify log content
-        with open(log_path, "r") as f:
-            logs = [json.loads(line) for line in f]
-
-        assert len(logs) > 0
         # Day 1 should mention AAPL (first stock in rotation)
-        assert any("AAPL" in str(log) for log in logs)
+        conversation_str = json.dumps(conversation)
+        assert "AAPL" in conversation_str
     except Exception as e:
         pytest.skip(f"Test requires MCP services running: {e}")
 

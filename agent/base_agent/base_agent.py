@@ -78,13 +78,13 @@ class BaseAgent:
     ):
         """
         Initialize BaseAgent
-        
+
         Args:
             signature: Agent signature/name
             basemodel: Base model name
             stock_symbols: List of stock symbols, defaults to NASDAQ 100
             mcp_config: MCP tool configuration, including port and URL information
-            log_path: Log path, defaults to ./data/agent_data
+            log_path: Data path for position files (JSONL logging removed, kept for backward compatibility)
             max_steps: Maximum reasoning steps
             max_retries: Maximum retry attempts
             base_delay: Base delay time for retries
@@ -101,11 +101,12 @@ class BaseAgent:
         self.base_delay = base_delay
         self.initial_cash = initial_cash
         self.init_date = init_date
-        
+
         # Set MCP configuration
         self.mcp_config = mcp_config or self._get_default_mcp_config()
 
-        # Set log path (apply deployment mode path resolution)
+        # Set data path (apply deployment mode path resolution)
+        # Note: Used for position files only; JSONL logging has been removed
         self.base_log_path = get_data_path(log_path or "./data/agent_data")
         
         # Set OpenAI configuration
@@ -311,23 +312,6 @@ Summary:"""
 
         return loop.run_until_complete(self.generate_summary(content, max_length))
 
-    def _setup_logging(self, today_date: str) -> str:
-        """Set up log file path"""
-        log_path = os.path.join(self.base_log_path, self.signature, 'log', today_date)
-        if not os.path.exists(log_path):
-            os.makedirs(log_path)
-        return os.path.join(log_path, "log.jsonl")
-    
-    def _log_message(self, log_file: str, new_messages: List[Dict[str, str]]) -> None:
-        """Log messages to log file"""
-        log_entry = {
-            "timestamp": datetime.now().isoformat(),
-            "signature": self.signature,
-            "new_messages": new_messages
-        }
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
-    
     async def _ainvoke_with_retry(self, message: List[Dict[str, str]]) -> Any:
         """Agent invocation with retry"""
         for attempt in range(1, self.max_retries + 1):
@@ -359,9 +343,6 @@ Summary:"""
         if is_dev_mode():
             self.model.date = today_date
 
-        # Set up logging
-        log_file = self._setup_logging(today_date)
-
         # Get system prompt
         system_prompt = get_agent_system_prompt(today_date, self.signature)
 
@@ -380,15 +361,12 @@ Summary:"""
         user_query = [{"role": "user", "content": user_prompt}]
         message = user_query.copy()
 
-        # Log initial message
-        self._log_message(log_file, user_query)
-        
         # Trading loop
         current_step = 0
         while current_step < self.max_steps:
             current_step += 1
             print(f"🔄 Step {current_step}/{self.max_steps}")
-            
+
             try:
                 # Call agent
                 response = await self._ainvoke_with_retry(message)
@@ -403,31 +381,26 @@ Summary:"""
                 if STOP_SIGNAL in agent_response:
                     print("✅ Received stop signal, trading session ended")
                     print(agent_response)
-                    self._log_message(log_file, [{"role": "assistant", "content": agent_response}])
                     break
-                
+
                 # Extract tool messages
                 tool_msgs = extract_tool_messages(response)
                 tool_response = '\n'.join([msg.content for msg in tool_msgs])
-                
+
                 # Prepare new messages
                 new_messages = [
                     {"role": "assistant", "content": agent_response},
                     {"role": "user", "content": f'Tool results: {tool_response}'}
                 ]
-                
+
                 # Add new messages
                 message.extend(new_messages)
-                
-                # Log messages
-                self._log_message(log_file, new_messages[0])
-                self._log_message(log_file, new_messages[1])
-                
+
             except Exception as e:
                 print(f"❌ Trading session error: {str(e)}")
                 print(f"Error details: {e}")
                 raise
-        
+
         # Handle trading results
         await self._handle_trading_result(today_date)
     
