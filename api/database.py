@@ -85,7 +85,7 @@ def initialize_database(db_path: str = "data/jobs.db") -> None:
         CREATE TABLE IF NOT EXISTS jobs (
             job_id TEXT PRIMARY KEY,
             config_path TEXT NOT NULL,
-            status TEXT NOT NULL CHECK(status IN ('pending', 'running', 'completed', 'partial', 'failed')),
+            status TEXT NOT NULL CHECK(status IN ('pending', 'downloading_data', 'running', 'completed', 'partial', 'failed')),
             date_range TEXT NOT NULL,
             models TEXT NOT NULL,
             created_at TEXT NOT NULL,
@@ -93,7 +93,8 @@ def initialize_database(db_path: str = "data/jobs.db") -> None:
             updated_at TEXT,
             completed_at TEXT,
             total_duration_seconds REAL,
-            error TEXT
+            error TEXT,
+            warnings TEXT
         )
     """)
 
