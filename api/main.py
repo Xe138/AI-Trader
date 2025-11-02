@@ -17,6 +17,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
+from contextlib import asynccontextmanager
 
 from api.job_manager import JobManager
 from api.simulation_worker import SimulationWorker
@@ -127,20 +128,37 @@ def create_app(
     Returns:
         Configured FastAPI app
     """
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        """Initialize database on startup, cleanup on shutdown if needed"""
+        from tools.deployment_config import is_dev_mode, get_db_path
+        from api.database import initialize_dev_database, initialize_database
+
+        # Startup
+        if is_dev_mode():
+            # Initialize dev database (reset unless PRESERVE_DEV_DATA=true)
+            dev_db_path = get_db_path(app.state.db_path)
+            initialize_dev_database(dev_db_path)
+            log_dev_mode_startup_warning()
+        else:
+            # Ensure production database schema exists
+            initialize_database(app.state.db_path)
+
+        yield
+
+        # Shutdown (if needed in future)
+        pass
+
     app = FastAPI(
         title="AI-Trader Simulation API",
         description="REST API for triggering and monitoring AI trading simulations",
-        version="1.0.0"
+        version="1.0.0",
+        lifespan=lifespan
     )
 
     # Store paths in app state
     app.state.db_path = db_path
     app.state.config_path = config_path
-
-    @app.on_event("startup")
-    async def startup_event():
-        """Display DEV mode warning on startup if applicable"""
-        log_dev_mode_startup_warning()
 
     @app.post("/simulate/trigger", response_model=SimulateTriggerResponse, status_code=200)
     async def trigger_simulation(request: SimulateTriggerRequest):
@@ -500,7 +518,7 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
 
-    # Display DEV mode warning if applicable
-    log_dev_mode_startup_warning()
+    # Note: Database initialization happens in startup_event()
+    # DEV mode warning will be displayed there as well
 
     uvicorn.run(app, host="0.0.0.0", port=8080)
