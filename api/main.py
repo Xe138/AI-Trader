@@ -135,19 +135,27 @@ def create_app(
         from api.database import initialize_dev_database, initialize_database
 
         # Startup - use closure to access db_path from create_app scope
+        logger.info("🚀 FastAPI application starting...")
+        logger.info("📊 Initializing database...")
+
         if is_dev_mode():
             # Initialize dev database (reset unless PRESERVE_DEV_DATA=true)
+            logger.info("  🔧 DEV mode detected - initializing dev database")
             dev_db_path = get_db_path(db_path)
             initialize_dev_database(dev_db_path)
             log_dev_mode_startup_warning()
         else:
             # Ensure production database schema exists
+            logger.info("  🏭 PROD mode - ensuring database schema exists")
             initialize_database(db_path)
+
+        logger.info("✅ Database initialized")
+        logger.info("🌐 API server ready to accept requests")
 
         yield
 
         # Shutdown (if needed in future)
-        pass
+        logger.info("🛑 FastAPI application shutting down...")
 
     app = FastAPI(
         title="AI-Trader Simulation API",
