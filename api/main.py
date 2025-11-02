@@ -522,11 +522,27 @@ def create_app(
 # Create default app instance
 app = create_app()
 
+# Ensure database is initialized when module is loaded
+# This handles cases where lifespan might not be triggered properly
+logger.info("🔧 Module-level database initialization check...")
+from tools.deployment_config import is_dev_mode, get_db_path
+from api.database import initialize_dev_database, initialize_database
+
+_db_path = app.state.db_path
+if is_dev_mode():
+    logger.info("  🔧 DEV mode - initializing dev database at module load")
+    _dev_db_path = get_db_path(_db_path)
+    initialize_dev_database(_dev_db_path)
+else:
+    logger.info("  🏭 PROD mode - ensuring database exists at module load")
+    initialize_database(_db_path)
+logger.info("✅ Module-level database initialization complete")
+
 
 if __name__ == "__main__":
     import uvicorn
 
-    # Note: Database initialization happens in startup_event()
-    # DEV mode warning will be displayed there as well
+    # Note: Database initialization happens in lifespan AND at module load
+    # for maximum reliability
 
     uvicorn.run(app, host="0.0.0.0", port=8080)
