@@ -191,11 +191,24 @@ class ModelDayExecutor:
         if not model_config:
             raise ValueError(f"Model {self.model_sig} not found in config")
 
-        # Initialize agent
+        # Get agent config
+        agent_config = config.get("agent_config", {})
+        log_config = config.get("log_config", {})
+
+        # Initialize agent with properly mapped parameters
         agent = BaseAgent(
-            model_name=model_config.get("basemodel"),
             signature=self.model_sig,
-            config=config
+            basemodel=model_config.get("basemodel"),
+            stock_symbols=agent_config.get("stock_symbols"),
+            mcp_config=agent_config.get("mcp_config"),
+            log_path=log_config.get("log_path"),
+            max_steps=agent_config.get("max_steps", 10),
+            max_retries=agent_config.get("max_retries", 3),
+            base_delay=agent_config.get("base_delay", 0.5),
+            openai_base_url=model_config.get("openai_base_url"),
+            openai_api_key=model_config.get("openai_api_key"),
+            initial_cash=agent_config.get("initial_cash", 10000.0),
+            init_date=config.get("date_range", {}).get("init_date", "2025-10-13")
         )
 
         # Register agent (creates initial position if needed)
