@@ -32,25 +32,14 @@ def get_db_connection(db_path: str = "data/jobs.db") -> sqlite3.Connection:
     """
     # Resolve path based on deployment mode
     resolved_path = get_db_path(db_path)
-    print(f"🔍 DIAGNOSTIC [get_db_connection]: Input path='{db_path}', Resolved path='{resolved_path}'")
 
     # Ensure data directory exists
     db_path_obj = Path(resolved_path)
     db_path_obj.parent.mkdir(parents=True, exist_ok=True)
 
-    # Check if database file exists
-    file_exists = db_path_obj.exists()
-    print(f"🔍 DIAGNOSTIC [get_db_connection]: Database file exists: {file_exists}")
-
     conn = sqlite3.connect(resolved_path, check_same_thread=False)
     conn.execute("PRAGMA foreign_keys = ON")
     conn.row_factory = sqlite3.Row
-
-    # Verify tables exist
-    cursor = conn.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-    tables = [row[0] for row in cursor.fetchall()]
-    print(f"🔍 DIAGNOSTIC [get_db_connection]: Tables in database: {tables}")
 
     return conn
 
@@ -255,44 +244,24 @@ def initialize_dev_database(db_path: str = "data/trading_dev.db") -> None:
     Args:
         db_path: Path to dev database file
     """
-    print(f"🔍 DIAGNOSTIC: initialize_dev_database() CALLED with db_path={db_path}")
     from tools.deployment_config import should_preserve_dev_data
 
-    preserve = should_preserve_dev_data()
-    print(f"🔍 DIAGNOSTIC: should_preserve_dev_data() returned: {preserve}")
-
-    if preserve:
+    if should_preserve_dev_data():
         print(f"ℹ️  PRESERVE_DEV_DATA=true, keeping existing dev database: {db_path}")
         # Ensure schema exists even if preserving data
-        db_exists = Path(db_path).exists()
-        print(f"🔍 DIAGNOSTIC: Database exists check: {db_exists}")
-        if not db_exists:
+        if not Path(db_path).exists():
             print(f"📁 Dev database doesn't exist, creating: {db_path}")
             initialize_database(db_path)
-        print(f"🔍 DIAGNOSTIC: initialize_dev_database() RETURNING (preserve mode)")
         return
 
     # Delete existing dev database
-    db_exists = Path(db_path).exists()
-    print(f"🔍 DIAGNOSTIC: Database exists (before deletion): {db_exists}")
-    if db_exists:
+    if Path(db_path).exists():
         print(f"🗑️  Removing existing dev database: {db_path}")
         Path(db_path).unlink()
-        print(f"🔍 DIAGNOSTIC: Database deleted successfully")
 
     # Create fresh dev database
     print(f"📁 Creating fresh dev database: {db_path}")
     initialize_database(db_path)
-    print(f"🔍 DIAGNOSTIC: initialize_dev_database() COMPLETED successfully")
-
-    # Verify tables were created
-    print(f"🔍 DIAGNOSTIC: Verifying tables exist in {db_path}")
-    verify_conn = sqlite3.connect(db_path)
-    verify_cursor = verify_conn.cursor()
-    verify_cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-    tables = [row[0] for row in verify_cursor.fetchall()]
-    verify_conn.close()
-    print(f"🔍 DIAGNOSTIC: Tables found: {tables}")
 
 
 def cleanup_dev_database(db_path: str = "data/trading_dev.db", data_path: str = "./data/dev_agent_data") -> None:
