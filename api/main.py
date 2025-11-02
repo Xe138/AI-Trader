@@ -116,7 +116,7 @@ class HealthResponse(BaseModel):
 
 def create_app(
     db_path: str = "data/jobs.db",
-    config_path: str = "configs/default_config.json"
+    config_path: str = "/tmp/runtime_config.json" if Path("/tmp/runtime_config.json").exists() else "configs/default_config.json"
 ) -> FastAPI:
     """
     Create FastAPI application instance.
