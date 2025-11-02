@@ -343,4 +343,46 @@ class TestErrorHandling:
         assert response.status_code == 404
 
 
+@pytest.mark.integration
+class TestAsyncDownload:
+    """Test async price download behavior."""
+
+    def test_trigger_endpoint_fast_response(self, api_client):
+        """Test that /simulate/trigger responds quickly without downloading data."""
+        import time
+
+        start_time = time.time()
+
+        response = api_client.post("/simulate/trigger", json={
+            "start_date": "2025-10-01",
+            "end_date": "2025-10-01",
+            "models": ["gpt-4"]
+        })
+
+        elapsed = time.time() - start_time
+
+        # Should respond in less than 2 seconds (allowing for DB operations)
+        assert elapsed < 2.0
+        assert response.status_code == 200
+        assert "job_id" in response.json()
+
+    def test_trigger_endpoint_no_price_download(self, api_client):
+        """Test that endpoint doesn't import or use PriceDataManager."""
+        import api.main
+
+        # Verify PriceDataManager is not imported in api.main
+        assert not hasattr(api.main, 'PriceDataManager'), \
+            "PriceDataManager should not be imported in api.main"
+
+        # Endpoint should still create job successfully
+        response = api_client.post("/simulate/trigger", json={
+            "start_date": "2025-10-01",
+            "end_date": "2025-10-01",
+            "models": ["gpt-4"]
+        })
+
+        assert response.status_code == 200
+        assert "job_id" in response.json()
+
+
 # Coverage target: 90%+ for api/main.py

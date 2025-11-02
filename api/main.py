@@ -21,7 +21,6 @@ from pydantic import BaseModel, Field, field_validator
 from api.job_manager import JobManager
 from api.simulation_worker import SimulationWorker
 from api.database import get_db_connection
-from api.price_data_manager import PriceDataManager
 from api.date_utils import validate_date_range, expand_date_range, get_max_simulation_days
 from tools.deployment_config import get_deployment_mode_dict, log_dev_mode_startup_warning
 import threading
@@ -148,18 +147,16 @@ def create_app(
         """
         Trigger a new simulation job.
 
-        Validates date range, downloads missing price data if needed,
-        and creates job with available trading dates.
+        Validates date range and creates job. Price data is downloaded
+        in background by SimulationWorker.
 
         Supports:
         - Single date: start_date == end_date
         - Date range: start_date < end_date
         - Resume: start_date is null (each model resumes from its last completed date)
-        - Idempotent: replace_existing=false skips already completed model-days
 
         Raises:
             HTTPException 400: Validation errors, running job, or invalid dates
-            HTTPException 503: Price data download failed
         """
         try:
             # Use config path from app state
@@ -201,6 +198,7 @@ def create_app(
             # Handle resume logic (start_date is null)
             if request.start_date is None:
                 # Resume mode: determine start date per model
+                from datetime import timedelta
                 model_start_dates = {}
 
                 for model in models_to_run:
@@ -227,112 +225,6 @@ def create_app(
             max_days = get_max_simulation_days()
             validate_date_range(start_date, end_date, max_days=max_days)
 
-            # Check price data and download if needed
-            auto_download = os.getenv("AUTO_DOWNLOAD_PRICE_DATA", "true").lower() == "true"
-            price_manager = PriceDataManager(db_path=app.state.db_path)
-
-            # Check what's missing (use computed start_date, not request.start_date which may be None)
-            missing_coverage = price_manager.get_missing_coverage(
-                start_date,
-                end_date
-            )
-
-            download_info = None
-
-            # Download missing data if enabled
-            if any(missing_coverage.values()):
-                if not auto_download:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Missing price data for {len(missing_coverage)} symbols and auto-download is disabled. "
-                               f"Enable AUTO_DOWNLOAD_PRICE_DATA or pre-populate data."
-                    )
-
-                logger.info(f"Downloading missing price data for {len(missing_coverage)} symbols")
-
-                requested_dates = set(expand_date_range(start_date, end_date))
-
-                download_result = price_manager.download_missing_data_prioritized(
-                    missing_coverage,
-                    requested_dates
-                )
-
-                if not download_result["success"]:
-                    raise HTTPException(
-                        status_code=503,
-                        detail="Failed to download any price data. Check ALPHAADVANTAGE_API_KEY."
-                    )
-
-                download_info = {
-                    "symbols_downloaded": len(download_result["downloaded"]),
-                    "symbols_failed": len(download_result["failed"]),
-                    "rate_limited": download_result["rate_limited"]
-                }
-
-                logger.info(
-                    f"Downloaded {len(download_result['downloaded'])} symbols, "
-                    f"{len(download_result['failed'])} failed, rate_limited={download_result['rate_limited']}"
-                )
-
-            # Get available trading dates (after potential download)
-            available_dates = price_manager.get_available_trading_dates(
-                start_date,
-                end_date
-            )
-
-            if not available_dates:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"No trading dates with complete price data in range "
-                           f"{start_date} to {end_date}. "
-                           f"All symbols must have data for a date to be tradeable."
-                )
-
-            # Handle idempotent behavior (skip already completed model-days)
-            if not request.replace_existing:
-                # Get existing completed dates per model
-                completed_dates = job_manager.get_completed_model_dates(
-                    models_to_run,
-                    start_date,
-                    end_date
-                )
-
-                # Build list of model-day tuples to simulate
-                model_day_tasks = []
-                for model in models_to_run:
-                    # Filter dates for this model
-                    model_start = model_start_dates[model]
-
-                    for date in available_dates:
-                        # Skip if before model's start date
-                        if date < model_start:
-                            continue
-
-                        # Skip if already completed (idempotent)
-                        if date in completed_dates.get(model, []):
-                            continue
-
-                        model_day_tasks.append((model, date))
-
-                if not model_day_tasks:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="No new model-days to simulate. All requested dates are already completed. "
-                               "Use replace_existing=true to re-run."
-                    )
-
-                # Extract unique dates that will actually be run
-                dates_to_run = sorted(list(set([date for _, date in model_day_tasks])))
-            else:
-                # Replace mode: run all model-date combinations
-                dates_to_run = available_dates
-                model_day_tasks = [
-                    (model, date)
-                    for model in models_to_run
-                    for date in available_dates
-                    if date >= model_start_dates[model]
-                ]
-
             # Check if can start new job
             if not job_manager.can_start_new_job():
                 raise HTTPException(
@@ -340,13 +232,16 @@ def create_app(
                     detail="Another simulation job is already running or pending. Please wait for it to complete."
                 )
 
-            # Create job with dates that will be run
-            # Pass model_day_tasks to only create job_details for tasks that will actually run
+            # Get all weekdays in range (worker will filter based on data availability)
+            all_dates = expand_date_range(start_date, end_date)
+
+            # Create job immediately with all requested dates
+            # Worker will handle data download and filtering
             job_id = job_manager.create_job(
                 config_path=config_path,
-                date_range=dates_to_run,
+                date_range=all_dates,
                 models=models_to_run,
-                model_day_filter=model_day_tasks
+                model_day_filter=None  # Worker will filter based on available data
             )
 
             # Start worker in background thread (only if not in test mode)
@@ -358,26 +253,13 @@ def create_app(
                 thread = threading.Thread(target=run_worker, daemon=True)
                 thread.start()
 
-            logger.info(f"Triggered simulation job {job_id} with {len(model_day_tasks)} model-day tasks")
+            logger.info(f"Triggered simulation job {job_id} for {len(all_dates)} dates, {len(models_to_run)} models")
 
             # Build response message
-            total_model_days = len(model_day_tasks)
-            message_parts = [f"Simulation job created with {total_model_days} model-day tasks"]
+            message = f"Simulation job created for {len(all_dates)} dates, {len(models_to_run)} models"
 
             if request.start_date is None:
-                message_parts.append("(resume mode)")
-
-            if not request.replace_existing:
-                # Calculate how many were skipped
-                total_possible = len(models_to_run) * len(available_dates)
-                skipped = total_possible - total_model_days
-                if skipped > 0:
-                    message_parts.append(f"({skipped} already completed, skipped)")
-
-            if download_info and download_info["rate_limited"]:
-                message_parts.append("(rate limit reached - partial data)")
-
-            message = " ".join(message_parts)
+                message += " (resume mode)"
 
             # Get deployment mode info
             deployment_info = get_deployment_mode_dict()
@@ -385,15 +267,10 @@ def create_app(
             response = SimulateTriggerResponse(
                 job_id=job_id,
                 status="pending",
-                total_model_days=total_model_days,
+                total_model_days=len(all_dates) * len(models_to_run),
                 message=message,
                 **deployment_info
             )
-
-            # Add download info if we downloaded
-            if download_info:
-                # Note: Need to add download_info field to response model
-                logger.info(f"Download info: {download_info}")
 
             return response
 
