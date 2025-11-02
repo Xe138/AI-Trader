@@ -129,15 +129,24 @@ class TestSimulationWorkerExecution:
         # Mock _prepare_data to return the date
         worker._prepare_data = Mock(return_value=(["2025-01-16"], []))
 
-        with patch("api.simulation_worker.ModelDayExecutor") as mock_executor_class:
+        def create_mock_executor(job_id, date, model_sig, config_path, db_path):
+            """Create mock executor that simulates job detail status updates."""
             mock_executor = Mock()
-            mock_executor.execute.return_value = {
-                "success": True,
-                "model": "gpt-5",
-                "date": "2025-01-16"
-            }
-            mock_executor_class.return_value = mock_executor
 
+            def mock_execute():
+                # Simulate ModelDayExecutor status updates
+                manager.update_job_detail_status(job_id, date, model_sig, "running")
+                manager.update_job_detail_status(job_id, date, model_sig, "completed")
+                return {
+                    "success": True,
+                    "model": model_sig,
+                    "date": date
+                }
+
+            mock_executor.execute = mock_execute
+            return mock_executor
+
+        with patch("api.simulation_worker.ModelDayExecutor", side_effect=create_mock_executor):
             worker.run()
 
         # Check job status
@@ -163,18 +172,29 @@ class TestSimulationWorkerExecution:
 
         call_count = 0
 
-        def mixed_results(*args, **kwargs):
+        def mixed_results(job_id, date, model_sig, config_path, db_path):
+            """Create mock executor with mixed success/failure results."""
             nonlocal call_count
-            executor = Mock()
+            mock_executor = Mock()
             # First model succeeds, second fails
             success = (call_count == 0)
-            executor.execute.return_value = {
-                "success": success,
-                "model": kwargs.get("model_sig", "unknown"),
-                "date": kwargs.get("date", "2025-01-16")
-            }
             call_count += 1
-            return executor
+
+            def mock_execute():
+                # Simulate ModelDayExecutor status updates
+                manager.update_job_detail_status(job_id, date, model_sig, "running")
+                if success:
+                    manager.update_job_detail_status(job_id, date, model_sig, "completed")
+                else:
+                    manager.update_job_detail_status(job_id, date, model_sig, "failed", error="Model failed")
+                return {
+                    "success": success,
+                    "model": model_sig,
+                    "date": date
+                }
+
+            mock_executor.execute = mock_execute
+            return mock_executor
 
         with patch("api.simulation_worker.ModelDayExecutor", side_effect=mixed_results):
             worker.run()
