@@ -74,6 +74,7 @@ class SimulateTriggerResponse(BaseModel):
     deployment_mode: str
     is_dev_mode: bool
     preserve_dev_data: Optional[bool] = None
+    warnings: Optional[List[str]] = None
 
 
 class JobProgress(BaseModel):
@@ -100,6 +101,7 @@ class JobStatusResponse(BaseModel):
     deployment_mode: str
     is_dev_mode: bool
     preserve_dev_data: Optional[bool] = None
+    warnings: Optional[List[str]] = None
 
 
 class HealthResponse(BaseModel):
