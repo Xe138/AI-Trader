@@ -134,15 +134,15 @@ def create_app(
         from tools.deployment_config import is_dev_mode, get_db_path
         from api.database import initialize_dev_database, initialize_database
 
-        # Startup
+        # Startup - use closure to access db_path from create_app scope
         if is_dev_mode():
             # Initialize dev database (reset unless PRESERVE_DEV_DATA=true)
-            dev_db_path = get_db_path(app.state.db_path)
+            dev_db_path = get_db_path(db_path)
             initialize_dev_database(dev_db_path)
             log_dev_mode_startup_warning()
         else:
             # Ensure production database schema exists
-            initialize_database(app.state.db_path)
+            initialize_database(db_path)
 
         yield
 
