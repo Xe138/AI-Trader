@@ -9,7 +9,7 @@ This module provides:
 """
 
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from api.job_manager import JobManager
@@ -199,6 +199,42 @@ class SimulationWorker:
                 "model": model,
                 "error": str(e)
             }
+
+    def _download_price_data(
+        self,
+        price_manager,
+        missing_coverage: Dict[str, Set[str]],
+        requested_dates: List[str],
+        warnings: List[str]
+    ) -> None:
+        """Download missing price data with progress logging."""
+        logger.info(f"Job {self.job_id}: Starting prioritized download...")
+
+        requested_dates_set = set(requested_dates)
+
+        download_result = price_manager.download_missing_data_prioritized(
+            missing_coverage,
+            requested_dates_set
+        )
+
+        downloaded = len(download_result["downloaded"])
+        failed = len(download_result["failed"])
+        total = downloaded + failed
+
+        logger.info(
+            f"Job {self.job_id}: Download complete - "
+            f"{downloaded}/{total} symbols succeeded"
+        )
+
+        if download_result["rate_limited"]:
+            msg = f"Rate limit reached - downloaded {downloaded}/{total} symbols"
+            warnings.append(msg)
+            logger.warning(f"Job {self.job_id}: {msg}")
+
+        if failed > 0 and not download_result["rate_limited"]:
+            msg = f"{failed} symbols failed to download"
+            warnings.append(msg)
+            logger.warning(f"Job {self.job_id}: {msg}")
 
     def get_job_info(self) -> Dict[str, Any]:
         """

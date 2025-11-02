@@ -274,4 +274,65 @@ class TestSimulationWorkerJobRetrieval:
         assert job_info["models"] == ["gpt-5"]
 
 
+@pytest.mark.unit
+class TestSimulationWorkerHelperMethods:
+    """Test worker helper methods."""
+
+    def test_download_price_data_success(self, clean_db):
+        """Test successful price data download."""
+        from api.simulation_worker import SimulationWorker
+        from api.database import initialize_database
+
+        db_path = clean_db
+        initialize_database(db_path)
+
+        worker = SimulationWorker(job_id="test-123", db_path=db_path)
+
+        # Mock price manager
+        mock_price_manager = Mock()
+        mock_price_manager.download_missing_data_prioritized.return_value = {
+            "downloaded": ["AAPL", "MSFT"],
+            "failed": [],
+            "rate_limited": False
+        }
+
+        warnings = []
+        missing_coverage = {"AAPL": {"2025-10-01"}, "MSFT": {"2025-10-01"}}
+
+        worker._download_price_data(mock_price_manager, missing_coverage, ["2025-10-01"], warnings)
+
+        # Verify download was called
+        mock_price_manager.download_missing_data_prioritized.assert_called_once()
+
+        # No warnings for successful download
+        assert len(warnings) == 0
+
+    def test_download_price_data_rate_limited(self, clean_db):
+        """Test price download with rate limit."""
+        from api.simulation_worker import SimulationWorker
+        from api.database import initialize_database
+
+        db_path = clean_db
+        initialize_database(db_path)
+
+        worker = SimulationWorker(job_id="test-456", db_path=db_path)
+
+        # Mock price manager
+        mock_price_manager = Mock()
+        mock_price_manager.download_missing_data_prioritized.return_value = {
+            "downloaded": ["AAPL"],
+            "failed": ["MSFT"],
+            "rate_limited": True
+        }
+
+        warnings = []
+        missing_coverage = {"AAPL": {"2025-10-01"}, "MSFT": {"2025-10-01"}}
+
+        worker._download_price_data(mock_price_manager, missing_coverage, ["2025-10-01"], warnings)
+
+        # Should add rate limit warning
+        assert len(warnings) == 1
+        assert "Rate limit" in warnings[0]
+
+
 # Coverage target: 90%+ for api/simulation_worker.py
