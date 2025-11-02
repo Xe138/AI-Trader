@@ -127,6 +127,9 @@ class BaseAgent:
         # Data paths
         self.data_path = os.path.join(self.base_log_path, self.signature)
         self.position_file = os.path.join(self.data_path, "position", "position.jsonl")
+
+        # Conversation history for reasoning logs
+        self.conversation_history: List[Dict[str, Any]] = []
         
     def _get_default_mcp_config(self) -> Dict[str, Dict[str, Any]]:
         """Get default MCP configuration"""
@@ -204,7 +207,45 @@ class BaseAgent:
         # because system_prompt needs the current date and price information
 
         print(f"✅ Agent {self.signature} initialization completed")
-    
+
+    def _capture_message(self, role: str, content: str, tool_name: str = None, tool_input: str = None) -> None:
+        """
+        Capture a message in conversation history.
+
+        Args:
+            role: Message role ('user', 'assistant', 'tool')
+            content: Message content
+            tool_name: Tool name for tool messages
+            tool_input: Tool input for tool messages
+        """
+        from datetime import datetime, timezone
+
+        message = {
+            "role": role,
+            "content": content,
+            "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+        }
+
+        if tool_name:
+            message["tool_name"] = tool_name
+        if tool_input:
+            message["tool_input"] = tool_input
+
+        self.conversation_history.append(message)
+
+    def get_conversation_history(self) -> List[Dict[str, Any]]:
+        """
+        Get the complete conversation history for this trading session.
+
+        Returns:
+            List of message dictionaries with role, content, timestamp
+        """
+        return self.conversation_history.copy()
+
+    def clear_conversation_history(self) -> None:
+        """Clear conversation history (called at start of each trading day)."""
+        self.conversation_history = []
+
     def _setup_logging(self, today_date: str) -> str:
         """Set up log file path"""
         log_path = os.path.join(self.base_log_path, self.signature, 'log', today_date)
@@ -246,6 +287,9 @@ class BaseAgent:
         """
         print(f"📈 Starting trading session: {today_date}")
 
+        # Clear conversation history for new trading day
+        self.clear_conversation_history()
+
         # Update mock model date if in dev mode
         if is_dev_mode():
             self.model.date = today_date
@@ -253,17 +297,24 @@ class BaseAgent:
         # Set up logging
         log_file = self._setup_logging(today_date)
 
-        # Update system prompt
+        # Get system prompt
+        system_prompt = get_agent_system_prompt(today_date, self.signature)
+
+        # Update agent with system prompt
         self.agent = create_agent(
             self.model,
             tools=self.tools,
-            system_prompt=get_agent_system_prompt(today_date, self.signature),
+            system_prompt=system_prompt,
         )
-        
+
+        # Capture user prompt
+        user_prompt = f"Please analyze and update today's ({today_date}) positions."
+        self._capture_message("user", user_prompt)
+
         # Initial user query
-        user_query = [{"role": "user", "content": f"Please analyze and update today's ({today_date}) positions."}]
+        user_query = [{"role": "user", "content": user_prompt}]
         message = user_query.copy()
-        
+
         # Log initial message
         self._log_message(log_file, user_query)
         
@@ -276,10 +327,13 @@ class BaseAgent:
             try:
                 # Call agent
                 response = await self._ainvoke_with_retry(message)
-                
+
                 # Extract agent response
                 agent_response = extract_conversation(response, "final")
-                
+
+                # Capture assistant response
+                self._capture_message("assistant", agent_response)
+
                 # Check stop signal
                 if STOP_SIGNAL in agent_response:
                     print("✅ Received stop signal, trading session ended")
