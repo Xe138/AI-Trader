@@ -246,6 +246,71 @@ class BaseAgent:
         """Clear conversation history (called at start of each trading day)."""
         self.conversation_history = []
 
+    async def generate_summary(self, content: str, max_length: int = 200) -> str:
+        """
+        Generate a concise summary of reasoning content.
+
+        Uses the same AI model to summarize its own reasoning.
+
+        Args:
+            content: Full reasoning content to summarize
+            max_length: Approximate character limit for summary
+
+        Returns:
+            1-2 sentence summary of key decisions and reasoning
+        """
+        # Truncate content to avoid token limits (keep first 2000 chars)
+        truncated = content[:2000] if len(content) > 2000 else content
+
+        prompt = f"""Summarize the following trading decision in 1-2 sentences (max {max_length} characters), focusing on the key reasoning and actions taken:
+
+{truncated}
+
+Summary:"""
+
+        try:
+            # Use ainvoke for async call
+            response = await self.model.ainvoke(prompt)
+
+            # Extract content from response
+            if hasattr(response, 'content'):
+                summary = response.content.strip()
+            elif isinstance(response, dict) and 'content' in response:
+                summary = response['content'].strip()
+            else:
+                summary = str(response).strip()
+
+            # Truncate if too long
+            if len(summary) > max_length:
+                summary = summary[:max_length-3] + "..."
+
+            return summary
+
+        except Exception as e:
+            # If summary generation fails, return truncated original
+            return truncated[:max_length-3] + "..."
+
+    def generate_summary_sync(self, content: str, max_length: int = 200) -> str:
+        """
+        Synchronous wrapper for generate_summary.
+
+        Args:
+            content: Full reasoning content to summarize
+            max_length: Approximate character limit for summary
+
+        Returns:
+            Summary string
+        """
+        import asyncio
+
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        return loop.run_until_complete(self.generate_summary(content, max_length))
+
     def _setup_logging(self, today_date: str) -> str:
         """Set up log file path"""
         log_path = os.path.join(self.base_log_path, self.signature, 'log', today_date)
