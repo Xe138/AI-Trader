@@ -42,6 +42,11 @@ def test_initialize_dev_database_creates_fresh_db(tmp_path, clean_env):
     assert cursor.fetchone()[0] == 1
     conn.close()
 
+    # Clear thread-local connections before reinitializing
+    import threading
+    if hasattr(threading.current_thread(), '_db_connections'):
+        delattr(threading.current_thread(), '_db_connections')
+
     # Initialize dev database (should reset)
     initialize_dev_database(db_path)
 
