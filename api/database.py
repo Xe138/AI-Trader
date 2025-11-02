@@ -105,7 +105,7 @@ def initialize_database(db_path: str = "data/jobs.db") -> None:
             job_id TEXT NOT NULL,
             date TEXT NOT NULL,
             model TEXT NOT NULL,
-            status TEXT NOT NULL CHECK(status IN ('pending', 'running', 'completed', 'failed')),
+            status TEXT NOT NULL CHECK(status IN ('pending', 'running', 'completed', 'failed', 'skipped')),
             started_at TEXT,
             completed_at TEXT,
             duration_seconds REAL,

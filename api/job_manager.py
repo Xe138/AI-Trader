@@ -420,14 +420,16 @@ class JobManager:
                     SELECT
                         COUNT(*) as total,
                         SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-                        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
+                        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+                        SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) as skipped
                     FROM job_details
                     WHERE job_id = ?
                 """, (job_id,))
 
-                total, completed, failed = cursor.fetchone()
+                total, completed, failed, skipped = cursor.fetchone()
 
-                if completed + failed == total:
+                # Job is done when all details are in terminal states
+                if completed + failed + skipped == total:
                     # All done - determine final status
                     if failed == 0:
                         final_status = "completed"
@@ -519,12 +521,14 @@ class JobManager:
                 SELECT
                     COUNT(*) as total,
                     SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-                    SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
+                    SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                    SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) as skipped
                 FROM job_details
                 WHERE job_id = ?
             """, (job_id,))
 
-            total, completed, failed = cursor.fetchone()
+            total, completed, failed, pending, skipped = cursor.fetchone()
 
             # Get currently running model-day
             cursor.execute("""
@@ -559,6 +563,8 @@ class JobManager:
                 "total_model_days": total,
                 "completed": completed or 0,
                 "failed": failed or 0,
+                "pending": pending or 0,
+                "skipped": skipped or 0,
                 "current": current,
                 "details": details
             }
