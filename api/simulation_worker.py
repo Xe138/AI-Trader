@@ -65,12 +65,13 @@ class SimulationWorker:
 
         Process:
             1. Get job details (dates, models, config)
-            2. For each date sequentially:
+            2. Prepare data (download if needed)
+            3. For each date sequentially:
                 a. Execute all models in parallel
                 b. Wait for all to complete
                 c. Update progress
-            3. Determine final job status
-            4. Update job with final status
+            4. Determine final job status
+            5. Store warnings if any
 
         Error Handling:
             - Individual model failures: Mark detail as failed, continue with others
@@ -88,8 +89,16 @@ class SimulationWorker:
 
             logger.info(f"Starting job {self.job_id}: {len(date_range)} dates, {len(models)} models")
 
-            # Execute date-by-date (sequential)
-            for date in date_range:
+            # NEW: Prepare price data (download if needed)
+            available_dates, warnings = self._prepare_data(date_range, models, config_path)
+
+            if not available_dates:
+                error_msg = "No trading dates available after price data preparation"
+                self.job_manager.update_job_status(self.job_id, "failed", error=error_msg)
+                return {"success": False, "error": error_msg}
+
+            # Execute available dates only
+            for date in available_dates:
                 logger.info(f"Processing date {date} with {len(models)} models")
                 self._execute_date(date, models, config_path)
 
@@ -103,6 +112,10 @@ class SimulationWorker:
             else:
                 final_status = "failed"
 
+            # Add warnings if any dates were skipped
+            if warnings:
+                self._add_job_warnings(warnings)
+
             # Note: Job status is already updated by model_day_executor's detail status updates
             # We don't need to explicitly call update_job_status here as it's handled automatically
             # by the status transition logic in JobManager.update_job_detail_status
@@ -115,7 +128,8 @@ class SimulationWorker:
                 "status": final_status,
                 "total_model_days": progress["total_model_days"],
                 "completed": progress["completed"],
-                "failed": progress["failed"]
+                "failed": progress["failed"],
+                "warnings": warnings
             }
 
         except Exception as e:
