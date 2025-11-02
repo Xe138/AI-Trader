@@ -382,5 +382,35 @@ class TestSimulationWorkerHelperMethods:
         # Should exclude completed date
         assert result == ["2025-10-02", "2025-10-03"]
 
+    def test_add_job_warnings(self, clean_db):
+        """Test adding warnings to job via worker."""
+        from api.simulation_worker import SimulationWorker
+        from api.job_manager import JobManager
+        from api.database import initialize_database
+        import json
+
+        db_path = clean_db
+        initialize_database(db_path)
+        job_manager = JobManager(db_path=db_path)
+
+        # Create job
+        job_id = job_manager.create_job(
+            config_path="config.json",
+            date_range=["2025-10-01"],
+            models=["gpt-5"]
+        )
+
+        worker = SimulationWorker(job_id=job_id, db_path=db_path)
+
+        # Add warnings
+        warnings = ["Warning 1", "Warning 2"]
+        worker._add_job_warnings(warnings)
+
+        # Verify warnings were stored
+        job = job_manager.get_job(job_id)
+        assert job["warnings"] is not None
+        stored_warnings = json.loads(job["warnings"])
+        assert stored_warnings == warnings
+
 
 # Coverage target: 90%+ for api/simulation_worker.py

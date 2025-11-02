@@ -282,6 +282,10 @@ class SimulationWorker:
 
         return dates_to_process
 
+    def _add_job_warnings(self, warnings: List[str]) -> None:
+        """Store warnings in job metadata."""
+        self.job_manager.add_job_warnings(self.job_id, warnings)
+
     def get_job_info(self) -> Dict[str, Any]:
         """
         Get job information.
