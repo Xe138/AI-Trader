@@ -90,7 +90,7 @@ class TestSchemaInitialization:
     """Test database schema initialization."""
 
     def test_initialize_database_creates_all_tables(self, clean_db):
-        """Should create all 9 tables."""
+        """Should create all 10 tables."""
         conn = get_db_connection(clean_db)
         cursor = conn.cursor()
 
@@ -112,7 +112,8 @@ class TestSchemaInitialization:
             'tool_usage',
             'price_data',
             'price_data_coverage',
-            'simulation_runs'
+            'simulation_runs',
+            'trading_sessions'  # Added in reasoning logs feature
         ]
 
         assert sorted(tables) == sorted(expected_tables)
@@ -192,9 +193,15 @@ class TestSchemaInitialization:
             'idx_positions_model',
             'idx_positions_date_model',
             'idx_positions_unique',
+            'idx_positions_session_id',  # Link positions to trading sessions
             'idx_holdings_position_id',
             'idx_holdings_symbol',
-            'idx_reasoning_logs_job_date_model',
+            'idx_sessions_job_id',  # Trading sessions indexes
+            'idx_sessions_date',
+            'idx_sessions_model',
+            'idx_sessions_unique',
+            'idx_reasoning_logs_session_id',  # Reasoning logs now linked to sessions
+            'idx_reasoning_logs_unique',
             'idx_tool_usage_job_date_model'
         ]
 
@@ -371,7 +378,7 @@ class TestUtilityFunctions:
         conn = get_db_connection(test_db_path)
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
-        assert cursor.fetchone()[0] == 9  # Updated to reflect all tables
+        assert cursor.fetchone()[0] == 10  # Updated to reflect all tables including trading_sessions
         conn.close()
 
         # Drop all tables

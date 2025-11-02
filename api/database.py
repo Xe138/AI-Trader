@@ -68,11 +68,12 @@ def initialize_database(db_path: str = "data/jobs.db") -> None:
         2. job_details - Per model-day execution tracking
         3. positions - Trading positions and P&L metrics
         4. holdings - Portfolio holdings per position
-        5. reasoning_logs - AI decision logs (optional, for detail=full)
-        6. tool_usage - Tool usage statistics
-        7. price_data - Historical OHLCV price data (replaces merged.jsonl)
-        8. price_data_coverage - Downloaded date range tracking per symbol
-        9. simulation_runs - Simulation run tracking for soft delete
+        5. trading_sessions - One record per model-day trading session
+        6. reasoning_logs - AI decision logs linked to sessions
+        7. tool_usage - Tool usage statistics
+        8. price_data - Historical OHLCV price data (replaces merged.jsonl)
+        9. price_data_coverage - Downloaded date range tracking per symbol
+        10. simulation_runs - Simulation run tracking for soft delete
 
     Args:
         db_path: Path to SQLite database file
@@ -150,23 +151,40 @@ def initialize_database(db_path: str = "data/jobs.db") -> None:
         )
     """)
 
-    # Table 5: Reasoning Logs - AI decision logs (optional)
+    # Table 5: Trading Sessions - One per model-day trading session
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS reasoning_logs (
+        CREATE TABLE IF NOT EXISTS trading_sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             job_id TEXT NOT NULL,
             date TEXT NOT NULL,
             model TEXT NOT NULL,
-            step_number INTEGER NOT NULL,
-            timestamp TEXT NOT NULL,
-            role TEXT CHECK(role IN ('user', 'assistant', 'tool')),
-            content TEXT,
-            tool_name TEXT,
-            FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE
+            session_summary TEXT,
+            started_at TEXT NOT NULL,
+            completed_at TEXT,
+            total_messages INTEGER,
+            FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE,
+            UNIQUE(job_id, date, model)
         )
     """)
 
-    # Table 6: Tool Usage - Tool usage statistics
+    # Table 6: Reasoning Logs - AI decision logs linked to sessions
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS reasoning_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            message_index INTEGER NOT NULL,
+            role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'tool')),
+            content TEXT NOT NULL,
+            summary TEXT,
+            tool_name TEXT,
+            tool_input TEXT,
+            timestamp TEXT NOT NULL,
+            FOREIGN KEY (session_id) REFERENCES trading_sessions(id) ON DELETE CASCADE,
+            UNIQUE(session_id, message_index)
+        )
+    """)
+
+    # Table 7: Tool Usage - Tool usage statistics
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS tool_usage (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -180,7 +198,7 @@ def initialize_database(db_path: str = "data/jobs.db") -> None:
         )
     """)
 
-    # Table 7: Price Data - OHLCV price data (replaces merged.jsonl)
+    # Table 8: Price Data - OHLCV price data (replaces merged.jsonl)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS price_data (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -196,7 +214,7 @@ def initialize_database(db_path: str = "data/jobs.db") -> None:
         )
     """)
 
-    # Table 8: Price Data Coverage - Track downloaded date ranges per symbol
+    # Table 9: Price Data Coverage - Track downloaded date ranges per symbol
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS price_data_coverage (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -209,7 +227,7 @@ def initialize_database(db_path: str = "data/jobs.db") -> None:
         )
     """)
 
-    # Table 9: Simulation Runs - Track simulation runs for soft delete
+    # Table 10: Simulation Runs - Track simulation runs for soft delete
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS simulation_runs (
             run_id TEXT PRIMARY KEY,
@@ -292,7 +310,7 @@ def _migrate_schema(cursor: sqlite3.Cursor) -> None:
     Note: For pre-production databases, simply delete and recreate.
     This migration is only for preserving data during development.
     """
-    # Check if positions table exists and has simulation_run_id column
+    # Check if positions table exists and add missing columns
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='positions'")
     if cursor.fetchone():
         cursor.execute("PRAGMA table_info(positions)")
@@ -301,6 +319,11 @@ def _migrate_schema(cursor: sqlite3.Cursor) -> None:
         if 'simulation_run_id' not in columns:
             cursor.execute("""
                 ALTER TABLE positions ADD COLUMN simulation_run_id TEXT
+            """)
+
+        if 'session_id' not in columns:
+            cursor.execute("""
+                ALTER TABLE positions ADD COLUMN session_id INTEGER REFERENCES trading_sessions(id)
             """)
 
 
@@ -353,10 +376,29 @@ def _create_indexes(cursor: sqlite3.Cursor) -> None:
         CREATE INDEX IF NOT EXISTS idx_holdings_symbol ON holdings(symbol)
     """)
 
+    # Trading sessions table indexes
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_sessions_job_id ON trading_sessions(job_id)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_sessions_date ON trading_sessions(date)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_sessions_model ON trading_sessions(model)
+    """)
+    cursor.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_unique
+        ON trading_sessions(job_id, date, model)
+    """)
+
     # Reasoning logs table indexes
     cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_reasoning_logs_job_date_model
-        ON reasoning_logs(job_id, date, model)
+        CREATE INDEX IF NOT EXISTS idx_reasoning_logs_session_id
+        ON reasoning_logs(session_id)
+    """)
+    cursor.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_reasoning_logs_unique
+        ON reasoning_logs(session_id, message_index)
     """)
 
     # Tool usage table indexes
@@ -395,9 +437,12 @@ def _create_indexes(cursor: sqlite3.Cursor) -> None:
         CREATE INDEX IF NOT EXISTS idx_runs_dates ON simulation_runs(start_date, end_date)
     """)
 
-    # Positions table - add index for simulation_run_id
+    # Positions table - add index for simulation_run_id and session_id
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_positions_run_id ON positions(simulation_run_id)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_positions_session_id ON positions(session_id)
     """)
 
 
@@ -416,6 +461,7 @@ def drop_all_tables(db_path: str = "data/jobs.db") -> None:
     tables = [
         'tool_usage',
         'reasoning_logs',
+        'trading_sessions',
         'holdings',
         'positions',
         'simulation_runs',
@@ -477,8 +523,8 @@ def get_database_stats(db_path: str = "data/jobs.db") -> dict:
         stats["database_size_mb"] = 0
 
     # Get row counts for each table
-    tables = ['jobs', 'job_details', 'positions', 'holdings', 'reasoning_logs', 'tool_usage',
-              'price_data', 'price_data_coverage', 'simulation_runs']
+    tables = ['jobs', 'job_details', 'positions', 'holdings', 'trading_sessions', 'reasoning_logs',
+              'tool_usage', 'price_data', 'price_data_coverage', 'simulation_runs']
 
     for table in tables:
         cursor.execute(f"SELECT COUNT(*) FROM {table}")

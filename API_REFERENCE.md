@@ -462,6 +462,241 @@ curl "http://localhost:8080/results?job_id=550e8400-e29b-41d4-a716-446655440000&
 
 ---
 
+### GET /reasoning
+
+Retrieve AI reasoning logs for simulation days with optional filters. Returns trading sessions with positions and optionally full conversation history including all AI messages, tool calls, and responses.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `job_id` | string | No | Filter by job UUID |
+| `date` | string | No | Filter by trading date (YYYY-MM-DD) |
+| `model` | string | No | Filter by model signature |
+| `include_full_conversation` | boolean | No | Include all messages and tool calls (default: false, only returns summaries) |
+
+**Response (200 OK) - Summary Only (default):**
+
+```json
+{
+  "sessions": [
+    {
+      "session_id": 1,
+      "job_id": "550e8400-e29b-41d4-a716-446655440000",
+      "date": "2025-01-16",
+      "model": "gpt-4",
+      "session_summary": "Agent analyzed market conditions, purchased 10 shares of AAPL at $250.50, and 5 shares of MSFT at $380.20. Total portfolio value increased to $10,105.00.",
+      "started_at": "2025-01-16T10:00:05Z",
+      "completed_at": "2025-01-16T10:05:23Z",
+      "total_messages": 8,
+      "positions": [
+        {
+          "action_id": 1,
+          "action_type": "buy",
+          "symbol": "AAPL",
+          "amount": 10,
+          "price": 250.50,
+          "cash_after": 7495.00,
+          "portfolio_value": 10000.00
+        },
+        {
+          "action_id": 2,
+          "action_type": "buy",
+          "symbol": "MSFT",
+          "amount": 5,
+          "price": 380.20,
+          "cash_after": 5594.00,
+          "portfolio_value": 10105.00
+        }
+      ],
+      "conversation": null
+    }
+  ],
+  "count": 1,
+  "deployment_mode": "PROD",
+  "is_dev_mode": false,
+  "preserve_dev_data": null
+}
+```
+
+**Response (200 OK) - With Full Conversation:**
+
+```json
+{
+  "sessions": [
+    {
+      "session_id": 1,
+      "job_id": "550e8400-e29b-41d4-a716-446655440000",
+      "date": "2025-01-16",
+      "model": "gpt-4",
+      "session_summary": "Agent analyzed market conditions, purchased 10 shares of AAPL at $250.50, and 5 shares of MSFT at $380.20. Total portfolio value increased to $10,105.00.",
+      "started_at": "2025-01-16T10:00:05Z",
+      "completed_at": "2025-01-16T10:05:23Z",
+      "total_messages": 8,
+      "positions": [
+        {
+          "action_id": 1,
+          "action_type": "buy",
+          "symbol": "AAPL",
+          "amount": 10,
+          "price": 250.50,
+          "cash_after": 7495.00,
+          "portfolio_value": 10000.00
+        },
+        {
+          "action_id": 2,
+          "action_type": "buy",
+          "symbol": "MSFT",
+          "amount": 5,
+          "price": 380.20,
+          "cash_after": 5594.00,
+          "portfolio_value": 10105.00
+        }
+      ],
+      "conversation": [
+        {
+          "message_index": 0,
+          "role": "user",
+          "content": "You are a trading agent. Current date: 2025-01-16. Cash: $10000.00. Previous positions: {}. Yesterday's prices: {...}",
+          "summary": null,
+          "tool_name": null,
+          "tool_input": null,
+          "timestamp": "2025-01-16T10:00:05Z"
+        },
+        {
+          "message_index": 1,
+          "role": "assistant",
+          "content": "I'll analyze the market and make trading decisions...",
+          "summary": "Agent analyzes market conditions and decides to purchase AAPL",
+          "tool_name": null,
+          "tool_input": null,
+          "timestamp": "2025-01-16T10:00:12Z"
+        },
+        {
+          "message_index": 2,
+          "role": "tool",
+          "content": "{\"status\": \"success\", \"symbol\": \"AAPL\", \"shares\": 10, \"price\": 250.50}",
+          "summary": null,
+          "tool_name": "trade",
+          "tool_input": "{\"action\": \"buy\", \"symbol\": \"AAPL\", \"amount\": 10}",
+          "timestamp": "2025-01-16T10:00:13Z"
+        },
+        {
+          "message_index": 3,
+          "role": "assistant",
+          "content": "Trade executed successfully. Now purchasing MSFT...",
+          "summary": "Agent confirms AAPL purchase and initiates MSFT trade",
+          "tool_name": null,
+          "tool_input": null,
+          "timestamp": "2025-01-16T10:00:18Z"
+        }
+      ]
+    }
+  ],
+  "count": 1,
+  "deployment_mode": "PROD",
+  "is_dev_mode": false,
+  "preserve_dev_data": null
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `sessions` | array[object] | Array of trading sessions |
+| `count` | integer | Number of sessions returned |
+| `deployment_mode` | string | Deployment mode: "PROD" or "DEV" |
+| `is_dev_mode` | boolean | True if running in development mode |
+| `preserve_dev_data` | boolean\|null | DEV mode only: whether dev data is preserved between runs |
+
+**Trading Session Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `session_id` | integer | Unique session ID |
+| `job_id` | string | Job UUID this session belongs to |
+| `date` | string | Trading date (YYYY-MM-DD) |
+| `model` | string | Model signature |
+| `session_summary` | string | High-level summary of AI decisions and actions |
+| `started_at` | string | ISO 8601 timestamp when session started |
+| `completed_at` | string | ISO 8601 timestamp when session completed |
+| `total_messages` | integer | Total number of messages in conversation |
+| `positions` | array[object] | All trading actions taken this day |
+| `conversation` | array[object]\|null | Full message history (null unless `include_full_conversation=true`) |
+
+**Position Summary Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `action_id` | integer | Action sequence number (1, 2, 3...) for this session |
+| `action_type` | string | Action taken: `buy`, `sell`, or `hold` |
+| `symbol` | string | Stock symbol traded (or null for `hold`) |
+| `amount` | integer | Quantity traded (or null for `hold`) |
+| `price` | float | Price per share (or null for `hold`) |
+| `cash_after` | float | Cash balance after this action |
+| `portfolio_value` | float | Total portfolio value (cash + holdings) |
+
+**Reasoning Message Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `message_index` | integer | Message sequence number starting from 0 |
+| `role` | string | Message role: `user`, `assistant`, or `tool` |
+| `content` | string | Full message content |
+| `summary` | string\|null | Human-readable summary (for assistant messages only) |
+| `tool_name` | string\|null | Tool name (for tool messages only) |
+| `tool_input` | string\|null | Tool input parameters (for tool messages only) |
+| `timestamp` | string | ISO 8601 timestamp |
+
+**Error Responses:**
+
+**400 Bad Request** - Invalid date format
+```json
+{
+  "detail": "Invalid date format: 2025-1-16. Expected YYYY-MM-DD"
+}
+```
+
+**404 Not Found** - No sessions found matching filters
+```json
+{
+  "detail": "No trading sessions found matching the specified criteria"
+}
+```
+
+**Examples:**
+
+All sessions for a specific job (summaries only):
+```bash
+curl "http://localhost:8080/reasoning?job_id=550e8400-e29b-41d4-a716-446655440000"
+```
+
+Sessions for a specific date with full conversation:
+```bash
+curl "http://localhost:8080/reasoning?date=2025-01-16&include_full_conversation=true"
+```
+
+Sessions for a specific model:
+```bash
+curl "http://localhost:8080/reasoning?model=gpt-4"
+```
+
+Combine filters to get full conversation for specific model-day:
+```bash
+curl "http://localhost:8080/reasoning?job_id=550e8400-e29b-41d4-a716-446655440000&date=2025-01-16&model=gpt-4&include_full_conversation=true"
+```
+
+**Use Cases:**
+
+- **Debugging AI decisions**: Examine full conversation history to understand why specific trades were made
+- **Performance analysis**: Review session summaries to identify patterns in successful trading strategies
+- **Model comparison**: Compare reasoning approaches between different AI models on the same trading day
+- **Audit trail**: Document AI decision-making process for compliance or research purposes
+- **Strategy refinement**: Analyze tool usage patterns and message sequences to optimize agent prompts
+
+---
+
 ### GET /health
 
 Health check endpoint for monitoring and orchestration services.
@@ -858,6 +1093,22 @@ class AITraderServerClient:
         response.raise_for_status()
         return response.json()
 
+    def get_reasoning(self, job_id=None, date=None, model=None, include_full_conversation=False):
+        """Query reasoning logs with optional filters."""
+        params = {}
+        if job_id:
+            params["job_id"] = job_id
+        if date:
+            params["date"] = date
+        if model:
+            params["model"] = model
+        if include_full_conversation:
+            params["include_full_conversation"] = "true"
+
+        response = requests.get(f"{self.base_url}/reasoning", params=params)
+        response.raise_for_status()
+        return response.json()
+
 # Usage examples
 client = AITraderServerClient()
 
@@ -873,6 +1124,16 @@ job = client.trigger_simulation(end_date="2025-01-31", models=["gpt-4"])
 # Wait for completion and get results
 result = client.wait_for_completion(job["job_id"])
 results = client.get_results(job_id=job["job_id"])
+
+# Get reasoning logs (summaries only)
+reasoning = client.get_reasoning(job_id=job["job_id"])
+
+# Get reasoning logs with full conversation
+full_reasoning = client.get_reasoning(
+    job_id=job["job_id"],
+    date="2025-01-16",
+    include_full_conversation=True
+)
 ```
 
 ### TypeScript/JavaScript
@@ -944,6 +1205,25 @@ class AITraderServerClient {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
   }
+
+  async getReasoning(filters: {
+    jobId?: string;
+    date?: string;
+    model?: string;
+    includeFullConversation?: boolean;
+  } = {}) {
+    const params = new URLSearchParams();
+    if (filters.jobId) params.set("job_id", filters.jobId);
+    if (filters.date) params.set("date", filters.date);
+    if (filters.model) params.set("model", filters.model);
+    if (filters.includeFullConversation) params.set("include_full_conversation", "true");
+
+    const response = await fetch(
+      `${this.baseUrl}/reasoning?${params.toString()}`
+    );
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+  }
 }
 
 // Usage examples
@@ -969,4 +1249,14 @@ const job3 = await client.triggerSimulation("2025-01-31", {
 // Wait for completion and get results
 const result = await client.waitForCompletion(job1.job_id);
 const results = await client.getResults({ jobId: job1.job_id });
+
+// Get reasoning logs (summaries only)
+const reasoning = await client.getReasoning({ jobId: job1.job_id });
+
+// Get reasoning logs with full conversation
+const fullReasoning = await client.getReasoning({
+  jobId: job1.job_id,
+  date: "2025-01-16",
+  includeFullConversation: true
+});
 ```
