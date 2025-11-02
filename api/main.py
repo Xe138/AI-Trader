@@ -292,7 +292,7 @@ def create_app(
             job_id: Job UUID
 
         Returns:
-            Job status, progress, and model-day details
+            Job status, progress, model-day details, and warnings
 
         Raises:
             HTTPException 404: If job not found
@@ -314,6 +314,15 @@ def create_app(
             # Calculate pending (total - completed - failed)
             pending = progress["total_model_days"] - progress["completed"] - progress["failed"]
 
+            # Parse warnings from JSON if present
+            import json
+            warnings = None
+            if job.get("warnings"):
+                try:
+                    warnings = json.loads(job["warnings"])
+                except (json.JSONDecodeError, TypeError):
+                    logger.warning(f"Failed to parse warnings for job {job_id}")
+
             # Get deployment mode info
             deployment_info = get_deployment_mode_dict()
 
@@ -334,6 +343,7 @@ def create_app(
                 total_duration_seconds=job.get("total_duration_seconds"),
                 error=job.get("error"),
                 details=details,
+                warnings=warnings,
                 **deployment_info
             )
 

@@ -384,5 +384,32 @@ class TestAsyncDownload:
         assert response.status_code == 200
         assert "job_id" in response.json()
 
+    def test_status_endpoint_returns_warnings(self, api_client):
+        """Test that /simulate/status returns warnings field."""
+        from api.database import initialize_database
+        from api.job_manager import JobManager
+
+        # Create job with warnings
+        db_path = api_client.db_path
+        job_manager = JobManager(db_path=db_path)
+
+        job_id = job_manager.create_job(
+            config_path="config.json",
+            date_range=["2025-10-01"],
+            models=["gpt-5"]
+        )
+
+        # Add warnings
+        warnings = ["Rate limited", "Skipped 1 date"]
+        job_manager.add_job_warnings(job_id, warnings)
+
+        # Get status
+        response = api_client.get(f"/simulate/status/{job_id}")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "warnings" in data
+        assert data["warnings"] == warnings
+
 
 # Coverage target: 90%+ for api/main.py
