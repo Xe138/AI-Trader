@@ -412,5 +412,101 @@ class TestSimulationWorkerHelperMethods:
         stored_warnings = json.loads(job["warnings"])
         assert stored_warnings == warnings
 
+    def test_prepare_data_no_missing_data(self, clean_db, monkeypatch):
+        """Test prepare_data when all data is available."""
+        from api.simulation_worker import SimulationWorker
+        from api.job_manager import JobManager
+        from api.database import initialize_database
+
+        db_path = clean_db
+        initialize_database(db_path)
+        job_manager = JobManager(db_path=db_path)
+
+        # Create job
+        job_id = job_manager.create_job(
+            config_path="config.json",
+            date_range=["2025-10-01"],
+            models=["gpt-5"]
+        )
+
+        worker = SimulationWorker(job_id=job_id, db_path=db_path)
+
+        # Mock PriceDataManager
+        mock_price_manager = Mock()
+        mock_price_manager.get_missing_coverage.return_value = {}  # No missing data
+        mock_price_manager.get_available_trading_dates.return_value = ["2025-10-01"]
+
+        # Patch PriceDataManager import where it's used
+        def mock_pdm_init(db_path):
+            return mock_price_manager
+
+        monkeypatch.setattr("api.price_data_manager.PriceDataManager", mock_pdm_init)
+
+        # Mock get_completed_model_dates
+        worker.job_manager.get_completed_model_dates = Mock(return_value={})
+
+        # Execute
+        available_dates, warnings = worker._prepare_data(
+            requested_dates=["2025-10-01"],
+            models=["gpt-5"],
+            config_path="config.json"
+        )
+
+        # Verify results
+        assert available_dates == ["2025-10-01"]
+        assert len(warnings) == 0
+
+        # Verify status was updated to running
+        job = job_manager.get_job(job_id)
+        assert job["status"] == "running"
+
+    def test_prepare_data_with_download(self, clean_db, monkeypatch):
+        """Test prepare_data when data needs downloading."""
+        from api.simulation_worker import SimulationWorker
+        from api.job_manager import JobManager
+        from api.database import initialize_database
+
+        db_path = clean_db
+        initialize_database(db_path)
+        job_manager = JobManager(db_path=db_path)
+
+        job_id = job_manager.create_job(
+            config_path="config.json",
+            date_range=["2025-10-01"],
+            models=["gpt-5"]
+        )
+
+        worker = SimulationWorker(job_id=job_id, db_path=db_path)
+
+        # Mock PriceDataManager
+        mock_price_manager = Mock()
+        mock_price_manager.get_missing_coverage.return_value = {"AAPL": {"2025-10-01"}}
+        mock_price_manager.download_missing_data_prioritized.return_value = {
+            "downloaded": ["AAPL"],
+            "failed": [],
+            "rate_limited": False
+        }
+        mock_price_manager.get_available_trading_dates.return_value = ["2025-10-01"]
+
+        def mock_pdm_init(db_path):
+            return mock_price_manager
+
+        monkeypatch.setattr("api.price_data_manager.PriceDataManager", mock_pdm_init)
+        worker.job_manager.get_completed_model_dates = Mock(return_value={})
+
+        # Execute
+        available_dates, warnings = worker._prepare_data(
+            requested_dates=["2025-10-01"],
+            models=["gpt-5"],
+            config_path="config.json"
+        )
+
+        # Verify download was called
+        mock_price_manager.download_missing_data_prioritized.assert_called_once()
+
+        # Verify status transitions
+        job = job_manager.get_job(job_id)
+        assert job["status"] == "running"
+
 
 # Coverage target: 90%+ for api/simulation_worker.py
