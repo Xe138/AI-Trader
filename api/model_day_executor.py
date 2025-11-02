@@ -82,26 +82,31 @@ class ModelDayExecutor:
 
         logger.info(f"Initialized executor for {model_sig} on {date} (job: {job_id})")
 
-    def execute(self) -> Dict[str, Any]:
+    async def execute_async(self) -> Dict[str, Any]:
         """
-        Execute trading session and persist results.
+        Execute trading session and persist results (async version).
 
         Returns:
             Result dict with success status and metadata
 
         Process:
             1. Update job_detail status to 'running'
-            2. Initialize and run trading agent
-            3. Write results to SQLite
-            4. Update job_detail status to 'completed' or 'failed'
-            5. Cleanup runtime config
+            2. Create trading session
+            3. Initialize and run trading agent
+            4. Store reasoning logs with summaries
+            5. Update session summary
+            6. Write results to SQLite
+            7. Update job_detail status to 'completed' or 'failed'
+            8. Cleanup runtime config
 
         SQLite writes:
-            - positions: Trading position record
+            - trading_sessions: Session metadata and summary
+            - reasoning_logs: Conversation history with summaries
+            - positions: Trading position record (linked to session)
             - holdings: Portfolio holdings breakdown
-            - reasoning_logs: AI reasoning steps (if available)
             - tool_usage: Tool usage statistics (if available)
         """
+        conn = None
         try:
             # Update status to running
             self.job_manager.update_job_detail_status(
@@ -111,6 +116,12 @@ class ModelDayExecutor:
                 "running"
             )
 
+            # Create trading session at start
+            conn = get_db_connection(self.db_path)
+            cursor = conn.cursor()
+            session_id = self._create_trading_session(cursor)
+            conn.commit()
+
             # Set environment variable for agent to use isolated config
             os.environ["RUNTIME_ENV_PATH"] = self.runtime_config_path
 
@@ -119,10 +130,21 @@ class ModelDayExecutor:
 
             # Run trading session
             logger.info(f"Running trading session for {self.model_sig} on {self.date}")
-            session_result = asyncio.run(agent.run_trading_session(self.date))
+            session_result = await agent.run_trading_session(self.date)
 
-            # Persist results to SQLite
-            self._write_results_to_db(agent, session_result)
+            # Get conversation history
+            conversation = agent.get_conversation_history()
+
+            # Store reasoning logs with summaries
+            await self._store_reasoning_logs(cursor, session_id, conversation, agent)
+
+            # Update session summary
+            await self._update_session_summary(cursor, session_id, conversation, agent)
+
+            # Store positions (pass session_id)
+            self._write_results_to_db(agent, session_id)
+
+            conn.commit()
 
             # Update status to completed
             self.job_manager.update_job_detail_status(
@@ -139,12 +161,16 @@ class ModelDayExecutor:
                 "job_id": self.job_id,
                 "date": self.date,
                 "model": self.model_sig,
+                "session_id": session_id,
                 "session_result": session_result
             }
 
         except Exception as e:
             error_msg = f"Execution failed: {str(e)}"
             logger.error(f"{self.model_sig} on {self.date}: {error_msg}", exc_info=True)
+
+            if conn:
+                conn.rollback()
 
             # Update status to failed
             self.job_manager.update_job_detail_status(
@@ -164,8 +190,24 @@ class ModelDayExecutor:
             }
 
         finally:
+            if conn:
+                conn.close()
             # Always cleanup runtime config
             self.runtime_manager.cleanup_runtime_config(self.runtime_config_path)
+
+    def execute_sync(self) -> Dict[str, Any]:
+        """Synchronous wrapper for execute_async()."""
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        return loop.run_until_complete(self.execute_async())
+
+    def execute(self) -> Dict[str, Any]:
+        """Execute model-day simulation (sync entry point)."""
+        return self.execute_sync()
 
     def _initialize_agent(self):
         """
@@ -219,18 +261,120 @@ class ModelDayExecutor:
 
         return agent
 
-    def _write_results_to_db(self, agent, session_result: Dict[str, Any]) -> None:
+    def _create_trading_session(self, cursor) -> int:
+        """
+        Create trading session record.
+
+        Args:
+            cursor: Database cursor
+
+        Returns:
+            session_id (int)
+        """
+        from datetime import datetime
+
+        started_at = datetime.utcnow().isoformat() + "Z"
+
+        cursor.execute("""
+            INSERT INTO trading_sessions (
+                job_id, date, model, started_at
+            )
+            VALUES (?, ?, ?, ?)
+        """, (self.job_id, self.date, self.model_sig, started_at))
+
+        return cursor.lastrowid
+
+    async def _store_reasoning_logs(
+        self,
+        cursor,
+        session_id: int,
+        conversation: List[Dict[str, Any]],
+        agent: Any
+    ) -> None:
+        """
+        Store reasoning logs with AI-generated summaries.
+
+        Args:
+            cursor: Database cursor
+            session_id: Trading session ID
+            conversation: List of messages from agent
+            agent: BaseAgent instance for summary generation
+        """
+        for idx, message in enumerate(conversation):
+            summary = None
+
+            # Generate summary for assistant messages
+            if message["role"] == "assistant":
+                summary = await agent.generate_summary(message["content"])
+
+            cursor.execute("""
+                INSERT INTO reasoning_logs (
+                    session_id, message_index, role, content,
+                    summary, tool_name, tool_input, timestamp
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                session_id,
+                idx,
+                message["role"],
+                message["content"],
+                summary,
+                message.get("tool_name"),
+                message.get("tool_input"),
+                message["timestamp"]
+            ))
+
+    async def _update_session_summary(
+        self,
+        cursor,
+        session_id: int,
+        conversation: List[Dict[str, Any]],
+        agent: Any
+    ) -> None:
+        """
+        Update session with overall summary.
+
+        Args:
+            cursor: Database cursor
+            session_id: Trading session ID
+            conversation: List of messages from agent
+            agent: BaseAgent instance for summary generation
+        """
+        from datetime import datetime
+
+        # Concatenate all assistant messages
+        assistant_messages = [
+            msg["content"]
+            for msg in conversation
+            if msg["role"] == "assistant"
+        ]
+
+        combined_content = "\n\n".join(assistant_messages)
+
+        # Generate session summary (longer: 500 chars)
+        session_summary = await agent.generate_summary(combined_content, max_length=500)
+
+        completed_at = datetime.utcnow().isoformat() + "Z"
+
+        cursor.execute("""
+            UPDATE trading_sessions
+            SET session_summary = ?,
+                completed_at = ?,
+                total_messages = ?
+            WHERE id = ?
+        """, (session_summary, completed_at, len(conversation), session_id))
+
+    def _write_results_to_db(self, agent, session_id: int) -> None:
         """
         Write execution results to SQLite.
 
         Args:
             agent: Trading agent instance
-            session_result: Result from run_trading_session()
+            session_id: Trading session ID (for linking positions)
 
         Writes to:
-            - positions: Position record with action and P&L
+            - positions: Position record with action and P&L (linked to session)
             - holdings: Current portfolio holdings
-            - reasoning_logs: AI reasoning steps (if available)
             - tool_usage: Tool usage stats (if available)
         """
         conn = get_db_connection(self.db_path)
@@ -282,13 +426,14 @@ class ModelDayExecutor:
             cursor.execute("""
                 INSERT INTO positions (
                     job_id, date, model, action_id, action_type, symbol,
-                    amount, price, cash, portfolio_value, daily_profit, daily_return_pct, created_at
+                    amount, price, cash, portfolio_value, daily_profit, daily_return_pct,
+                    session_id, created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 self.job_id, self.date, self.model_sig, action_id, action_type,
                 symbol, amount, price, cash, total_value,
-                daily_profit, daily_return_pct, created_at
+                daily_profit, daily_return_pct, session_id, created_at
             ))
 
             position_id = cursor.lastrowid
@@ -299,20 +444,6 @@ class ModelDayExecutor:
                     INSERT INTO holdings (position_id, symbol, quantity)
                     VALUES (?, ?, ?)
                 """, (position_id, symbol, float(quantity)))
-
-            # Insert reasoning logs (if available)
-            if hasattr(agent, 'get_reasoning_steps'):
-                reasoning_steps = agent.get_reasoning_steps()
-                for step in reasoning_steps:
-                    cursor.execute("""
-                        INSERT INTO reasoning_logs (
-                            job_id, date, model, step_number, timestamp, content
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, (
-                        self.job_id, self.date, self.model_sig,
-                        step.get("step"), created_at, step.get("reasoning")
-                    ))
 
             # Insert tool usage (if available)
             if hasattr(agent, 'get_tool_usage') and hasattr(agent, 'get_tool_usage'):
