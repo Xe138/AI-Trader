@@ -286,7 +286,13 @@ def cleanup_dev_database(db_path: str = "data/trading_dev.db", data_path: str = 
 
 
 def _migrate_schema(cursor: sqlite3.Cursor) -> None:
-    """Migrate existing database schema to latest version."""
+    """
+    Migrate existing database schema to latest version.
+
+    Note: Cannot add CHECK constraints to existing columns via ALTER TABLE.
+    The "downloading_data" status in jobs table requires a fresh database
+    or manual migration if upgrading from an older schema version.
+    """
     # Check if positions table exists and has simulation_run_id column
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='positions'")
     if cursor.fetchone():
@@ -297,6 +303,18 @@ def _migrate_schema(cursor: sqlite3.Cursor) -> None:
             # Add simulation_run_id column to existing positions table
             cursor.execute("""
                 ALTER TABLE positions ADD COLUMN simulation_run_id TEXT
+            """)
+
+    # Check if jobs table exists and has warnings column
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='jobs'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(jobs)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+        if 'warnings' not in columns:
+            # Add warnings column to existing jobs table
+            cursor.execute("""
+                ALTER TABLE jobs ADD COLUMN warnings TEXT
             """)
 
 

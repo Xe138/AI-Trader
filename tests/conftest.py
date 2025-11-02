@@ -56,8 +56,11 @@ def clean_db(test_db_path):
     cursor.execute("DELETE FROM reasoning_logs")
     cursor.execute("DELETE FROM holdings")
     cursor.execute("DELETE FROM positions")
+    cursor.execute("DELETE FROM simulation_runs")
     cursor.execute("DELETE FROM job_details")
     cursor.execute("DELETE FROM jobs")
+    cursor.execute("DELETE FROM price_data_coverage")
+    cursor.execute("DELETE FROM price_data")
 
     conn.commit()
     conn.close()
