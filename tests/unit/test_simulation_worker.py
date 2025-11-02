@@ -49,10 +49,17 @@ class TestSimulationWorkerExecution:
 
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
+        # Mock _prepare_data to return both dates
+        worker._prepare_data = Mock(return_value=(["2025-01-16", "2025-01-17"], []))
+
         # Mock ModelDayExecutor
         with patch("api.simulation_worker.ModelDayExecutor") as mock_executor_class:
             mock_executor = Mock()
-            mock_executor.execute.return_value = {"success": True}
+            mock_executor.execute.return_value = {
+                "success": True,
+                "model": "test-model",
+                "date": "2025-01-16"
+            }
             mock_executor_class.return_value = mock_executor
 
             worker.run()
@@ -74,12 +81,19 @@ class TestSimulationWorkerExecution:
 
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
+        # Mock _prepare_data to return both dates
+        worker._prepare_data = Mock(return_value=(["2025-01-16", "2025-01-17"], []))
+
         execution_order = []
 
         def track_execution(job_id, date, model_sig, config_path, db_path):
             executor = Mock()
             execution_order.append((date, model_sig))
-            executor.execute.return_value = {"success": True}
+            executor.execute.return_value = {
+                "success": True,
+                "model": model_sig,
+                "date": date
+            }
             return executor
 
         with patch("api.simulation_worker.ModelDayExecutor", side_effect=track_execution):
@@ -112,9 +126,16 @@ class TestSimulationWorkerExecution:
 
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
+        # Mock _prepare_data to return the date
+        worker._prepare_data = Mock(return_value=(["2025-01-16"], []))
+
         with patch("api.simulation_worker.ModelDayExecutor") as mock_executor_class:
             mock_executor = Mock()
-            mock_executor.execute.return_value = {"success": True}
+            mock_executor.execute.return_value = {
+                "success": True,
+                "model": "gpt-5",
+                "date": "2025-01-16"
+            }
             mock_executor_class.return_value = mock_executor
 
             worker.run()
@@ -137,13 +158,21 @@ class TestSimulationWorkerExecution:
 
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
+        # Mock _prepare_data to return the date
+        worker._prepare_data = Mock(return_value=(["2025-01-16"], []))
+
         call_count = 0
 
         def mixed_results(*args, **kwargs):
             nonlocal call_count
             executor = Mock()
             # First model succeeds, second fails
-            executor.execute.return_value = {"success": call_count == 0}
+            success = (call_count == 0)
+            executor.execute.return_value = {
+                "success": success,
+                "model": kwargs.get("model_sig", "unknown"),
+                "date": kwargs.get("date", "2025-01-16")
+            }
             call_count += 1
             return executor
 
@@ -173,6 +202,9 @@ class TestSimulationWorkerErrorHandling:
 
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
+        # Mock _prepare_data to return the date
+        worker._prepare_data = Mock(return_value=(["2025-01-16"], []))
+
         execution_count = 0
 
         def counting_executor(*args, **kwargs):
@@ -181,9 +213,18 @@ class TestSimulationWorkerErrorHandling:
             executor = Mock()
             # Second model fails
             if execution_count == 2:
-                executor.execute.return_value = {"success": False, "error": "Model failed"}
+                executor.execute.return_value = {
+                    "success": False,
+                    "error": "Model failed",
+                    "model": kwargs.get("model_sig", "unknown"),
+                    "date": kwargs.get("date", "2025-01-16")
+                }
             else:
-                executor.execute.return_value = {"success": True}
+                executor.execute.return_value = {
+                    "success": True,
+                    "model": kwargs.get("model_sig", "unknown"),
+                    "date": kwargs.get("date", "2025-01-16")
+                }
             return executor
 
         with patch("api.simulation_worker.ModelDayExecutor", side_effect=counting_executor):
@@ -206,8 +247,10 @@ class TestSimulationWorkerErrorHandling:
 
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
-        with patch("api.simulation_worker.ModelDayExecutor", side_effect=Exception("Unexpected error")):
-            worker.run()
+        # Mock _prepare_data to raise exception
+        worker._prepare_data = Mock(side_effect=Exception("Unexpected error"))
+
+        worker.run()
 
         # Check job status
         job = manager.get_job(job_id)
@@ -233,16 +276,27 @@ class TestSimulationWorkerConcurrency:
 
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
+        # Mock _prepare_data to return the date
+        worker._prepare_data = Mock(return_value=(["2025-01-16"], []))
+
         with patch("api.simulation_worker.ModelDayExecutor") as mock_executor_class:
             mock_executor = Mock()
-            mock_executor.execute.return_value = {"success": True}
+            mock_executor.execute.return_value = {
+                "success": True,
+                "model": "test-model",
+                "date": "2025-01-16"
+            }
             mock_executor_class.return_value = mock_executor
 
             # Mock ThreadPoolExecutor to verify it's being used
             with patch("api.simulation_worker.ThreadPoolExecutor") as mock_pool:
                 mock_pool_instance = Mock()
                 mock_pool.return_value.__enter__.return_value = mock_pool_instance
-                mock_pool_instance.submit.return_value = Mock(result=lambda: {"success": True})
+                mock_pool_instance.submit.return_value = Mock(result=lambda: {
+                    "success": True,
+                    "model": "test-model",
+                    "date": "2025-01-16"
+                })
 
                 worker.run()
 
