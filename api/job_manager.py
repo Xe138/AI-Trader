@@ -394,7 +394,7 @@ class JobManager:
                     WHERE job_id = ? AND status = 'pending'
                 """, (updated_at, updated_at, job_id))
 
-            elif status in ("completed", "failed"):
+            elif status in ("completed", "failed", "skipped"):
                 # Calculate duration for detail
                 cursor.execute("""
                     SELECT started_at FROM job_details
