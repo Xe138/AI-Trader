@@ -236,6 +236,52 @@ class SimulationWorker:
             warnings.append(msg)
             logger.warning(f"Job {self.job_id}: {msg}")
 
+    def _filter_completed_dates(
+        self,
+        available_dates: List[str],
+        models: List[str]
+    ) -> List[str]:
+        """
+        Filter out dates that are already completed for all models.
+
+        Implements idempotent job behavior - skip model-days that already
+        have completed data.
+
+        Args:
+            available_dates: List of dates with complete price data
+            models: List of model signatures
+
+        Returns:
+            List of dates that need processing
+        """
+        if not available_dates:
+            return []
+
+        # Get completed dates from job_manager
+        start_date = available_dates[0]
+        end_date = available_dates[-1]
+
+        completed_dates = self.job_manager.get_completed_model_dates(
+            models,
+            start_date,
+            end_date
+        )
+
+        # Build list of dates that need processing
+        dates_to_process = []
+        for date in available_dates:
+            # Check if any model needs this date
+            needs_processing = False
+            for model in models:
+                if date not in completed_dates.get(model, []):
+                    needs_processing = True
+                    break
+
+            if needs_processing:
+                dates_to_process.append(date)
+
+        return dates_to_process
+
     def get_job_info(self) -> Dict[str, Any]:
         """
         Get job information.

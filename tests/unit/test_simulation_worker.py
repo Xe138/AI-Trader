@@ -334,5 +334,53 @@ class TestSimulationWorkerHelperMethods:
         assert len(warnings) == 1
         assert "Rate limit" in warnings[0]
 
+    def test_filter_completed_dates_all_new(self, clean_db):
+        """Test filtering when no dates are completed."""
+        from api.simulation_worker import SimulationWorker
+        from api.database import initialize_database
+
+        db_path = clean_db
+        initialize_database(db_path)
+
+        worker = SimulationWorker(job_id="test-789", db_path=db_path)
+
+        # Mock job_manager to return empty completed dates
+        mock_job_manager = Mock()
+        mock_job_manager.get_completed_model_dates.return_value = {}
+        worker.job_manager = mock_job_manager
+
+        available_dates = ["2025-10-01", "2025-10-02"]
+        models = ["gpt-5"]
+
+        result = worker._filter_completed_dates(available_dates, models)
+
+        # All dates should be returned
+        assert result == available_dates
+
+    def test_filter_completed_dates_some_completed(self, clean_db):
+        """Test filtering when some dates are completed."""
+        from api.simulation_worker import SimulationWorker
+        from api.database import initialize_database
+
+        db_path = clean_db
+        initialize_database(db_path)
+
+        worker = SimulationWorker(job_id="test-abc", db_path=db_path)
+
+        # Mock job_manager to return one completed date
+        mock_job_manager = Mock()
+        mock_job_manager.get_completed_model_dates.return_value = {
+            "gpt-5": ["2025-10-01"]
+        }
+        worker.job_manager = mock_job_manager
+
+        available_dates = ["2025-10-01", "2025-10-02", "2025-10-03"]
+        models = ["gpt-5"]
+
+        result = worker._filter_completed_dates(available_dates, models)
+
+        # Should exclude completed date
+        assert result == ["2025-10-02", "2025-10-03"]
+
 
 # Coverage target: 90%+ for api/simulation_worker.py
