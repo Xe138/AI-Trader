@@ -150,7 +150,15 @@ curl -X POST http://localhost:5000/simulate/to-date \
     - Integration with monitoring systems (Prometheus, Grafana)
     - Alerting recommendations
   - Backup and disaster recovery guidance
-  - Database migration strategy
+  - Database migration strategy:
+    - Automated schema migration system for production databases
+    - Support for ALTER TABLE and table recreation when needed
+    - Migration version tracking and rollback capabilities
+    - Zero-downtime migration procedures for production
+    - Data integrity validation before and after migrations
+    - Migration script testing framework
+    - Note: Currently migrations are minimal (pre-production state)
+    - Pre-production recommendation: Delete and recreate databases for schema updates
   - Upgrade path documentation (v0.x to v1.0)
   - Version compatibility guarantees going forward
 
