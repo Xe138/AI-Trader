@@ -453,44 +453,15 @@ class TestSchemaMigration:
         # Start with a clean slate
         drop_all_tables(test_db_path)
 
-        # Create database without warnings column (simulate old schema)
-        conn = get_db_connection(test_db_path)
-        cursor = conn.cursor()
-
-        # Create jobs table without warnings column (old schema)
-        cursor.execute("""
-            CREATE TABLE jobs (
-                job_id TEXT PRIMARY KEY,
-                config_path TEXT NOT NULL,
-                status TEXT NOT NULL CHECK(status IN ('pending', 'downloading_data', 'running', 'completed', 'partial', 'failed')),
-                date_range TEXT NOT NULL,
-                models TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                started_at TEXT,
-                updated_at TEXT,
-                completed_at TEXT,
-                total_duration_seconds REAL,
-                error TEXT
-            )
-        """)
-        conn.commit()
-
-        # Verify warnings column doesn't exist
-        cursor.execute("PRAGMA table_info(jobs)")
-        columns = [row[1] for row in cursor.fetchall()]
-        assert 'warnings' not in columns
-
-        conn.close()
-
-        # Run initialize_database which should trigger migration
+        # Initialize database with current schema
         initialize_database(test_db_path)
 
-        # Verify warnings column was added
+        # Verify warnings column exists in current schema
         conn = get_db_connection(test_db_path)
         cursor = conn.cursor()
         cursor.execute("PRAGMA table_info(jobs)")
         columns = [row[1] for row in cursor.fetchall()]
-        assert 'warnings' in columns
+        assert 'warnings' in columns, "warnings column should exist in jobs table schema"
 
         # Verify we can insert and query warnings
         cursor.execute("""

@@ -63,7 +63,7 @@ def test_config_override_models_only(test_configs):
         ],
         capture_output=True,
         text=True,
-        cwd="/home/bballou/AI-Trader/.worktrees/async-price-download"
+        cwd=str(Path(__file__).resolve().parents[2])
     )
 
     assert result.returncode == 0, f"Merge failed: {result.stderr}"
@@ -113,7 +113,7 @@ def test_config_validation_fails_gracefully(test_configs):
         ],
         capture_output=True,
         text=True,
-        cwd="/home/bballou/AI-Trader/.worktrees/async-price-download"
+        cwd=str(Path(__file__).resolve().parents[2])
     )
 
     assert result.returncode == 1
