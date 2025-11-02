@@ -131,31 +131,49 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         """Initialize database on startup, cleanup on shutdown if needed"""
+        print("=" * 80)
+        print("🔍 DIAGNOSTIC: LIFESPAN FUNCTION CALLED!")
+        print("=" * 80)
+
         from tools.deployment_config import is_dev_mode, get_db_path
         from api.database import initialize_dev_database, initialize_database
 
         # Startup - use closure to access db_path from create_app scope
         logger.info("🚀 FastAPI application starting...")
         logger.info("📊 Initializing database...")
+        print(f"🔍 DIAGNOSTIC: Lifespan - db_path from closure: {db_path}")
 
-        if is_dev_mode():
+        deployment_mode = is_dev_mode()
+        print(f"🔍 DIAGNOSTIC: Lifespan - is_dev_mode() returned: {deployment_mode}")
+
+        if deployment_mode:
             # Initialize dev database (reset unless PRESERVE_DEV_DATA=true)
             logger.info("  🔧 DEV mode detected - initializing dev database")
+            print("🔍 DIAGNOSTIC: Lifespan - DEV mode detected")
             dev_db_path = get_db_path(db_path)
+            print(f"🔍 DIAGNOSTIC: Lifespan - Resolved dev database path: {dev_db_path}")
+            print(f"🔍 DIAGNOSTIC: Lifespan - About to call initialize_dev_database({dev_db_path})")
             initialize_dev_database(dev_db_path)
+            print(f"🔍 DIAGNOSTIC: Lifespan - initialize_dev_database() completed")
             log_dev_mode_startup_warning()
         else:
             # Ensure production database schema exists
             logger.info("  🏭 PROD mode - ensuring database schema exists")
+            print("🔍 DIAGNOSTIC: Lifespan - PROD mode detected")
+            print(f"🔍 DIAGNOSTIC: Lifespan - About to call initialize_database({db_path})")
             initialize_database(db_path)
+            print(f"🔍 DIAGNOSTIC: Lifespan - initialize_database() completed")
 
         logger.info("✅ Database initialized")
         logger.info("🌐 API server ready to accept requests")
+        print("🔍 DIAGNOSTIC: Lifespan - Startup complete, yielding control")
+        print("=" * 80)
 
         yield
 
         # Shutdown (if needed in future)
         logger.info("🛑 FastAPI application shutting down...")
+        print("🔍 DIAGNOSTIC: LIFESPAN SHUTDOWN CALLED")
 
     app = FastAPI(
         title="AI-Trader Simulation API",
@@ -520,23 +538,45 @@ def create_app(
 
 
 # Create default app instance
+print("=" * 80)
+print("🔍 DIAGNOSTIC: Module api.main is being imported/executed")
+print("=" * 80)
+
 app = create_app()
+print(f"🔍 DIAGNOSTIC: create_app() completed, app object created: {app}")
 
 # Ensure database is initialized when module is loaded
 # This handles cases where lifespan might not be triggered properly
+print("🔍 DIAGNOSTIC: Starting module-level database initialization check...")
 logger.info("🔧 Module-level database initialization check...")
+
 from tools.deployment_config import is_dev_mode, get_db_path
 from api.database import initialize_dev_database, initialize_database
 
 _db_path = app.state.db_path
-if is_dev_mode():
+print(f"🔍 DIAGNOSTIC: app.state.db_path = {_db_path}")
+
+deployment_mode = is_dev_mode()
+print(f"🔍 DIAGNOSTIC: is_dev_mode() returned: {deployment_mode}")
+
+if deployment_mode:
+    print("🔍 DIAGNOSTIC: DEV mode detected - initializing dev database at module load")
     logger.info("  🔧 DEV mode - initializing dev database at module load")
     _dev_db_path = get_db_path(_db_path)
+    print(f"🔍 DIAGNOSTIC: Resolved dev database path: {_dev_db_path}")
+    print(f"🔍 DIAGNOSTIC: About to call initialize_dev_database({_dev_db_path})")
     initialize_dev_database(_dev_db_path)
+    print(f"🔍 DIAGNOSTIC: initialize_dev_database() completed successfully")
 else:
+    print("🔍 DIAGNOSTIC: PROD mode - ensuring database exists at module load")
     logger.info("  🏭 PROD mode - ensuring database exists at module load")
+    print(f"🔍 DIAGNOSTIC: About to call initialize_database({_db_path})")
     initialize_database(_db_path)
+    print(f"🔍 DIAGNOSTIC: initialize_database() completed successfully")
+
+print("🔍 DIAGNOSTIC: Module-level database initialization complete")
 logger.info("✅ Module-level database initialization complete")
+print("=" * 80)
 
 
 if __name__ == "__main__":

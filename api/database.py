@@ -244,24 +244,35 @@ def initialize_dev_database(db_path: str = "data/trading_dev.db") -> None:
     Args:
         db_path: Path to dev database file
     """
+    print(f"🔍 DIAGNOSTIC: initialize_dev_database() CALLED with db_path={db_path}")
     from tools.deployment_config import should_preserve_dev_data
 
-    if should_preserve_dev_data():
+    preserve = should_preserve_dev_data()
+    print(f"🔍 DIAGNOSTIC: should_preserve_dev_data() returned: {preserve}")
+
+    if preserve:
         print(f"ℹ️  PRESERVE_DEV_DATA=true, keeping existing dev database: {db_path}")
         # Ensure schema exists even if preserving data
-        if not Path(db_path).exists():
+        db_exists = Path(db_path).exists()
+        print(f"🔍 DIAGNOSTIC: Database exists check: {db_exists}")
+        if not db_exists:
             print(f"📁 Dev database doesn't exist, creating: {db_path}")
             initialize_database(db_path)
+        print(f"🔍 DIAGNOSTIC: initialize_dev_database() RETURNING (preserve mode)")
         return
 
     # Delete existing dev database
-    if Path(db_path).exists():
+    db_exists = Path(db_path).exists()
+    print(f"🔍 DIAGNOSTIC: Database exists (before deletion): {db_exists}")
+    if db_exists:
         print(f"🗑️  Removing existing dev database: {db_path}")
         Path(db_path).unlink()
+        print(f"🔍 DIAGNOSTIC: Database deleted successfully")
 
     # Create fresh dev database
     print(f"📁 Creating fresh dev database: {db_path}")
     initialize_database(db_path)
+    print(f"🔍 DIAGNOSTIC: initialize_dev_database() COMPLETED successfully")
 
 
 def cleanup_dev_database(db_path: str = "data/trading_dev.db", data_path: str = "./data/dev_agent_data") -> None:
