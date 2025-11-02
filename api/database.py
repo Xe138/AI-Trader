@@ -289,9 +289,8 @@ def _migrate_schema(cursor: sqlite3.Cursor) -> None:
     """
     Migrate existing database schema to latest version.
 
-    Note: Cannot add CHECK constraints to existing columns via ALTER TABLE.
-    The "downloading_data" status in jobs table requires a fresh database
-    or manual migration if upgrading from an older schema version.
+    Note: For pre-production databases, simply delete and recreate.
+    This migration is only for preserving data during development.
     """
     # Check if positions table exists and has simulation_run_id column
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='positions'")
@@ -300,21 +299,8 @@ def _migrate_schema(cursor: sqlite3.Cursor) -> None:
         columns = [row[1] for row in cursor.fetchall()]
 
         if 'simulation_run_id' not in columns:
-            # Add simulation_run_id column to existing positions table
             cursor.execute("""
                 ALTER TABLE positions ADD COLUMN simulation_run_id TEXT
-            """)
-
-    # Check if jobs table exists and has warnings column
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='jobs'")
-    if cursor.fetchone():
-        cursor.execute("PRAGMA table_info(jobs)")
-        columns = [row[1] for row in cursor.fetchall()]
-
-        if 'warnings' not in columns:
-            # Add warnings column to existing jobs table
-            cursor.execute("""
-                ALTER TABLE jobs ADD COLUMN warnings TEXT
             """)
 
 
