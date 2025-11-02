@@ -69,8 +69,16 @@ def get_db_path(base_db_path: str) -> str:
     Example:
         PROD: "data/trading.db" -> "data/trading.db"
         DEV:  "data/trading.db" -> "data/trading_dev.db"
+
+    Note:
+        This function is idempotent - calling it multiple times on the same
+        path will not add multiple _dev suffixes.
     """
     if is_dev_mode():
+        # Check if already has _dev suffix (idempotent)
+        if "_dev.db" in base_db_path:
+            return base_db_path
+
         # Insert _dev before .db extension
         if base_db_path.endswith(".db"):
             return base_db_path[:-3] + "_dev.db"
