@@ -36,7 +36,7 @@ Trigger a new simulation job for a specified date range and models.
 |-------|------|----------|-------------|
 | `start_date` | string \| null | No | Start date in YYYY-MM-DD format. If `null`, enables resume mode (each model continues from its last completed date). Defaults to `null`. |
 | `end_date` | string | **Yes** | End date in YYYY-MM-DD format. **Required** - cannot be null or empty. |
-| `models` | array[string] | No | Model signatures to run. If omitted, uses all enabled models from server config. |
+| `models` | array[string] | No | Model signatures to run. If omitted or empty array, uses all enabled models from server config. |
 | `replace_existing` | boolean | No | If `false` (default), skips already-completed model-days (idempotent). If `true`, re-runs all dates even if previously completed. |
 
 **Response (200 OK):**

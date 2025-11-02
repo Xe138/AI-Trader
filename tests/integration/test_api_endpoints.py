@@ -119,6 +119,18 @@ class TestSimulateTriggerEndpoint:
         data = response.json()
         assert data["total_model_days"] >= 1
 
+    def test_trigger_empty_models_uses_config(self, api_client):
+        """Should use enabled models from config when models is empty list."""
+        response = api_client.post("/simulate/trigger", json={
+            "start_date": "2025-01-16",
+            "end_date": "2025-01-16",
+            "models": []  # Empty list - should use enabled models from config
+        })
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_model_days"] >= 1
+
     def test_trigger_enforces_single_job_limit(self, api_client):
         """Should reject trigger when job already running."""
         # Create first job

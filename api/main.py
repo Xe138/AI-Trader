@@ -176,11 +176,11 @@ def create_app(
             with open(config_path, 'r') as f:
                 config = json.load(f)
 
-            if request.models is not None:
+            if request.models is not None and len(request.models) > 0:
                 # Use models from request (explicit override)
                 models_to_run = request.models
             else:
-                # Use enabled models from config
+                # Use enabled models from config (when models is None or empty list)
                 models_to_run = [
                     model["signature"]
                     for model in config.get("models", [])
