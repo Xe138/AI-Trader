@@ -148,7 +148,7 @@ class JobManager:
                 SELECT
                     job_id, config_path, status, date_range, models,
                     created_at, started_at, updated_at, completed_at,
-                    total_duration_seconds, error
+                    total_duration_seconds, error, warnings
                 FROM jobs
                 WHERE job_id = ?
             """, (job_id,))
@@ -168,7 +168,8 @@ class JobManager:
                 "updated_at": row[7],
                 "completed_at": row[8],
                 "total_duration_seconds": row[9],
-                "error": row[10]
+                "error": row[10],
+                "warnings": row[11]
             }
 
         finally:
@@ -189,7 +190,7 @@ class JobManager:
                 SELECT
                     job_id, config_path, status, date_range, models,
                     created_at, started_at, updated_at, completed_at,
-                    total_duration_seconds, error
+                    total_duration_seconds, error, warnings
                 FROM jobs
                 ORDER BY created_at DESC
                 LIMIT 1
@@ -210,7 +211,8 @@ class JobManager:
                 "updated_at": row[7],
                 "completed_at": row[8],
                 "total_duration_seconds": row[9],
-                "error": row[10]
+                "error": row[10],
+                "warnings": row[11]
             }
 
         finally:
@@ -236,7 +238,7 @@ class JobManager:
                 SELECT
                     job_id, config_path, status, date_range, models,
                     created_at, started_at, updated_at, completed_at,
-                    total_duration_seconds, error
+                    total_duration_seconds, error, warnings
                 FROM jobs
                 WHERE date_range = ?
                 ORDER BY created_at DESC
@@ -258,7 +260,8 @@ class JobManager:
                 "updated_at": row[7],
                 "completed_at": row[8],
                 "total_duration_seconds": row[9],
-                "error": row[10]
+                "error": row[10],
+                "warnings": row[11]
             }
 
         finally:
@@ -323,6 +326,32 @@ class JobManager:
 
             conn.commit()
             logger.debug(f"Updated job {job_id} status to {status}")
+
+        finally:
+            conn.close()
+
+    def add_job_warnings(self, job_id: str, warnings: List[str]) -> None:
+        """
+        Store warnings for a job.
+
+        Args:
+            job_id: Job UUID
+            warnings: List of warning messages
+        """
+        conn = get_db_connection(self.db_path)
+        cursor = conn.cursor()
+
+        try:
+            warnings_json = json.dumps(warnings)
+
+            cursor.execute("""
+                UPDATE jobs
+                SET warnings = ?
+                WHERE job_id = ?
+            """, (warnings_json, job_id))
+
+            conn.commit()
+            logger.info(f"Added {len(warnings)} warnings to job {job_id}")
 
         finally:
             conn.close()
@@ -575,7 +604,7 @@ class JobManager:
                 SELECT
                     job_id, config_path, status, date_range, models,
                     created_at, started_at, updated_at, completed_at,
-                    total_duration_seconds, error
+                    total_duration_seconds, error, warnings
                 FROM jobs
                 WHERE status IN ('pending', 'running')
                 ORDER BY created_at DESC
@@ -594,7 +623,8 @@ class JobManager:
                     "updated_at": row[7],
                     "completed_at": row[8],
                     "total_duration_seconds": row[9],
-                    "error": row[10]
+                    "error": row[10],
+                    "warnings": row[11]
                 })
 
             return jobs

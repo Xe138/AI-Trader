@@ -419,4 +419,33 @@ class TestJobUpdateOperations:
         assert detail["duration_seconds"] > 0
 
 
+@pytest.mark.unit
+class TestJobWarnings:
+    """Test job warnings management."""
+
+    def test_add_job_warnings(self, clean_db):
+        """Test adding warnings to a job."""
+        from api.job_manager import JobManager
+        from api.database import initialize_database
+
+        initialize_database(clean_db)
+        job_manager = JobManager(db_path=clean_db)
+
+        # Create a job
+        job_id = job_manager.create_job(
+            config_path="config.json",
+            date_range=["2025-10-01"],
+            models=["gpt-5"]
+        )
+
+        # Add warnings
+        warnings = ["Rate limit reached", "Skipped 2 dates"]
+        job_manager.add_job_warnings(job_id, warnings)
+
+        # Verify warnings were stored
+        job = job_manager.get_job(job_id)
+        stored_warnings = json.loads(job["warnings"])
+        assert stored_warnings == warnings
+
+
 # Coverage target: 95%+ for api/job_manager.py
