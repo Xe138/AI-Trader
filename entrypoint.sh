@@ -36,9 +36,21 @@ fi
 
 echo "✅ Environment variables validated"
 
-# Step 1: Initialize database
+# Step 1: Initialize database (respecting dev/prod mode)
 echo "📊 Initializing database..."
-python -c "from api.database import initialize_database; initialize_database('data/jobs.db')"
+python -c "
+from tools.deployment_config import is_dev_mode, get_db_path
+from api.database import initialize_dev_database, initialize_database
+
+db_path = 'data/jobs.db'
+if is_dev_mode():
+    print('  🔧 DEV mode detected - initializing dev database')
+    dev_db_path = get_db_path(db_path)
+    initialize_dev_database(dev_db_path)
+else:
+    print('  🏭 PROD mode - initializing production database')
+    initialize_database(db_path)
+"
 echo "✅ Database initialized"
 
 # Step 2: Merge and validate configuration
