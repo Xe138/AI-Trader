@@ -94,6 +94,70 @@ curl "http://localhost:8080/results?job_id=$JOB_ID&date=2025-01-16&model=gpt-4"
 
 ---
 
+## Async Data Download
+
+The `/simulate/trigger` endpoint responds immediately (<1 second), even when price data needs to be downloaded.
+
+### Flow
+
+1. **POST /simulate/trigger** - Returns `job_id` immediately
+2. **Background worker** - Downloads missing data automatically
+3. **Poll /simulate/status** - Track progress through status transitions
+
+### Status Progression
+
+```
+pending → downloading_data → running → completed
+```
+
+### Monitoring Progress
+
+Use `docker logs -f` to monitor download progress in real-time:
+
+```bash
+docker logs -f ai-trader-server
+
+# Example output:
+# Job 019a426b: Checking price data availability...
+# Job 019a426b: Missing data for 15 symbols
+# Job 019a426b: Starting prioritized download...
+# Job 019a426b: Download complete - 12/15 symbols succeeded
+# Job 019a426b: Rate limit reached - proceeding with available dates
+# Job 019a426b: Starting execution - 8 dates, 1 models
+```
+
+### Handling Warnings
+
+Check the `warnings` field in status response:
+
+```python
+import requests
+import time
+
+# Trigger simulation
+response = requests.post("http://localhost:8080/simulate/trigger", json={
+    "start_date": "2025-10-01",
+    "end_date": "2025-10-10",
+    "models": ["gpt-5"]
+})
+
+job_id = response.json()["job_id"]
+
+# Poll until complete
+while True:
+    status = requests.get(f"http://localhost:8080/simulate/status/{job_id}").json()
+
+    if status["status"] in ["completed", "partial", "failed"]:
+        # Check for warnings
+        if status.get("warnings"):
+            print("Warnings:", status["warnings"])
+        break
+
+    time.sleep(2)
+```
+
+---
+
 ## Best Practices
 
 ### 1. Check Health Before Triggering

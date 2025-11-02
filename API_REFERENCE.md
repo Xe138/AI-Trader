@@ -269,12 +269,14 @@ Get status and progress of a simulation job.
 | `total_duration_seconds` | float | Total execution time in seconds |
 | `error` | string | Error message if job failed |
 | `details` | array[object] | Per model-day execution details |
+| `warnings` | array[string] | Optional array of non-fatal warning messages |
 
 **Job Status Values:**
 
 | Status | Description |
 |--------|-------------|
 | `pending` | Job created, waiting to start |
+| `downloading_data` | Preparing price data (downloading if needed) |
 | `running` | Job currently executing |
 | `completed` | All model-days completed successfully |
 | `partial` | Some model-days completed, some failed |
@@ -288,6 +290,35 @@ Get status and progress of a simulation job.
 | `running` | Currently executing |
 | `completed` | Finished successfully |
 | `failed` | Execution failed (see `error` field) |
+
+**Warnings Field:**
+
+The optional `warnings` array contains non-fatal warning messages about the job execution:
+
+- **Rate limit warnings**: Price data download hit API rate limits
+- **Skipped dates**: Some dates couldn't be processed due to incomplete price data
+- **Other issues**: Non-fatal problems that don't prevent job completion
+
+**Example response with warnings:**
+
+```json
+{
+  "job_id": "019a426b-1234-5678-90ab-cdef12345678",
+  "status": "completed",
+  "progress": {
+    "total_model_days": 10,
+    "completed": 8,
+    "failed": 0,
+    "pending": 0
+  },
+  "warnings": [
+    "Rate limit reached - downloaded 12/15 symbols",
+    "Skipped 2 dates due to incomplete price data: ['2025-10-02', '2025-10-05']"
+  ]
+}
+```
+
+If no warnings occurred, the field will be `null` or omitted.
 
 **Error Response:**
 
