@@ -14,7 +14,7 @@ Tests verify:
 
 import pytest
 import json
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, AsyncMock
 from pathlib import Path
 
 
@@ -29,7 +29,8 @@ def create_mock_agent(positions=None, last_trade=None, current_prices=None,
     mock_agent.get_current_prices.return_value = current_prices or {}
     mock_agent.get_reasoning_steps.return_value = reasoning_steps or []
     mock_agent.get_tool_usage.return_value = tool_usage or {}
-    mock_agent.run_trading_session.return_value = session_result or {"success": True}
+    # run_trading_session is async, so use AsyncMock
+    mock_agent.run_trading_session = AsyncMock(return_value=session_result or {"success": True})
 
     return mock_agent
 

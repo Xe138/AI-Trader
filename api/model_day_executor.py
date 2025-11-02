@@ -11,6 +11,7 @@ This module provides:
 
 import logging
 import os
+import asyncio
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from pathlib import Path
 
@@ -118,7 +119,7 @@ class ModelDayExecutor:
 
             # Run trading session
             logger.info(f"Running trading session for {self.model_sig} on {self.date}")
-            session_result = agent.run_trading_session(self.date)
+            session_result = asyncio.run(agent.run_trading_session(self.date))
 
             # Persist results to SQLite
             self._write_results_to_db(agent, session_result)
@@ -211,8 +212,10 @@ class ModelDayExecutor:
             init_date=config.get("date_range", {}).get("init_date", "2025-10-13")
         )
 
-        # Register agent (creates initial position if needed)
-        agent.register_agent()
+        # Note: In API mode, we don't call register_agent() because:
+        # - Position data is stored in SQLite database, not files
+        # - Database initialization is handled by JobManager
+        # - File-based position tracking is only for standalone/CLI mode
 
         return agent
 
