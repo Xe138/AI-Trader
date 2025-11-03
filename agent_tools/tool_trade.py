@@ -7,7 +7,6 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 from tools.price_tools import get_open_prices
 import json
-from tools.deployment_config import get_db_path
 from api.database import get_db_connection
 from datetime import datetime
 mcp = FastMCP("TradeTools")
@@ -30,7 +29,7 @@ def get_current_position_from_db(job_id: str, model: str, date: str) -> Tuple[Di
     Raises:
         Exception: If database query fails
     """
-    db_path = get_db_path()
+    db_path = "data/jobs.db"
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
 
@@ -110,7 +109,7 @@ def buy(symbol: str, amount: int, signature: str = None, today_date: str = None,
     if not today_date:
         return {"error": "Missing required parameter: today_date"}
 
-    db_path = get_db_path()
+    db_path = "data/jobs.db"
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
 
@@ -233,7 +232,7 @@ def sell(symbol: str, amount: int, signature: str = None, today_date: str = None
     if not today_date:
         return {"error": "Missing required parameter: today_date"}
 
-    db_path = get_db_path()
+    db_path = "data/jobs.db"
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
 

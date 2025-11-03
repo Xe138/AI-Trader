@@ -320,12 +320,11 @@ def get_today_init_position_from_db(
         If no position exists: {"CASH": 10000.0} (initial cash)
     """
     import logging
-    from tools.deployment_config import get_db_path
     from api.database import get_db_connection
 
     logger = logging.getLogger(__name__)
 
-    db_path = get_db_path()
+    db_path = "data/jobs.db"
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
 
@@ -385,14 +384,13 @@ def add_no_trade_record_to_db(
         session_id: Trading session ID
     """
     import logging
-    from tools.deployment_config import get_db_path
     from api.database import get_db_connection
     from agent_tools.tool_trade import get_current_position_from_db
     from datetime import datetime
 
     logger = logging.getLogger(__name__)
 
-    db_path = get_db_path()
+    db_path = "data/jobs.db"
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
 
