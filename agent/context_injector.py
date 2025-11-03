@@ -45,11 +45,11 @@ class ContextInjector:
         """
         # Inject signature and today_date for trade tools
         if request.name in ["buy", "sell"]:
-            # Add signature and today_date to arguments if not present
-            if "signature" not in request.arguments:
-                request.arguments["signature"] = self.signature
-            if "today_date" not in request.arguments:
-                request.arguments["today_date"] = self.today_date
+            # Add signature and today_date to args if not present
+            if "signature" not in request.args:
+                request.args["signature"] = self.signature
+            if "today_date" not in request.args:
+                request.args["today_date"] = self.today_date
 
         # Call the actual tool handler
         return await handler(request)
