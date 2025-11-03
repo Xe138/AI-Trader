@@ -82,24 +82,13 @@ def get_current_position_from_db(job_id: str, model: str, date: str) -> Tuple[Di
         conn.close()
 
 
-@mcp.tool()
-def buy(symbol: str, amount: int, signature: str = None, today_date: str = None,
-        job_id: str = None, session_id: int = None) -> Dict[str, Any]:
+def _buy_impl(symbol: str, amount: int, signature: str = None, today_date: str = None,
+              job_id: str = None, session_id: int = None) -> Dict[str, Any]:
     """
-    Buy stock function - writes to SQLite database.
+    Internal buy implementation - accepts injected context parameters.
 
-    Args:
-        symbol: Stock symbol (e.g., "AAPL", "MSFT")
-        amount: Number of shares to buy (positive integer)
-        signature: Model signature (injected by ContextInjector)
-        today_date: Trading date YYYY-MM-DD (injected by ContextInjector)
-        job_id: Job UUID (injected by ContextInjector)
-        session_id: Trading session ID (injected by ContextInjector)
-
-    Returns:
-        Dict[str, Any]:
-          - Success: {"CASH": amount, symbol: quantity, ...}
-          - Failure: {"error": message, ...}
+    This function is not exposed to the AI model. It receives runtime context
+    (signature, today_date, job_id, session_id) from the ContextInjector.
     """
     # Validate required parameters
     if not job_id:
@@ -206,8 +195,31 @@ def buy(symbol: str, amount: int, signature: str = None, today_date: str = None,
 
 
 @mcp.tool()
-def sell(symbol: str, amount: int, signature: str = None, today_date: str = None,
-         job_id: str = None, session_id: int = None) -> Dict[str, Any]:
+def buy(symbol: str, amount: int, **kwargs) -> Dict[str, Any]:
+    """
+    Buy stock shares.
+
+    Args:
+        symbol: Stock symbol (e.g., "AAPL", "MSFT", "GOOGL")
+        amount: Number of shares to buy (positive integer)
+
+    Returns:
+        Dict[str, Any]:
+          - Success: {"CASH": remaining_cash, "SYMBOL": shares, ...}
+          - Failure: {"error": error_message, ...}
+    """
+    # Extract injected parameters (added by ContextInjector, hidden from AI)
+    signature = kwargs.get("signature")
+    today_date = kwargs.get("today_date")
+    job_id = kwargs.get("job_id")
+    session_id = kwargs.get("session_id")
+
+    # Delegate to internal implementation
+    return _buy_impl(symbol, amount, signature, today_date, job_id, session_id)
+
+
+def _sell_impl(symbol: str, amount: int, signature: str = None, today_date: str = None,
+               job_id: str = None, session_id: int = None) -> Dict[str, Any]:
     """
     Sell stock function - writes to SQLite database.
 
@@ -325,6 +337,30 @@ def sell(symbol: str, amount: int, signature: str = None, today_date: str = None
 
     finally:
         conn.close()
+
+
+@mcp.tool()
+def sell(symbol: str, amount: int, **kwargs) -> Dict[str, Any]:
+    """
+    Sell stock shares.
+
+    Args:
+        symbol: Stock symbol (e.g., "AAPL", "MSFT", "GOOGL")
+        amount: Number of shares to sell (positive integer)
+
+    Returns:
+        Dict[str, Any]:
+          - Success: {"CASH": remaining_cash, "SYMBOL": shares, ...}
+          - Failure: {"error": error_message, ...}
+    """
+    # Extract injected parameters (added by ContextInjector, hidden from AI)
+    signature = kwargs.get("signature")
+    today_date = kwargs.get("today_date")
+    job_id = kwargs.get("job_id")
+    session_id = kwargs.get("session_id")
+
+    # Delegate to internal implementation
+    return _sell_impl(symbol, amount, signature, today_date, job_id, session_id)
 
 
 if __name__ == "__main__":
