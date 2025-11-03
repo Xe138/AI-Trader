@@ -61,9 +61,7 @@ def buy(symbol: str, amount: int, signature: str = None, today_date: str = None)
     try:
         current_position, current_action_id = get_latest_position(today_date, signature)
     except Exception as e:
-        print(e)
-        print(current_position, current_action_id)
-        print(today_date, signature)
+        return {"error": f"Failed to get position: {str(e)}", "signature": signature, "date": today_date}
     # Step 3: Get stock opening price for the day
     # Use get_open_prices function to get the opening price of specified stock for the day
     # If stock symbol does not exist or price data is missing, KeyError exception will be raised
@@ -153,7 +151,10 @@ def sell(symbol: str, amount: int, signature: str = None, today_date: str = None
     # Step 2: Get current latest position and operation ID
     # get_latest_position returns two values: position dictionary and current maximum operation ID
     # This ID is used to ensure each operation has a unique identifier
-    current_position, current_action_id = get_latest_position(today_date, signature)
+    try:
+        current_position, current_action_id = get_latest_position(today_date, signature)
+    except Exception as e:
+        return {"error": f"Failed to get position: {str(e)}", "signature": signature, "date": today_date}
     
     # Step 3: Get stock opening price for the day
     # Use get_open_prices function to get the opening price of specified stock for the day
