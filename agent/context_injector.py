@@ -49,6 +49,9 @@ class ContextInjector:
         """
         # Inject context parameters for trade tools
         if request.name in ["buy", "sell"]:
+            # Debug: Log self attributes BEFORE injection
+            print(f"[ContextInjector.__call__] ENTRY: id={id(self)}, self.signature={self.signature}, self.today_date={self.today_date}, self.job_id={self.job_id}, self.session_id={self.session_id}")
+
             # Add signature and today_date to args if not present
             if "signature" not in request.args:
                 request.args["signature"] = self.signature
