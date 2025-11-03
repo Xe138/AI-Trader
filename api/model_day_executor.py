@@ -140,7 +140,7 @@ class ModelDayExecutor:
                 job_id=self.job_id,
                 session_id=session_id
             )
-            agent.set_context(context_injector)
+            await agent.set_context(context_injector)
 
             # Run trading session
             logger.info(f"Running trading session for {self.model_sig} on {self.date}")
@@ -155,10 +155,13 @@ class ModelDayExecutor:
             # Update session summary
             await self._update_session_summary(cursor, session_id, conversation, agent)
 
-            # Store positions (pass session_id)
-            self._write_results_to_db(agent, session_id)
-
+            # Commit and close connection before _write_results_to_db opens a new one
             conn.commit()
+            conn.close()
+            conn = None  # Mark as closed
+
+            # Store positions (pass session_id) - this opens its own connection
+            self._write_results_to_db(agent, session_id)
 
             # Update status to completed
             self.job_manager.update_job_detail_status(

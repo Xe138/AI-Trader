@@ -221,7 +221,7 @@ class BaseAgent:
 
         print(f"✅ Agent {self.signature} initialization completed")
 
-    def set_context(self, context_injector: "ContextInjector") -> None:
+    async def set_context(self, context_injector: "ContextInjector") -> None:
         """
         Inject ContextInjector after initialization.
 
@@ -240,6 +240,9 @@ class BaseAgent:
             self.mcp_config,
             tool_interceptors=[context_injector]
         )
+
+        # CRITICAL: Reload tools from new client so they use the interceptor
+        self.tools = await self.client.get_tools()
 
         print(f"✅ Context injected: signature={context_injector.signature}, "
               f"date={context_injector.today_date}, job_id={context_injector.job_id}, "
