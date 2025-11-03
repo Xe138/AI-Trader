@@ -44,8 +44,10 @@ def buy(symbol: str, amount: int, signature: str = None, today_date: str = None)
     """
     # Step 1: Get environment variables and basic information
     # Get signature (model name) from parameter or fallback to config/env
+    print(f"[buy] Received signature parameter: {signature}")
     if signature is None:
         signature = get_config_value("SIGNATURE")
+        print(f"[buy] Signature from config: {signature}")
     if signature is None:
         raise ValueError("SIGNATURE not provided and environment variable is not set")
 

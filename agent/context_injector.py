@@ -51,5 +51,8 @@ class ContextInjector:
             if "today_date" not in request.args:
                 request.args["today_date"] = self.today_date
 
+            # Debug logging
+            print(f"[ContextInjector] Tool: {request.name}, Args after injection: {request.args}")
+
         # Call the actual tool handler
         return await handler(request)
