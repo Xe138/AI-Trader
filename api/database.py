@@ -438,12 +438,19 @@ def _create_indexes(cursor: sqlite3.Cursor) -> None:
     """)
 
     # Positions table - add index for simulation_run_id and session_id
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_positions_run_id ON positions(simulation_run_id)
-    """)
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_positions_session_id ON positions(session_id)
-    """)
+    # Check if columns exist before creating indexes
+    cursor.execute("PRAGMA table_info(positions)")
+    position_columns = [row[1] for row in cursor.fetchall()]
+
+    if 'simulation_run_id' in position_columns:
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_positions_run_id ON positions(simulation_run_id)
+        """)
+
+    if 'session_id' in position_columns:
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_positions_session_id ON positions(session_id)
+        """)
 
 
 def drop_all_tables(db_path: str = "data/jobs.db") -> None:
