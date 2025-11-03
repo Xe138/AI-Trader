@@ -140,7 +140,10 @@ class ModelDayExecutor:
                 job_id=self.job_id,
                 session_id=session_id
             )
+            logger.info(f"[DEBUG] ModelDayExecutor: Created ContextInjector with signature={self.model_sig}, date={self.date}, job_id={self.job_id}, session_id={session_id}")
+            logger.info(f"[DEBUG] ModelDayExecutor: Calling await agent.set_context()")
             await agent.set_context(context_injector)
+            logger.info(f"[DEBUG] ModelDayExecutor: set_context() completed")
 
             # Run trading session
             logger.info(f"Running trading session for {self.model_sig} on {self.date}")

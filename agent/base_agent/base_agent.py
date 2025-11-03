@@ -232,17 +232,24 @@ class BaseAgent:
             context_injector: Configured ContextInjector instance with
                             correct signature, today_date, job_id, session_id
         """
+        print(f"[DEBUG] set_context() ENTRY: Received context_injector with signature={context_injector.signature}, date={context_injector.today_date}, job_id={context_injector.job_id}, session_id={context_injector.session_id}")
+
         self.context_injector = context_injector
+        print(f"[DEBUG] set_context(): Set self.context_injector, id={id(self.context_injector)}")
 
         # Recreate MCP client with the interceptor
         # Note: We need to recreate because MultiServerMCPClient doesn't have add_interceptor()
+        print(f"[DEBUG] set_context(): Creating new MCP client with interceptor, id={id(context_injector)}")
         self.client = MultiServerMCPClient(
             self.mcp_config,
             tool_interceptors=[context_injector]
         )
+        print(f"[DEBUG] set_context(): MCP client created")
 
         # CRITICAL: Reload tools from new client so they use the interceptor
+        print(f"[DEBUG] set_context(): Reloading tools...")
         self.tools = await self.client.get_tools()
+        print(f"[DEBUG] set_context(): Tools reloaded, count={len(self.tools)}")
 
         print(f"✅ Context injected: signature={context_injector.signature}, "
               f"date={context_injector.today_date}, job_id={context_injector.job_id}, "
