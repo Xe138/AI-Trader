@@ -51,15 +51,14 @@ class ContextInjector:
         if request.name in ["buy", "sell"]:
             # Debug: Log self attributes BEFORE injection
             print(f"[ContextInjector.__call__] ENTRY: id={id(self)}, self.signature={self.signature}, self.today_date={self.today_date}, self.job_id={self.job_id}, self.session_id={self.session_id}")
+            print(f"[ContextInjector.__call__] Args BEFORE injection: {request.args}")
 
-            # Add signature and today_date to args if not present
-            if "signature" not in request.args:
-                request.args["signature"] = self.signature
-            if "today_date" not in request.args:
-                request.args["today_date"] = self.today_date
-            if "job_id" not in request.args and self.job_id:
+            # ALWAYS inject/override context parameters (don't trust AI-provided values)
+            request.args["signature"] = self.signature
+            request.args["today_date"] = self.today_date
+            if self.job_id:
                 request.args["job_id"] = self.job_id
-            if "session_id" not in request.args and self.session_id:
+            if self.session_id:
                 request.args["session_id"] = self.session_id
 
             # Debug logging
