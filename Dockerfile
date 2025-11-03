@@ -27,7 +27,7 @@ WORKDIR /app
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p data logs data/agent_data
+RUN mkdir -p data data/agent_data
 
 # Make entrypoint executable
 RUN chmod +x entrypoint.sh

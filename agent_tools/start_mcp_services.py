@@ -52,10 +52,6 @@ class MCPServiceManager:
             }
         }
 
-        # Create logs directory
-        self.log_dir = Path('logs')
-        self.log_dir.mkdir(exist_ok=True)
-        
         # Set signal handlers
         signal.signal(signal.SIGINT, self.signal_handler)
         signal.signal(signal.SIGTERM, self.signal_handler)
@@ -77,27 +73,23 @@ class MCPServiceManager:
             return False
 
         try:
-            # Start service process
-            log_file = self.log_dir / f"{service_id}.log"
-
             # Set PYTHONPATH to /app so services can import from tools module
             env = os.environ.copy()
             env['PYTHONPATH'] = str(Path.cwd())
 
-            with open(log_file, 'w') as f:
-                process = subprocess.Popen(
-                    [sys.executable, str(script_path)],
-                    stdout=f,
-                    stderr=subprocess.STDOUT,
-                    cwd=Path.cwd(),  # Use current working directory (/app)
-                    env=env  # Pass environment with PYTHONPATH
-                )
-            
+            # Start service process (output goes to Docker logs)
+            process = subprocess.Popen(
+                [sys.executable, str(script_path)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                cwd=Path.cwd(),  # Use current working directory (/app)
+                env=env  # Pass environment with PYTHONPATH
+            )
+
             self.services[service_id] = {
                 'process': process,
                 'name': service_name,
-                'port': port,
-                'log_file': log_file
+                'port': port
             }
             
             print(f"✅ {service_name} service started (PID: {process.pid}, Port: {port})")
@@ -167,15 +159,14 @@ class MCPServiceManager:
                 print(f"✅ {service['name']} service running normally")
             else:
                 print(f"❌ {service['name']} service failed to start")
-                print(f"   Please check logs: {service['log_file']}")
+                print(f"   Check Docker logs for details: docker logs ai-trader-server")
     
     def print_service_info(self):
         """Print service information"""
         print("\n📋 Service information:")
         for service_id, service in self.services.items():
             print(f"  - {service['name']}: http://localhost:{service['port']} (PID: {service['process'].pid})")
-        
-        print(f"\n📁 Log files location: {self.log_dir.absolute()}")
+
         print("\n🛑 Press Ctrl+C to stop all services")
     
     def keep_alive(self):

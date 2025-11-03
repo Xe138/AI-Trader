@@ -7,7 +7,6 @@ services:
     container_name: ai-trader-server
     volumes:
       - ${VOLUME_PATH:-.}/data:/app/data
-      - ${VOLUME_PATH:-.}/logs:/app/logs
       # User configs mounted to /app/user-configs (default config baked into image)
       - ${VOLUME_PATH:-.}/configs:/app/user-configs
     environment:

@@ -154,10 +154,9 @@ docker-compose up
 
 ### Volume Mounts
 
-Docker Compose mounts three volumes for persistent data. By default, these are stored in the project directory:
+Docker Compose mounts two volumes for persistent data. By default, these are stored in the project directory:
 
 - `./data:/app/data` - Price data and trading records
-- `./logs:/app/logs` - MCP service logs
 - `./configs:/app/configs` - Configuration files (allows editing configs without rebuilding)
 
 ### Custom Volume Location
@@ -174,7 +173,6 @@ VOLUME_PATH=./volumes
 
 This will store data in:
 - `/home/user/trading-data/data/`
-- `/home/user/trading-data/logs/`
 - `/home/user/trading-data/configs/`
 
 **Note:** The directory structure is automatically created. You'll need to copy your existing configs:
@@ -190,7 +188,7 @@ To reset all trading data:
 
 ```bash
 docker-compose down
-rm -rf ${VOLUME_PATH:-.}/data/agent_data/* ${VOLUME_PATH:-.}/logs/*
+rm -rf ${VOLUME_PATH:-.}/data/agent_data/*
 docker-compose up
 ```
 
@@ -217,8 +215,7 @@ docker pull ghcr.io/xe138/ai-trader-server:latest
 ```bash
 docker run --env-file .env \
   -v $(pwd)/data:/app/data \
-  -v $(pwd)/logs:/app/logs \
-  -p 8000-8003:8000-8003 \
+  -p 8080:8080 \
   ghcr.io/xe138/ai-trader-server:latest
 ```
 
@@ -234,9 +231,9 @@ docker pull ghcr.io/xe138/ai-trader-server:v1.0.0
 **Symptom:** Container exits immediately or errors about ports
 
 **Solutions:**
-- Check ports 8000-8003 not already in use: `lsof -i :8000-8003`
 - View container logs: `docker-compose logs`
-- Check MCP service logs: `cat logs/math.log`
+- Check if API port 8080 is already in use: `lsof -i :8080`
+- Verify MCP services started by checking Docker logs for service startup messages
 
 ### Missing API Keys
 
@@ -258,12 +255,12 @@ docker pull ghcr.io/xe138/ai-trader-server:v1.0.0
 
 ### Permission Issues
 
-**Symptom:** Cannot write to data or logs directories
+**Symptom:** Cannot write to data directory
 
 **Solutions:**
-- Ensure directories writable: `chmod -R 755 data logs`
+- Ensure data directory is writable: `chmod -R 755 data`
 - Check volume mount permissions
-- May need to create directories first: `mkdir -p data logs`
+- May need to create directory first: `mkdir -p data`
 
 ### Container Keeps Restarting
 
@@ -298,13 +295,12 @@ docker buildx build --platform linux/amd64,linux/arm64 -t ai-trader-server .
 docker stats ai-trader-server
 ```
 
-### Access MCP Services Directly
+### Access API Directly
 
-Services exposed on host:
-- Math: http://localhost:8000
-- Search: http://localhost:8001
-- Trade: http://localhost:8002
-- Price: http://localhost:8003
+API server exposed on host:
+- REST API: http://localhost:8080
+
+MCP services run internally and are not exposed to the host.
 
 ## Development Workflow
 
