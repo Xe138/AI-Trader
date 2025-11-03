@@ -195,7 +195,8 @@ def _buy_impl(symbol: str, amount: int, signature: str = None, today_date: str =
 
 
 @mcp.tool()
-def buy(symbol: str, amount: int, **kwargs) -> Dict[str, Any]:
+def buy(symbol: str, amount: int, signature: str = None, today_date: str = None,
+        job_id: str = None, session_id: int = None) -> Dict[str, Any]:
     """
     Buy stock shares.
 
@@ -207,13 +208,10 @@ def buy(symbol: str, amount: int, **kwargs) -> Dict[str, Any]:
         Dict[str, Any]:
           - Success: {"CASH": remaining_cash, "SYMBOL": shares, ...}
           - Failure: {"error": error_message, ...}
-    """
-    # Extract injected parameters (added by ContextInjector, hidden from AI)
-    signature = kwargs.get("signature")
-    today_date = kwargs.get("today_date")
-    job_id = kwargs.get("job_id")
-    session_id = kwargs.get("session_id")
 
+    Note: signature, today_date, job_id, session_id are automatically injected by the system.
+    Do not provide these parameters - they will be added automatically.
+    """
     # Delegate to internal implementation
     return _buy_impl(symbol, amount, signature, today_date, job_id, session_id)
 
@@ -340,7 +338,8 @@ def _sell_impl(symbol: str, amount: int, signature: str = None, today_date: str 
 
 
 @mcp.tool()
-def sell(symbol: str, amount: int, **kwargs) -> Dict[str, Any]:
+def sell(symbol: str, amount: int, signature: str = None, today_date: str = None,
+         job_id: str = None, session_id: int = None) -> Dict[str, Any]:
     """
     Sell stock shares.
 
@@ -352,13 +351,10 @@ def sell(symbol: str, amount: int, **kwargs) -> Dict[str, Any]:
         Dict[str, Any]:
           - Success: {"CASH": remaining_cash, "SYMBOL": shares, ...}
           - Failure: {"error": error_message, ...}
-    """
-    # Extract injected parameters (added by ContextInjector, hidden from AI)
-    signature = kwargs.get("signature")
-    today_date = kwargs.get("today_date")
-    job_id = kwargs.get("job_id")
-    session_id = kwargs.get("session_id")
 
+    Note: signature, today_date, job_id, session_id are automatically injected by the system.
+    Do not provide these parameters - they will be added automatically.
+    """
     # Delegate to internal implementation
     return _sell_impl(symbol, amount, signature, today_date, job_id, session_id)
 
