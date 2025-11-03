@@ -299,7 +299,174 @@ def add_no_trade_record(today_date: str, modelname: str):
 
     with position_file.open("a", encoding="utf-8") as f:
         f.write(json.dumps(save_item) + "\n")
-    return 
+    return
+
+
+def get_today_init_position_from_db(
+    today_date: str,
+    modelname: str,
+    job_id: str
+) -> Dict[str, float]:
+    """
+    Query yesterday's position from SQLite database.
+
+    Args:
+        today_date: Current trading date (YYYY-MM-DD)
+        modelname: Model signature
+        job_id: Job UUID
+
+    Returns:
+        Position dict: {"AAPL": 50, "MSFT": 30, "CASH": 5000.0}
+        If no position exists: {"CASH": 10000.0} (initial cash)
+    """
+    import logging
+    from tools.deployment_config import get_db_path
+    from api.database import get_db_connection
+
+    logger = logging.getLogger(__name__)
+
+    db_path = get_db_path()
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+
+    try:
+        # Get most recent position before today
+        cursor.execute("""
+            SELECT p.id, p.cash
+            FROM positions p
+            WHERE p.job_id = ? AND p.model = ? AND p.date < ?
+            ORDER BY p.date DESC, p.action_id DESC
+            LIMIT 1
+        """, (job_id, modelname, today_date))
+
+        row = cursor.fetchone()
+
+        if not row:
+            # First day - return initial cash
+            logger.info(f"No previous position found for {modelname}, returning initial cash")
+            return {"CASH": 10000.0}
+
+        position_id, cash = row
+        position_dict = {"CASH": cash}
+
+        # Get holdings for this position
+        cursor.execute("""
+            SELECT symbol, quantity
+            FROM holdings
+            WHERE position_id = ?
+        """, (position_id,))
+
+        for symbol, quantity in cursor.fetchall():
+            position_dict[symbol] = quantity
+
+        logger.debug(f"Loaded position for {modelname}: {position_dict}")
+        return position_dict
+
+    except Exception as e:
+        logger.error(f"Database error in get_today_init_position_from_db: {e}")
+        raise
+    finally:
+        conn.close()
+
+
+def add_no_trade_record_to_db(
+    today_date: str,
+    modelname: str,
+    job_id: str,
+    session_id: int
+) -> None:
+    """
+    Create no-trade position record in SQLite database.
+
+    Args:
+        today_date: Current trading date (YYYY-MM-DD)
+        modelname: Model signature
+        job_id: Job UUID
+        session_id: Trading session ID
+    """
+    import logging
+    from tools.deployment_config import get_db_path
+    from api.database import get_db_connection
+    from agent_tools.tool_trade import get_current_position_from_db
+    from datetime import datetime
+
+    logger = logging.getLogger(__name__)
+
+    db_path = get_db_path()
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+
+    try:
+        # Get current position
+        current_position, next_action_id = get_current_position_from_db(
+            job_id, modelname, today_date
+        )
+
+        # Calculate portfolio value
+        cash = current_position.get("CASH", 0.0)
+        portfolio_value = cash
+
+        # Add stock values
+        for symbol, qty in current_position.items():
+            if symbol != "CASH":
+                try:
+                    price = get_open_prices(today_date, [symbol])[f'{symbol}_price']
+                    portfolio_value += qty * price
+                except KeyError:
+                    logger.warning(f"Price not found for {symbol} on {today_date}")
+                    pass
+
+        # Get previous value for P&L
+        cursor.execute("""
+            SELECT portfolio_value
+            FROM positions
+            WHERE job_id = ? AND model = ? AND date < ?
+            ORDER BY date DESC, action_id DESC
+            LIMIT 1
+        """, (job_id, modelname, today_date))
+
+        row = cursor.fetchone()
+        previous_value = row[0] if row else 10000.0
+
+        daily_profit = portfolio_value - previous_value
+        daily_return_pct = (daily_profit / previous_value * 100) if previous_value > 0 else 0
+
+        # Insert position record
+        created_at = datetime.utcnow().isoformat() + "Z"
+
+        cursor.execute("""
+            INSERT INTO positions (
+                job_id, date, model, action_id, action_type,
+                cash, portfolio_value, daily_profit, daily_return_pct,
+                session_id, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            job_id, today_date, modelname, next_action_id, "no_trade",
+            cash, portfolio_value, daily_profit, daily_return_pct,
+            session_id, created_at
+        ))
+
+        position_id = cursor.lastrowid
+
+        # Insert holdings (unchanged from previous position)
+        for symbol, qty in current_position.items():
+            if symbol != "CASH":
+                cursor.execute("""
+                    INSERT INTO holdings (position_id, symbol, quantity)
+                    VALUES (?, ?, ?)
+                """, (position_id, symbol, qty))
+
+        conn.commit()
+        logger.info(f"Created no-trade record for {modelname} on {today_date}")
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Database error in add_no_trade_record_to_db: {e}")
+        raise
+    finally:
+        conn.close()
+
 
 if __name__ == "__main__":
     today_date = get_config_value("TODAY_DATE")

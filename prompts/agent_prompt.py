@@ -68,14 +68,24 @@ When you think your task is complete, output
 def get_agent_system_prompt(today_date: str, signature: str) -> str:
     print(f"signature: {signature}")
     print(f"today_date: {today_date}")
+
+    # Get job_id from runtime config
+    job_id = get_config_value("JOB_ID")
+    if not job_id:
+        raise ValueError("JOB_ID not found in runtime config")
+
+    # Query database for yesterday's position
+    from tools.price_tools import get_today_init_position_from_db
+    today_init_position = get_today_init_position_from_db(today_date, signature, job_id)
+
     # Get yesterday's buy and sell prices
     yesterday_buy_prices, yesterday_sell_prices = get_yesterday_open_and_close_price(today_date, all_nasdaq_100_symbols)
     today_buy_price = get_open_prices(today_date, all_nasdaq_100_symbols)
-    today_init_position = get_today_init_position(today_date, signature)
     yesterday_profit = get_yesterday_profit(today_date, yesterday_buy_prices, yesterday_sell_prices, today_init_position)
+
     return agent_system_prompt.format(
-        date=today_date, 
-        positions=today_init_position, 
+        date=today_date,
+        positions=today_init_position,
         STOP_SIGNAL=STOP_SIGNAL,
         yesterday_close_price=yesterday_sell_prices,
         today_buy_price=today_buy_price,

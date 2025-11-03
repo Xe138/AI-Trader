@@ -173,21 +173,13 @@ class BaseAgent:
                 print("⚠️  OpenAI base URL not set, using default")
 
         try:
-            # Get job_id from runtime config if available (API mode)
-            from tools.general_tools import get_config_value
-            job_id = get_config_value("JOB_ID")  # Returns None if not in API mode
+            # Context injector will be set later via set_context() method
+            self.context_injector = None
 
-            # Create context injector for injecting signature and today_date into tool calls
-            self.context_injector = ContextInjector(
-                signature=self.signature,
-                today_date=self.init_date,  # Will be updated per trading session
-                job_id=job_id  # Will be None in standalone mode, populated in API mode
-            )
-
-            # Create MCP client with interceptor
+            # Create MCP client without interceptors initially
             self.client = MultiServerMCPClient(
                 self.mcp_config,
-                tool_interceptors=[self.context_injector]
+                tool_interceptors=[]
             )
 
             # Get tools
@@ -228,6 +220,30 @@ class BaseAgent:
         # because system_prompt needs the current date and price information
 
         print(f"✅ Agent {self.signature} initialization completed")
+
+    def set_context(self, context_injector: "ContextInjector") -> None:
+        """
+        Inject ContextInjector after initialization.
+
+        This allows the ContextInjector to be created with the correct
+        trading day date and session_id after the agent is initialized.
+
+        Args:
+            context_injector: Configured ContextInjector instance with
+                            correct signature, today_date, job_id, session_id
+        """
+        self.context_injector = context_injector
+
+        # Recreate MCP client with the interceptor
+        # Note: We need to recreate because MultiServerMCPClient doesn't have add_interceptor()
+        self.client = MultiServerMCPClient(
+            self.mcp_config,
+            tool_interceptors=[context_injector]
+        )
+
+        print(f"✅ Context injected: signature={context_injector.signature}, "
+              f"date={context_injector.today_date}, job_id={context_injector.job_id}, "
+              f"session_id={context_injector.session_id}")
 
     def _capture_message(self, role: str, content: str, tool_name: str = None, tool_input: str = None) -> None:
         """
@@ -429,18 +445,32 @@ Summary:"""
         await self._handle_trading_result(today_date)
     
     async def _handle_trading_result(self, today_date: str) -> None:
-        """Handle trading results"""
+        """Handle trading results with database writes."""
+        from tools.price_tools import add_no_trade_record_to_db
+
         if_trade = get_config_value("IF_TRADE")
+
         if if_trade:
             write_config_value("IF_TRADE", False)
             print("✅ Trading completed")
         else:
             print("📊 No trading, maintaining positions")
-            try:
-                add_no_trade_record(today_date, self.signature)
-            except NameError as e:
-                print(f"❌ NameError: {e}")
-                raise
+
+            # Get context from runtime config
+            job_id = get_config_value("JOB_ID")
+            session_id = self.context_injector.session_id if self.context_injector else None
+
+            if not job_id or not session_id:
+                raise ValueError("Missing JOB_ID or session_id for no-trade record")
+
+            # Write no-trade record to database
+            add_no_trade_record_to_db(
+                today_date,
+                self.signature,
+                job_id,
+                session_id
+            )
+
             write_config_value("IF_TRADE", False)
     
     def register_agent(self) -> None:

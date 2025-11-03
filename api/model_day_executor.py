@@ -129,12 +129,18 @@ class ModelDayExecutor:
             # Set environment variable for agent to use isolated config
             os.environ["RUNTIME_ENV_PATH"] = self.runtime_config_path
 
-            # Initialize agent
+            # Initialize agent (without context)
             agent = await self._initialize_agent()
 
-            # Update context injector with session_id
-            if hasattr(agent, 'context_injector') and agent.context_injector:
-                agent.context_injector.session_id = session_id
+            # Create and inject context with correct values
+            from agent.context_injector import ContextInjector
+            context_injector = ContextInjector(
+                signature=self.model_sig,
+                today_date=self.date,  # Current trading day
+                job_id=self.job_id,
+                session_id=session_id
+            )
+            agent.set_context(context_injector)
 
             # Run trading session
             logger.info(f"Running trading session for {self.model_sig} on {self.date}")
