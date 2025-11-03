@@ -13,41 +13,45 @@ mcp = FastMCP("TradeTools")
 
 
 @mcp.tool()
-def buy(symbol: str, amount: int) -> Dict[str, Any]:
+def buy(symbol: str, amount: int, signature: str = None, today_date: str = None) -> Dict[str, Any]:
     """
     Buy stock function
-    
+
     This function simulates stock buying operations, including the following steps:
     1. Get current position and operation ID
     2. Get stock opening price for the day
     3. Validate buy conditions (sufficient cash)
     4. Update position (increase stock quantity, decrease cash)
     5. Record transaction to position.jsonl file
-    
+
     Args:
         symbol: Stock symbol, such as "AAPL", "MSFT", etc.
         amount: Buy quantity, must be a positive integer, indicating how many shares to buy
-        
+        signature: Model signature (optional, will use config/env if not provided)
+        today_date: Trading date (optional, will use config/env if not provided)
+
     Returns:
         Dict[str, Any]:
           - Success: Returns new position dictionary (containing stock quantity and cash balance)
           - Failure: Returns {"error": error message, ...} dictionary
-        
+
     Raises:
         ValueError: Raised when SIGNATURE environment variable is not set
-        
+
     Example:
         >>> result = buy("AAPL", 10)
         >>> print(result)  # {"AAPL": 110, "MSFT": 5, "CASH": 5000.0, ...}
     """
     # Step 1: Get environment variables and basic information
-    # Get signature (model name) from environment variable, used to determine data storage path
-    signature = get_config_value("SIGNATURE")
+    # Get signature (model name) from parameter or fallback to config/env
     if signature is None:
-        raise ValueError("SIGNATURE environment variable is not set")
-    
-    # Get current trading date from environment variable
-    today_date = get_config_value("TODAY_DATE")
+        signature = get_config_value("SIGNATURE")
+    if signature is None:
+        raise ValueError("SIGNATURE not provided and environment variable is not set")
+
+    # Get current trading date from parameter or fallback to config/env
+    if today_date is None:
+        today_date = get_config_value("TODAY_DATE")
     
     # Step 2: Get current latest position and operation ID
     # get_latest_position returns two values: position dictionary and current maximum operation ID
@@ -104,41 +108,45 @@ def buy(symbol: str, amount: int) -> Dict[str, Any]:
         return new_position
 
 @mcp.tool()
-def sell(symbol: str, amount: int) -> Dict[str, Any]:
+def sell(symbol: str, amount: int, signature: str = None, today_date: str = None) -> Dict[str, Any]:
     """
     Sell stock function
-    
+
     This function simulates stock selling operations, including the following steps:
     1. Get current position and operation ID
     2. Get stock opening price for the day
     3. Validate sell conditions (position exists, sufficient quantity)
     4. Update position (decrease stock quantity, increase cash)
     5. Record transaction to position.jsonl file
-    
+
     Args:
         symbol: Stock symbol, such as "AAPL", "MSFT", etc.
         amount: Sell quantity, must be a positive integer, indicating how many shares to sell
-        
+        signature: Model signature (optional, will use config/env if not provided)
+        today_date: Trading date (optional, will use config/env if not provided)
+
     Returns:
         Dict[str, Any]:
           - Success: Returns new position dictionary (containing stock quantity and cash balance)
           - Failure: Returns {"error": error message, ...} dictionary
-        
+
     Raises:
         ValueError: Raised when SIGNATURE environment variable is not set
-        
+
     Example:
         >>> result = sell("AAPL", 10)
         >>> print(result)  # {"AAPL": 90, "MSFT": 5, "CASH": 15000.0, ...}
     """
     # Step 1: Get environment variables and basic information
-    # Get signature (model name) from environment variable, used to determine data storage path
-    signature = get_config_value("SIGNATURE")
+    # Get signature (model name) from parameter or fallback to config/env
     if signature is None:
-        raise ValueError("SIGNATURE environment variable is not set")
-    
-    # Get current trading date from environment variable
-    today_date = get_config_value("TODAY_DATE")
+        signature = get_config_value("SIGNATURE")
+    if signature is None:
+        raise ValueError("SIGNATURE not provided and environment variable is not set")
+
+    # Get current trading date from parameter or fallback to config/env
+    if today_date is None:
+        today_date = get_config_value("TODAY_DATE")
     
     # Step 2: Get current latest position and operation ID
     # get_latest_position returns two values: position dictionary and current maximum operation ID

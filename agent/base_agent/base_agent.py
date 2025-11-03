@@ -29,6 +29,7 @@ from tools.deployment_config import (
     log_api_key_warning,
     get_deployment_mode
 )
+from agent.context_injector import ContextInjector
 
 # Load environment variables
 load_dotenv()
@@ -124,6 +125,9 @@ class BaseAgent:
         self.tools: Optional[List] = None
         self.model: Optional[ChatOpenAI] = None
         self.agent: Optional[Any] = None
+
+        # Context injector for MCP tools
+        self.context_injector: Optional[ContextInjector] = None
         
         # Data paths
         self.data_path = os.path.join(self.base_log_path, self.signature)
@@ -169,16 +173,27 @@ class BaseAgent:
                 print("⚠️  OpenAI base URL not set, using default")
 
         try:
-            # Create MCP client
-            self.client = MultiServerMCPClient(self.mcp_config)
+            # Create context injector for injecting signature and today_date into tool calls
+            self.context_injector = ContextInjector(
+                signature=self.signature,
+                today_date=self.init_date  # Will be updated per trading session
+            )
+
+            # Create MCP client with interceptor
+            self.client = MultiServerMCPClient(
+                self.mcp_config,
+                tool_interceptors=[self.context_injector]
+            )
 
             # Get tools
-            self.tools = await self.client.get_tools()
-            if not self.tools:
+            raw_tools = await self.client.get_tools()
+            if not raw_tools:
                 print("⚠️  Warning: No MCP tools loaded. MCP services may not be running.")
                 print(f"   MCP configuration: {self.mcp_config}")
+                self.tools = []
             else:
-                print(f"✅ Loaded {len(self.tools)} MCP tools")
+                print(f"✅ Loaded {len(raw_tools)} MCP tools")
+                self.tools = raw_tools
         except Exception as e:
             raise RuntimeError(
                 f"❌ Failed to initialize MCP client: {e}\n"
@@ -335,6 +350,10 @@ Summary:"""
             today_date: Trading date
         """
         print(f"📈 Starting trading session: {today_date}")
+
+        # Update context injector with current trading date
+        if self.context_injector:
+            self.context_injector.today_date = today_date
 
         # Clear conversation history for new trading day
         self.clear_conversation_history()
