@@ -126,7 +126,7 @@ class ModelDayExecutor:
             os.environ["RUNTIME_ENV_PATH"] = self.runtime_config_path
 
             # Initialize agent
-            agent = self._initialize_agent()
+            agent = await self._initialize_agent()
 
             # Run trading session
             logger.info(f"Running trading session for {self.model_sig} on {self.date}")
@@ -209,7 +209,7 @@ class ModelDayExecutor:
         """Execute model-day simulation (sync entry point)."""
         return self.execute_sync()
 
-    def _initialize_agent(self):
+    async def _initialize_agent(self):
         """
         Initialize trading agent with config.
 
@@ -258,6 +258,9 @@ class ModelDayExecutor:
         # - Position data is stored in SQLite database, not files
         # - Database initialization is handled by JobManager
         # - File-based position tracking is only for standalone/CLI mode
+
+        # Initialize MCP client and AI model
+        await agent.initialize()
 
         return agent
 
