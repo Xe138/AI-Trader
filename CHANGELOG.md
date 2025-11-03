@@ -7,13 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- **Dev Mode Warning in Docker** - DEV mode startup warning now displays correctly in Docker logs
-  - Added FastAPI `@app.on_event("startup")` handler to trigger warning on API server startup
-  - Previously only appeared when running `python api/main.py` directly (not via uvicorn)
-  - Docker compose now includes `DEPLOYMENT_MODE` and `PRESERVE_DEV_DATA` environment variables
+## [0.3.0] - 2025-11-03
 
-## [0.3.0] - 2025-10-31
+### Added - Development & Testing Features
+- **Development Mode** - Mock AI provider for cost-free testing
+  - `DEPLOYMENT_MODE=DEV` enables mock AI responses with deterministic stock rotation
+  - Isolated dev database (`trading_dev.db`) separate from production data
+  - `PRESERVE_DEV_DATA=true` option to prevent dev database reset on startup
+  - No AI API costs during development and testing
+  - All API responses include `deployment_mode` field
+  - Startup warning displayed when running in DEV mode
+- **Config Override System** - Docker configuration merging
+  - Place custom configs in `user-configs/` directory
+  - Startup merges user config with default config
+  - Comprehensive validation with clear error messages
+  - Volume mount: `./user-configs:/app/user-configs`
+
+### Added - Enhanced API Features
+- **Async Price Download** - Non-blocking data preparation
+  - `POST /simulate/trigger` no longer blocks on price downloads
+  - New job status: `downloading_data` during data preparation
+  - Warnings field in status response for download issues
+  - Better user experience for large date ranges
+- **Resume Mode** - Idempotent simulation execution
+  - Jobs automatically skip already-completed model-days
+  - Safe to re-run jobs without duplicating work
+  - `status="skipped"` for already-completed executions
+  - Error-free job completion when partial results exist
+- **Reasoning Logs API** - Access AI decision-making history
+  - `GET /reasoning` endpoint for querying reasoning logs
+  - Filter by job_id, model_name, date, include_full_conversation
+  - Includes conversation history and tool usage
+  - Database-only storage (no JSONL files)
+  - AI-powered summary generation for reasoning sessions
+- **Job Skip Status** - Enhanced job status tracking
+  - New status: `skipped` for already-completed model-days
+  - Better differentiation between pending, running, and skipped
+  - Accurate job completion detection
 
 ### Added - Price Data Management & On-Demand Downloads
 - **SQLite Price Data Storage** - Replaced JSONL files with relational database
@@ -83,13 +113,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Windmill integration patterns and examples
 
 ### Changed
+- **Project Rebrand** - AI-Trader renamed to AI-Trader-Server
+  - Updated all documentation for new project name
+  - Updated Docker images to ghcr.io/xe138/ai-trader-server
+  - Updated GitHub Actions workflows
+  - Updated README, CHANGELOG, and all user guides
 - **Architecture** - Transformed from batch-only to API-first service with database persistence
 - **Data Storage** - Migrated from JSONL files to SQLite relational database
   - Price data now stored in `price_data` table instead of `merged.jsonl`
   - Tools/price_tools.py updated to query database
-  - Position data remains in database (already migrated in earlier versions)
+  - Position data fully migrated to database-only storage (removed JSONL dependencies)
+  - Trade tools now read/write from database tables with lazy context injection
 - **Deployment** - Simplified to single API-only Docker service (REST API is new in v0.3.0)
+- **Logging** - Removed duplicate MCP service log files for cleaner output
 - **Configuration** - Simplified environment variable configuration
+  - **Added:** `DEPLOYMENT_MODE` (PROD/DEV) for environment control
+  - **Added:** `PRESERVE_DEV_DATA` (default: false) to keep dev data between runs
   - **Added:** `AUTO_DOWNLOAD_PRICE_DATA` (default: true) - Enable on-demand downloads
   - **Added:** `MAX_SIMULATION_DAYS` (default: 30) - Maximum date range size
   - **Added:** `API_PORT` for host port mapping (default: 8080, customizable for port conflicts)
@@ -137,6 +176,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Monitoring** - Health checks and status tracking
 - **Persistence** - SQLite database survives container restarts
 
+### Fixed
+- **Context Injection** - Runtime parameters correctly injected into MCP tools
+  - ContextInjector always overrides AI-provided parameters (defense-in-depth)
+  - Hidden context parameters from AI tool schema to prevent hallucination
+  - Resolved database locking issues with concurrent tool calls
+  - Proper async handling of tool reloading after context injection
+- **Simulation Re-runs** - Prevent duplicate execution of completed model-days
+  - Fixed job hanging when re-running partially completed simulations
+  - `_execute_date()` now skips already-completed model-days
+  - Job completion status correctly reflects skipped items
+- **Agent Initialization** - Correct parameter passing in API mode
+  - Fixed BaseAgent initialization parameters in ModelDayExecutor
+  - Resolved async execution and position storage issues
+- **Database Reliability** - Various improvements for concurrent access
+  - Fixed column existence checks before creating indexes
+  - Proper database path resolution in dev mode (prevents recursive _dev suffix)
+  - Module-level database initialization for uvicorn reliability
+  - Fixed database locking during concurrent writes
+  - Improved error handling in buy/sell functions
+- **Configuration** - Improved config handling
+  - Use enabled field from config to determine which models run
+  - Use config models when empty models list provided
+  - Correct handling of merged runtime configs in containers
+  - Proper get_db_path() usage to pass base database path
+- **Docker** - Various deployment improvements
+  - Removed non-existent data scripts from Dockerfile
+  - Proper respect for dev mode in entrypoint database initialization
+  - Correct closure usage to capture db_path in lifespan context manager
+
 ### Breaking Changes
 - **Batch Mode Removed** - All simulations now run through REST API
   - v0.2.0 used sequential batch execution via Docker entrypoint
@@ -147,7 +215,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `merged.jsonl` no longer used (replaced by `price_data` table)
   - Automatic on-demand downloads eliminate need for manual data fetching
 - **Configuration Variables Changed**
-  - Added: `AUTO_DOWNLOAD_PRICE_DATA`, `MAX_SIMULATION_DAYS`, `API_PORT`
+  - Added: `DEPLOYMENT_MODE`, `PRESERVE_DEV_DATA`, `AUTO_DOWNLOAD_PRICE_DATA`, `MAX_SIMULATION_DAYS`, `API_PORT`
   - Removed: `RUNTIME_ENV_PATH`, MCP service ports, `WEB_HTTP_PORT`
   - MCP services now use fixed internal ports (not exposed to host)
 
