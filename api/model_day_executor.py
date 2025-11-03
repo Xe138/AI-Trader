@@ -334,7 +334,7 @@ class ModelDayExecutor:
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            self.job_id, self.date, self.model_sig, 0, "init",
+            self.job_id, self.date, self.model_sig, 0, "no_trade",
             initial_cash, initial_cash, session_id, created_at
         ))
 
