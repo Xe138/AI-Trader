@@ -17,16 +17,20 @@ class ContextInjector:
         client = MultiServerMCPClient(config, tool_interceptors=[interceptor])
     """
 
-    def __init__(self, signature: str, today_date: str):
+    def __init__(self, signature: str, today_date: str, job_id: str = None, session_id: int = None):
         """
         Initialize context injector.
 
         Args:
             signature: Model signature to inject
             today_date: Trading date to inject
+            job_id: Job UUID to inject (optional)
+            session_id: Trading session ID to inject (optional, updated during execution)
         """
         self.signature = signature
         self.today_date = today_date
+        self.job_id = job_id
+        self.session_id = session_id
 
     async def __call__(
         self,
@@ -43,13 +47,17 @@ class ContextInjector:
         Returns:
             Result from handler after injecting context
         """
-        # Inject signature and today_date for trade tools
+        # Inject context parameters for trade tools
         if request.name in ["buy", "sell"]:
             # Add signature and today_date to args if not present
             if "signature" not in request.args:
                 request.args["signature"] = self.signature
             if "today_date" not in request.args:
                 request.args["today_date"] = self.today_date
+            if "job_id" not in request.args and self.job_id:
+                request.args["job_id"] = self.job_id
+            if "session_id" not in request.args and self.session_id:
+                request.args["session_id"] = self.session_id
 
             # Debug logging
             print(f"[ContextInjector] Tool: {request.name}, Args after injection: {request.args}")

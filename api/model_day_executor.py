@@ -122,11 +122,19 @@ class ModelDayExecutor:
             session_id = self._create_trading_session(cursor)
             conn.commit()
 
+            # Initialize starting position if this is first day
+            self._initialize_starting_position(cursor, session_id)
+            conn.commit()
+
             # Set environment variable for agent to use isolated config
             os.environ["RUNTIME_ENV_PATH"] = self.runtime_config_path
 
             # Initialize agent
             agent = await self._initialize_agent()
+
+            # Update context injector with session_id
+            if hasattr(agent, 'context_injector') and agent.context_injector:
+                agent.context_injector.session_id = session_id
 
             # Run trading session
             logger.info(f"Running trading session for {self.model_sig} on {self.date}")
@@ -286,6 +294,51 @@ class ModelDayExecutor:
         """, (self.job_id, self.date, self.model_sig, started_at))
 
         return cursor.lastrowid
+
+    def _initialize_starting_position(self, cursor, session_id: int) -> None:
+        """
+        Initialize starting position if no prior positions exist for this job+model.
+
+        Creates action_id=0 position with initial_cash and zero stock holdings.
+
+        Args:
+            cursor: Database cursor
+            session_id: Trading session ID
+        """
+        # Check if any positions exist for this job+model
+        cursor.execute("""
+            SELECT COUNT(*) FROM positions
+            WHERE job_id = ? AND model = ?
+        """, (self.job_id, self.model_sig))
+
+        if cursor.fetchone()[0] > 0:
+            # Positions already exist, no initialization needed
+            return
+
+        # Load config to get initial_cash
+        import json
+        with open(self.config_path, 'r') as f:
+            config = json.load(f)
+
+        agent_config = config.get("agent_config", {})
+        initial_cash = agent_config.get("initial_cash", 10000.0)
+
+        # Create initial position record
+        from datetime import datetime
+        created_at = datetime.utcnow().isoformat() + "Z"
+
+        cursor.execute("""
+            INSERT INTO positions (
+                job_id, date, model, action_id, action_type,
+                cash, portfolio_value, session_id, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            self.job_id, self.date, self.model_sig, 0, "init",
+            initial_cash, initial_cash, session_id, created_at
+        ))
+
+        logger.info(f"Initialized starting position for {self.model_sig} with ${initial_cash}")
 
     async def _store_reasoning_logs(
         self,

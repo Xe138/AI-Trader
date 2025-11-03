@@ -173,10 +173,15 @@ class BaseAgent:
                 print("⚠️  OpenAI base URL not set, using default")
 
         try:
+            # Get job_id from runtime config if available (API mode)
+            from tools.general_tools import get_config_value
+            job_id = get_config_value("JOB_ID")  # Returns None if not in API mode
+
             # Create context injector for injecting signature and today_date into tool calls
             self.context_injector = ContextInjector(
                 signature=self.signature,
-                today_date=self.init_date  # Will be updated per trading session
+                today_date=self.init_date,  # Will be updated per trading session
+                job_id=job_id  # Will be None in standalone mode, populated in API mode
             )
 
             # Create MCP client with interceptor
