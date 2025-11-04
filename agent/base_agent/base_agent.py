@@ -534,6 +534,10 @@ Summary:"""
             days_since_last_trading=pnl_metrics["days_since_last_trading"]
         )
 
+        # Write trading_day_id to runtime config for trade tools
+        from tools.general_tools import write_config_value
+        write_config_value('TRADING_DAY_ID', trading_day_id)
+
         # 6. Run AI trading session
         action_count = 0
 

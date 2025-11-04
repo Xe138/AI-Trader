@@ -16,7 +16,7 @@ sys.path.insert(0, project_root)
 from tools.price_tools import get_open_prices
 import json
 from api.database import get_db_connection
-from datetime import datetime
+from datetime import datetime, timezone
 mcp = FastMCP("TradeTools")
 
 
@@ -158,7 +158,7 @@ def _buy_impl(symbol: str, amount: int, signature: str = None, today_date: str =
             if trading_day_id is None:
                 raise ValueError("trading_day_id not found in runtime config")
 
-        created_at = datetime.utcnow().isoformat() + "Z"
+        created_at = datetime.now(timezone.utc).isoformat()
 
         cursor.execute("""
             INSERT INTO actions (
@@ -273,7 +273,7 @@ def _sell_impl(symbol: str, amount: int, signature: str = None, today_date: str 
             if trading_day_id is None:
                 raise ValueError("trading_day_id not found in runtime config")
 
-        created_at = datetime.utcnow().isoformat() + "Z"
+        created_at = datetime.now(timezone.utc).isoformat()
 
         cursor.execute("""
             INSERT INTO actions (
