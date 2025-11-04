@@ -7,8 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Daily P&L Calculation System** - Accurate profit/loss tracking with normalized database schema
+  - New `trading_days` table for day-centric trading results with daily P&L metrics
+  - `holdings` table for portfolio snapshots (ending positions only)
+  - `actions` table for trade execution ledger
+  - `DailyPnLCalculator` calculates P&L by valuing previous holdings at current prices
+  - Weekend/holiday gap handling with `days_since_last_trading` tracking
+  - First trading day properly handled with zero P&L
+  - Auto-initialization of schema on database creation
+- **AI Reasoning Summaries** - Automated trading decision documentation
+  - `ReasoningSummarizer` generates 2-3 sentence AI-powered summaries of trading sessions
+  - Fallback to statistical summary if AI generation fails
+  - Summaries generated during simulation and stored in database
+  - Full reasoning logs preserved for detailed analysis
+- **Day-Centric Results API** - Unified endpoint for trading results
+  - New `/results` endpoint with query parameters: `job_id`, `model`, `date`, `reasoning`
+  - Three reasoning levels: `none` (default), `summary`, `full`
+  - Response structure: `starting_position`, `daily_metrics`, `trades`, `final_position`, `metadata`
+  - Holdings chain validation across trading days
+  - Replaced old positions-based endpoint
+- **BaseAgent P&L Integration** - Complete integration of P&L calculation into trading sessions
+  - P&L calculated at start of each trading day after loading current prices
+  - Trading day records created with comprehensive metrics
+  - Holdings saved to database after each session
+  - Reasoning summaries generated and stored automatically
+  - Database helper methods for clean data access
+
 ### Changed
 - Reduced Docker healthcheck frequency from 30s to 1h to minimize log noise while maintaining startup verification
+- Database schema migrated from action-centric to day-centric model
+- Results API now returns normalized day-centric data structure
+
+### Improved
+- Database helper methods with 7 new functions for `trading_days` schema operations
+- Test coverage increased with 36+ new comprehensive tests
+- Documentation updated with complete API reference and database schema details
 
 ## [0.3.1] - 2025-11-03
 
