@@ -141,20 +141,25 @@ def _buy_impl(symbol: str, amount: int, signature: str = None, today_date: str =
                 except KeyError:
                     pass  # Symbol price not available, skip
 
-        # Get previous portfolio value for P&L calculation
+        # Get start-of-day portfolio value (action_id=0 for today) for P&L calculation
         cursor.execute("""
             SELECT portfolio_value
             FROM positions
-            WHERE job_id = ? AND model = ? AND date < ?
-            ORDER BY date DESC, action_id DESC
+            WHERE job_id = ? AND model = ? AND date = ? AND action_id = 0
             LIMIT 1
         """, (job_id, signature, today_date))
 
         row = cursor.fetchone()
-        previous_value = row[0] if row else 10000.0  # Default initial value
 
-        daily_profit = portfolio_value - previous_value
-        daily_return_pct = (daily_profit / previous_value * 100) if previous_value > 0 else 0
+        if row:
+            # Compare to start of day (action_id=0)
+            start_of_day_value = row[0]
+            daily_profit = portfolio_value - start_of_day_value
+            daily_return_pct = (daily_profit / start_of_day_value * 100) if start_of_day_value > 0 else 0
+        else:
+            # First action of first day - no baseline yet
+            daily_profit = 0.0
+            daily_return_pct = 0.0
 
         # Step 6: Write to positions table
         created_at = datetime.utcnow().isoformat() + "Z"
@@ -284,20 +289,25 @@ def _sell_impl(symbol: str, amount: int, signature: str = None, today_date: str 
                 except KeyError:
                     pass
 
-        # Get previous portfolio value
+        # Get start-of-day portfolio value (action_id=0 for today) for P&L calculation
         cursor.execute("""
             SELECT portfolio_value
             FROM positions
-            WHERE job_id = ? AND model = ? AND date < ?
-            ORDER BY date DESC, action_id DESC
+            WHERE job_id = ? AND model = ? AND date = ? AND action_id = 0
             LIMIT 1
         """, (job_id, signature, today_date))
 
         row = cursor.fetchone()
-        previous_value = row[0] if row else 10000.0
 
-        daily_profit = portfolio_value - previous_value
-        daily_return_pct = (daily_profit / previous_value * 100) if previous_value > 0 else 0
+        if row:
+            # Compare to start of day (action_id=0)
+            start_of_day_value = row[0]
+            daily_profit = portfolio_value - start_of_day_value
+            daily_return_pct = (daily_profit / start_of_day_value * 100) if start_of_day_value > 0 else 0
+        else:
+            # First action of first day - no baseline yet
+            daily_profit = 0.0
+            daily_return_pct = 0.0
 
         # Step 6: Write to positions table
         created_at = datetime.utcnow().isoformat() + "Z"

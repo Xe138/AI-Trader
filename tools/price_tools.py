@@ -414,20 +414,25 @@ def add_no_trade_record_to_db(
                     logger.warning(f"Price not found for {symbol} on {today_date}")
                     pass
 
-        # Get previous value for P&L
+        # Get start-of-day portfolio value (action_id=0 for today) for P&L calculation
         cursor.execute("""
             SELECT portfolio_value
             FROM positions
-            WHERE job_id = ? AND model = ? AND date < ?
-            ORDER BY date DESC, action_id DESC
+            WHERE job_id = ? AND model = ? AND date = ? AND action_id = 0
             LIMIT 1
         """, (job_id, modelname, today_date))
 
         row = cursor.fetchone()
-        previous_value = row[0] if row else 10000.0
 
-        daily_profit = portfolio_value - previous_value
-        daily_return_pct = (daily_profit / previous_value * 100) if previous_value > 0 else 0
+        if row:
+            # Compare to start of day (action_id=0)
+            start_of_day_value = row[0]
+            daily_profit = portfolio_value - start_of_day_value
+            daily_return_pct = (daily_profit / start_of_day_value * 100) if start_of_day_value > 0 else 0
+        else:
+            # First action of first day - no baseline yet
+            daily_profit = 0.0
+            daily_return_pct = 0.0
 
         # Insert position record
         created_at = datetime.utcnow().isoformat() + "Z"
