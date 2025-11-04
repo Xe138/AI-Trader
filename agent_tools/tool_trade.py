@@ -20,71 +20,69 @@ from datetime import datetime, timezone
 mcp = FastMCP("TradeTools")
 
 
-def get_current_position_from_db(job_id: str, model: str, date: str) -> Tuple[Dict[str, float], int]:
+def get_current_position_from_db(
+    job_id: str,
+    model: str,
+    date: str,
+    initial_cash: float = 10000.0
+) -> Tuple[Dict[str, float], int]:
     """
-    Query current position from SQLite database.
+    Get current position from database (new schema).
+
+    Queries most recent trading_day record for this job+model up to date.
+    Returns ending holdings and cash from that day.
 
     Args:
         job_id: Job UUID
         model: Model signature
-        date: Trading date (YYYY-MM-DD)
+        date: Current trading date
+        initial_cash: Initial cash if no prior data
 
     Returns:
-        Tuple of (position_dict, next_action_id)
-        - position_dict: {symbol: quantity, "CASH": amount}
-        - next_action_id: Next available action_id for this job+model
-
-    Raises:
-        Exception: If database query fails
+        (position_dict, action_count) where:
+          - position_dict: {"AAPL": 10, "MSFT": 5, "CASH": 8500.0}
+          - action_count: Number of holdings (for action_id tracking)
     """
-    db_path = "data/jobs.db"
+    db_path = "data/trading.db"
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
 
     try:
-        # Get most recent position on or before this date
+        # Query most recent trading_day up to date
         cursor.execute("""
-            SELECT p.id, p.cash
-            FROM positions p
-            WHERE p.job_id = ? AND p.model = ? AND p.date <= ?
-            ORDER BY p.date DESC, p.action_id DESC
+            SELECT id, ending_cash
+            FROM trading_days
+            WHERE job_id = ? AND model = ? AND date <= ?
+            ORDER BY date DESC
             LIMIT 1
         """, (job_id, model, date))
 
-        position_row = cursor.fetchone()
+        row = cursor.fetchone()
 
-        if not position_row:
-            # No position found - this shouldn't happen if ModelDayExecutor initializes properly
-            raise Exception(f"No position found for job_id={job_id}, model={model}, date={date}")
+        if row is None:
+            # First day - return initial position
+            return {"CASH": initial_cash}, 0
 
-        position_id = position_row[0]
-        cash = position_row[1]
+        trading_day_id, ending_cash = row
 
-        # Build position dict starting with CASH
-        position_dict = {"CASH": cash}
-
-        # Get holdings for this position
+        # Query holdings for that day
         cursor.execute("""
             SELECT symbol, quantity
             FROM holdings
-            WHERE position_id = ?
-        """, (position_id,))
+            WHERE trading_day_id = ?
+        """, (trading_day_id,))
 
-        for row in cursor.fetchall():
-            symbol = row[0]
-            quantity = row[1]
-            position_dict[symbol] = quantity
+        holdings_rows = cursor.fetchall()
 
-        # Get next action_id
-        cursor.execute("""
-            SELECT COALESCE(MAX(action_id), -1) + 1 as next_action_id
-            FROM positions
-            WHERE job_id = ? AND model = ?
-        """, (job_id, model))
+        # Build position dict
+        position = {"CASH": ending_cash}
+        for symbol, quantity in holdings_rows:
+            position[symbol] = quantity
 
-        next_action_id = cursor.fetchone()[0]
+        # Action count is number of holdings (used for action_id)
+        action_count = len(holdings_rows)
 
-        return position_dict, next_action_id
+        return position, action_count
 
     finally:
         conn.close()
