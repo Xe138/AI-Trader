@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Critical:** Fixed position tracking bugs causing cash reset and positions lost over weekends
+  - Removed redundant `ModelDayExecutor._write_results_to_db()` that created corrupt records with cash=0 and holdings=[]
+  - Fixed profit calculation to compare against start-of-day portfolio value instead of previous day's final value
+  - Positions now correctly carry over between trading days and across weekends
+  - Profit/loss calculations now accurately reflect trading gains/losses without treating trades as losses
+
+### Changed
+- Position tracking now exclusively handled by trade tools (`buy()`, `sell()`) and `add_no_trade_record_to_db()`
+- Daily profit calculation compares to start-of-day (action_id=0) portfolio value for accurate P&L tracking
+
 ## [0.3.0] - 2025-11-03
 
 ### Added - Development & Testing Features

@@ -64,6 +64,38 @@ CREATE TABLE positions (
 );
 ```
 
+**Column Descriptions:**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Primary key, auto-incremented |
+| job_id | TEXT | Foreign key to jobs table |
+| date | TEXT | Trading date (YYYY-MM-DD) |
+| model | TEXT | Model signature/identifier |
+| action_id | INTEGER | Sequential action ID for the day (0 = start-of-day baseline) |
+| action_type | TEXT | Type of action: 'no_trade', 'buy', or 'sell' |
+| symbol | TEXT | Stock symbol (null for no_trade) |
+| amount | INTEGER | Number of shares traded (null for no_trade) |
+| price | REAL | Price per share (null for no_trade) |
+| cash | REAL | Cash balance after action |
+| portfolio_value | REAL | Total portfolio value (cash + holdings value) |
+| daily_profit | REAL | **Daily profit/loss compared to start-of-day portfolio value (action_id=0).** Calculated as: `current_portfolio_value - start_of_day_portfolio_value`. This shows the actual gain/loss from price movements and trading decisions, not affected by merely buying/selling stocks. |
+| daily_return_pct | REAL | **Daily return percentage compared to start-of-day portfolio value.** Calculated as: `(daily_profit / start_of_day_portfolio_value) * 100` |
+| created_at | TEXT | ISO 8601 timestamp with 'Z' suffix |
+
+**Important Notes:**
+
+- **Position tracking flow:** Positions are written by trade tools (`buy()`, `sell()` in `agent_tools/tool_trade.py`) and no-trade records (`add_no_trade_record_to_db()` in `tools/price_tools.py`). Each trade creates a new position record.
+
+- **Action ID sequence:**
+  - `action_id=0`: Start-of-day position (created by `ModelDayExecutor._initialize_starting_position()` on first day only)
+  - `action_id=1+`: Each trade or no-trade action increments the action_id
+
+- **Profit calculation:** Daily profit is calculated by comparing current portfolio value to the **start-of-day** portfolio value (action_id=0 for the current date). This ensures that:
+  - Buying stocks doesn't show as a loss (cash ↓, stock value ↑ equally)
+  - Selling stocks doesn't show as a gain (cash ↑, stock value ↓ equally)
+  - Only actual price movements and strategic trading show as profit/loss
+
 ### holdings
 Portfolio holdings breakdown per position.
 
