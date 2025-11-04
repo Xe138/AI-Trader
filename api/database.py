@@ -156,38 +156,10 @@ def initialize_database(db_path: str = "data/jobs.db") -> None:
     #     )
     # """)
 
-    # Table 5: Trading Sessions - One per model-day trading session
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS trading_sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id TEXT NOT NULL,
-            date TEXT NOT NULL,
-            model TEXT NOT NULL,
-            session_summary TEXT,
-            started_at TEXT NOT NULL,
-            completed_at TEXT,
-            total_messages INTEGER,
-            FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE,
-            UNIQUE(job_id, date, model)
-        )
-    """)
-
-    # Table 6: Reasoning Logs - AI decision logs linked to sessions
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS reasoning_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id INTEGER NOT NULL,
-            message_index INTEGER NOT NULL,
-            role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'tool')),
-            content TEXT NOT NULL,
-            summary TEXT,
-            tool_name TEXT,
-            tool_input TEXT,
-            timestamp TEXT NOT NULL,
-            FOREIGN KEY (session_id) REFERENCES trading_sessions(id) ON DELETE CASCADE,
-            UNIQUE(session_id, message_index)
-        )
-    """)
+    # OLD TABLES REMOVED:
+    # - trading_sessions → replaced by trading_days
+    # - reasoning_logs → replaced by trading_days.reasoning_full (JSON column)
+    # See api/migrations/002_drop_old_schema.py for removal migration
 
     # Table 7: Tool Usage - Tool usage statistics
     cursor.execute("""
