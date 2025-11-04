@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### BREAKING CHANGES
+
+#### Schema Migration: Old Tables Removed
+
+The following database tables have been **removed** and replaced with new schema:
+
+**Removed Tables:**
+- `trading_sessions` → Replaced by `trading_days`
+- `positions` (old action-centric version) → Replaced by `trading_days` + `actions` + `holdings`
+- `reasoning_logs` → Replaced by `trading_days.reasoning_full` (JSON column)
+
+**Migration Required:**
+- If you have existing data in old tables, export it before upgrading
+- New installations automatically use new schema
+- Old data cannot be automatically migrated (different data model)
+
+**Database Path:**
+- Production: `data/trading.db`
+- Development: `data/trading_dev.db`
+
+**To migrate existing production database:**
+```bash
+# Run migration script to drop old tables
+PYTHONPATH=. python api/migrations/002_drop_old_schema.py
+```
+
+#### API Endpoint Removed: /reasoning
+
+The `/reasoning` endpoint has been **removed** and replaced by `/results` with reasoning parameter.
+
+**Migration Guide:**
+
+| Old Endpoint | New Endpoint |
+|--------------|--------------|
+| `GET /reasoning?job_id=X` | `GET /results?job_id=X&reasoning=summary` |
+| `GET /reasoning?job_id=X&include_full_conversation=true` | `GET /results?job_id=X&reasoning=full` |
+
+**Benefits of New Endpoint:**
+- Day-centric structure (easier to understand portfolio progression)
+- Daily P&L metrics included
+- AI-generated reasoning summaries (2-3 sentences)
+- Unified data model
+
+**Response Structure Changes:**
+
+Old `/reasoning` returned:
+```json
+{
+  "sessions": [
+    {
+      "session_id": 1,
+      "positions": [{"action_id": 0, "cash_after": 10000, ...}],
+      "conversation": [...]
+    }
+  ]
+}
+```
+
+New `/results?reasoning=full` returns:
+```json
+{
+  "results": [
+    {
+      "date": "2025-01-15",
+      "starting_position": {"holdings": [], "cash": 10000},
+      "daily_metrics": {"profit": 0.0, "return_pct": 0.0},
+      "trades": [{"action_type": "buy", "symbol": "AAPL", ...}],
+      "final_position": {"holdings": [...], "cash": 8500},
+      "reasoning": [...]
+    }
+  ]
+}
+```
+
+### Removed
+
+- `/reasoning` endpoint (use `/results?reasoning=full` instead)
+- Old database tables: `trading_sessions`, `positions`, `reasoning_logs`
+- Pydantic models: `ReasoningMessage`, `PositionSummary`, `TradingSessionResponse`, `ReasoningResponse`
+- Old-schema tests for deprecated tables
+
 ### Added
 - **Daily P&L Calculation System** - Accurate profit/loss tracking with normalized database schema
   - New `trading_days` table for day-centric trading results with daily P&L metrics
@@ -38,6 +119,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduced Docker healthcheck frequency from 30s to 1h to minimize log noise while maintaining startup verification
 - Database schema migrated from action-centric to day-centric model
 - Results API now returns normalized day-centric data structure
+- Trade tools (`buy()`, `sell()`) now write to `actions` table instead of old `positions` table
+- `model_day_executor` simplified - removed duplicate writes to old schema tables
+- `get_current_position_from_db()` queries new schema (trading_days + holdings) instead of positions table
 
 ### Improved
 - Database helper methods with 7 new functions for `trading_days` schema operations
