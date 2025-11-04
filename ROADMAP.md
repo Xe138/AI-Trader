@@ -4,59 +4,6 @@ This document outlines planned features and improvements for the AI-Trader proje
 
 ## Release Planning
 
-### v0.4.0 - Simplified Simulation Control (Planned)
-
-**Focus:** Streamlined date-based simulation API with automatic resume from last completed date
-
-#### Core Simulation API
-- **Smart Date-Based Simulation** - Simple API for running simulations to a target date
-  - `POST /simulate/to-date` - Run simulation up to specified date
-    - Request: `{"target_date": "2025-01-31", "models": ["model1", "model2"]}`
-    - Automatically starts from last completed date in position.jsonl
-    - Skips already-simulated dates by default (idempotent)
-    - Optional `force_resimulate: true` flag to re-run completed dates
-    - Returns: job_id, date range to be simulated, models included
-  - `GET /simulate/status/{model_name}` - Get last completed date and available date ranges
-    - Returns: last_simulated_date, next_available_date, data_coverage
-  - Behavior:
-    - If no position.jsonl exists: starts from initial_date in config or first available data
-    - If position.jsonl exists: continues from last completed date + 1 day
-    - Validates target_date has available price data
-    - Skips weekends automatically
-    - Prevents accidental re-simulation without explicit flag
-
-#### Benefits
-- **Simplicity** - Single endpoint for "simulate to this date"
-- **Idempotent** - Safe to call repeatedly, won't duplicate work
-- **Incremental Updates** - Easy daily simulation updates: `POST /simulate/to-date {"target_date": "today"}`
-- **Explicit Re-simulation** - Require `force_resimulate` flag to prevent accidental data overwrites
-- **Automatic Resume** - Handles crash recovery transparently
-
-#### Example Usage
-```bash
-# Initial backtest (Jan 1 - Jan 31)
-curl -X POST http://localhost:5000/simulate/to-date \
-  -d '{"target_date": "2025-01-31", "models": ["gpt-4"]}'
-
-# Daily update (simulate new trading day)
-curl -X POST http://localhost:5000/simulate/to-date \
-  -d '{"target_date": "2025-02-01", "models": ["gpt-4"]}'
-
-# Check status
-curl http://localhost:5000/simulate/status/gpt-4
-
-# Force re-simulation (e.g., after config change)
-curl -X POST http://localhost:5000/simulate/to-date \
-  -d '{"target_date": "2025-01-31", "models": ["gpt-4"], "force_resimulate": true}'
-```
-
-#### Technical Implementation
-- Modify `main.py` and `api/app.py` to support target date parameter
-- Update `BaseAgent.get_trading_dates()` to detect last completed date from position.jsonl
-- Add validation: target_date must have price data available
-- Add `force_resimulate` flag handling: clear position.jsonl range if enabled
-- Preserve existing `/simulate` endpoint for backward compatibility
-
 ### v1.0.0 - Production Stability & Validation (Planned)
 
 **Focus:** Comprehensive testing, documentation, and production readiness
@@ -661,7 +608,6 @@ To propose a new feature:
 - **v0.1.0** - Initial release with batch execution
 - **v0.2.0** - Docker deployment support
 - **v0.3.0** - REST API, on-demand downloads, database storage (current)
-- **v0.4.0** - Simplified simulation control (planned)
 - **v1.0.0** - Production stability & validation (planned)
 - **v1.1.0** - API authentication & security (planned)
 - **v1.2.0** - Position history & analytics (planned)
