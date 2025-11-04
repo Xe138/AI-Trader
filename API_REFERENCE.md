@@ -343,7 +343,7 @@ Poll every 10-30 seconds until `status` is `completed`, `partial`, or `failed`.
 
 ### GET /results
 
-Query simulation results with optional filters.
+Get trading results grouped by day with daily P&L metrics and AI reasoning.
 
 **Query Parameters:**
 
@@ -352,112 +352,315 @@ Query simulation results with optional filters.
 | `job_id` | string | No | Filter by job UUID |
 | `date` | string | No | Filter by trading date (YYYY-MM-DD) |
 | `model` | string | No | Filter by model signature |
+| `reasoning` | string | No | Include AI reasoning: `none` (default), `summary`, or `full` |
 
-**Response (200 OK):**
+**Response (200 OK) - Default (no reasoning):**
 
 ```json
 {
+  "count": 2,
   "results": [
     {
-      "id": 1,
-      "job_id": "550e8400-e29b-41d4-a716-446655440000",
-      "date": "2025-01-16",
+      "date": "2025-01-15",
       "model": "gpt-4",
-      "action_id": 1,
-      "action_type": "buy",
-      "symbol": "AAPL",
-      "amount": 10,
-      "price": 250.50,
-      "cash": 7495.00,
-      "portfolio_value": 10000.00,
-      "daily_profit": 0.00,
-      "daily_return_pct": 0.00,
-      "created_at": "2025-01-16T10:05:23Z",
-      "holdings": [
-        {"symbol": "AAPL", "quantity": 10},
-        {"symbol": "CASH", "quantity": 7495.00}
-      ]
+      "job_id": "550e8400-e29b-41d4-a716-446655440000",
+      "starting_position": {
+        "holdings": [],
+        "cash": 10000.0,
+        "portfolio_value": 10000.0
+      },
+      "daily_metrics": {
+        "profit": 0.0,
+        "return_pct": 0.0,
+        "days_since_last_trading": 0
+      },
+      "trades": [
+        {
+          "action_type": "buy",
+          "symbol": "AAPL",
+          "quantity": 10,
+          "price": 150.0,
+          "created_at": "2025-01-15T14:30:00Z"
+        }
+      ],
+      "final_position": {
+        "holdings": [
+          {"symbol": "AAPL", "quantity": 10}
+        ],
+        "cash": 8500.0,
+        "portfolio_value": 10000.0
+      },
+      "metadata": {
+        "total_actions": 1,
+        "session_duration_seconds": 45.2,
+        "completed_at": "2025-01-15T14:31:00Z"
+      },
+      "reasoning": null
     },
     {
-      "id": 2,
-      "job_id": "550e8400-e29b-41d4-a716-446655440000",
       "date": "2025-01-16",
       "model": "gpt-4",
-      "action_id": 2,
-      "action_type": "buy",
-      "symbol": "MSFT",
-      "amount": 5,
-      "price": 380.20,
-      "cash": 5594.00,
-      "portfolio_value": 10105.00,
-      "daily_profit": 105.00,
-      "daily_return_pct": 1.05,
-      "created_at": "2025-01-16T10:05:23Z",
-      "holdings": [
-        {"symbol": "AAPL", "quantity": 10},
-        {"symbol": "MSFT", "quantity": 5},
-        {"symbol": "CASH", "quantity": 5594.00}
+      "job_id": "550e8400-e29b-41d4-a716-446655440000",
+      "starting_position": {
+        "holdings": [
+          {"symbol": "AAPL", "quantity": 10}
+        ],
+        "cash": 8500.0,
+        "portfolio_value": 10100.0
+      },
+      "daily_metrics": {
+        "profit": 100.0,
+        "return_pct": 1.0,
+        "days_since_last_trading": 1
+      },
+      "trades": [
+        {
+          "action_type": "buy",
+          "symbol": "MSFT",
+          "quantity": 5,
+          "price": 200.0,
+          "created_at": "2025-01-16T14:30:00Z"
+        }
+      ],
+      "final_position": {
+        "holdings": [
+          {"symbol": "AAPL", "quantity": 10},
+          {"symbol": "MSFT", "quantity": 5}
+        ],
+        "cash": 7500.0,
+        "portfolio_value": 10100.0
+      },
+      "metadata": {
+        "total_actions": 1,
+        "session_duration_seconds": 52.1,
+        "completed_at": "2025-01-16T14:31:00Z"
+      },
+      "reasoning": null
+    }
+  ]
+}
+```
+
+**Response (200 OK) - With Summary Reasoning:**
+
+```json
+{
+  "count": 1,
+  "results": [
+    {
+      "date": "2025-01-15",
+      "model": "gpt-4",
+      "job_id": "550e8400-e29b-41d4-a716-446655440000",
+      "starting_position": {
+        "holdings": [],
+        "cash": 10000.0,
+        "portfolio_value": 10000.0
+      },
+      "daily_metrics": {
+        "profit": 0.0,
+        "return_pct": 0.0,
+        "days_since_last_trading": 0
+      },
+      "trades": [
+        {
+          "action_type": "buy",
+          "symbol": "AAPL",
+          "quantity": 10,
+          "price": 150.0,
+          "created_at": "2025-01-15T14:30:00Z"
+        }
+      ],
+      "final_position": {
+        "holdings": [
+          {"symbol": "AAPL", "quantity": 10}
+        ],
+        "cash": 8500.0,
+        "portfolio_value": 10000.0
+      },
+      "metadata": {
+        "total_actions": 1,
+        "session_duration_seconds": 45.2,
+        "completed_at": "2025-01-15T14:31:00Z"
+      },
+      "reasoning": "Analyzed AAPL earnings report showing strong Q4 results. Bought 10 shares at $150 based on positive revenue guidance and expanding margins."
+    }
+  ]
+}
+```
+
+**Response (200 OK) - With Full Reasoning:**
+
+```json
+{
+  "count": 1,
+  "results": [
+    {
+      "date": "2025-01-15",
+      "model": "gpt-4",
+      "job_id": "550e8400-e29b-41d4-a716-446655440000",
+      "starting_position": {
+        "holdings": [],
+        "cash": 10000.0,
+        "portfolio_value": 10000.0
+      },
+      "daily_metrics": {
+        "profit": 0.0,
+        "return_pct": 0.0,
+        "days_since_last_trading": 0
+      },
+      "trades": [
+        {
+          "action_type": "buy",
+          "symbol": "AAPL",
+          "quantity": 10,
+          "price": 150.0,
+          "created_at": "2025-01-15T14:30:00Z"
+        }
+      ],
+      "final_position": {
+        "holdings": [
+          {"symbol": "AAPL", "quantity": 10}
+        ],
+        "cash": 8500.0,
+        "portfolio_value": 10000.0
+      },
+      "metadata": {
+        "total_actions": 1,
+        "session_duration_seconds": 45.2,
+        "completed_at": "2025-01-15T14:31:00Z"
+      },
+      "reasoning": [
+        {
+          "role": "user",
+          "content": "You are a trading agent. Current date: 2025-01-15..."
+        },
+        {
+          "role": "assistant",
+          "content": "I'll analyze market conditions for AAPL..."
+        },
+        {
+          "role": "tool",
+          "name": "search",
+          "content": "AAPL Q4 earnings beat expectations..."
+        },
+        {
+          "role": "assistant",
+          "content": "Based on positive earnings, I'll buy AAPL..."
+        }
       ]
     }
-  ],
-  "count": 2
+  ]
 }
 ```
 
 **Response Fields:**
 
+**Top-level:**
 | Field | Type | Description |
 |-------|------|-------------|
-| `results` | array[object] | Array of position records |
-| `count` | integer | Number of results returned |
+| `count` | integer | Number of trading days returned |
+| `results` | array[object] | Array of day-level trading results |
 
-**Position Record Fields:**
-
+**Day-level fields:**
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | integer | Unique position record ID |
-| `job_id` | string | Job UUID this belongs to |
 | `date` | string | Trading date (YYYY-MM-DD) |
 | `model` | string | Model signature |
-| `action_id` | integer | Action sequence number (1, 2, 3...) for this model-day |
-| `action_type` | string | Action taken: `buy`, `sell`, or `hold` |
-| `symbol` | string | Stock symbol traded (or null for `hold`) |
-| `amount` | integer | Quantity traded (or null for `hold`) |
-| `price` | float | Price per share (or null for `hold`) |
-| `cash` | float | Cash balance after this action |
-| `portfolio_value` | float | Total portfolio value (cash + holdings) |
-| `daily_profit` | float | Profit/loss for this trading day |
-| `daily_return_pct` | float | Return percentage for this day |
-| `created_at` | string | ISO 8601 timestamp when recorded |
-| `holdings` | array[object] | Current holdings after this action |
+| `job_id` | string | Simulation job UUID |
+| `starting_position` | object | Portfolio state at start of day |
+| `daily_metrics` | object | Daily performance metrics |
+| `trades` | array[object] | All trades executed during the day |
+| `final_position` | object | Portfolio state at end of day |
+| `metadata` | object | Session metadata |
+| `reasoning` | null\|string\|array | AI reasoning (based on `reasoning` parameter) |
 
-**Holdings Object:**
-
+**starting_position fields:**
 | Field | Type | Description |
 |-------|------|-------------|
-| `symbol` | string | Stock symbol or "CASH" |
-| `quantity` | float | Shares owned (or cash amount) |
+| `holdings` | array[object] | Stock positions at start of day (from previous day's ending) |
+| `cash` | float | Cash balance at start of day |
+| `portfolio_value` | float | Total portfolio value at start (cash + holdings valued at current prices) |
+
+**daily_metrics fields:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `profit` | float | Dollar amount gained/lost from previous close (portfolio appreciation/depreciation) |
+| `return_pct` | float | Percentage return from previous close |
+| `days_since_last_trading` | integer | Number of calendar days since last trading day (1=normal, 3=weekend, 0=first day) |
+
+**trades fields:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `action_type` | string | Trade type: `buy`, `sell`, or `no_trade` |
+| `symbol` | string\|null | Stock symbol (null for `no_trade`) |
+| `quantity` | integer\|null | Number of shares (null for `no_trade`) |
+| `price` | float\|null | Execution price per share (null for `no_trade`) |
+| `created_at` | string | ISO 8601 timestamp of trade execution |
+
+**final_position fields:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `holdings` | array[object] | Stock positions at end of day |
+| `cash` | float | Cash balance at end of day |
+| `portfolio_value` | float | Total portfolio value at end (cash + holdings valued at closing prices) |
+
+**metadata fields:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `total_actions` | integer | Number of trades executed during the day |
+| `session_duration_seconds` | float\|null | AI session duration in seconds |
+| `completed_at` | string\|null | ISO 8601 timestamp of session completion |
+
+**holdings object:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `symbol` | string | Stock symbol |
+| `quantity` | integer | Number of shares held |
+
+**reasoning field:**
+- `null` when `reasoning=none` (default) - no reasoning included
+- `string` when `reasoning=summary` - AI-generated 2-3 sentence summary of trading strategy
+- `array` when `reasoning=full` - Complete conversation log with all messages, tool calls, and responses
+
+**Daily P&L Calculation:**
+
+Daily profit/loss is calculated by valuing the previous day's ending holdings at current day's opening prices:
+
+1. **First trading day**: `daily_profit = 0`, `daily_return_pct = 0` (no previous holdings to appreciate/depreciate)
+2. **Subsequent days**:
+   - Value yesterday's ending holdings at today's opening prices
+   - `daily_profit = today_portfolio_value - yesterday_portfolio_value`
+   - `daily_return_pct = (daily_profit / yesterday_portfolio_value) * 100`
+
+This accurately captures portfolio appreciation from price movements, not just trading decisions.
+
+**Weekend Gap Handling:**
+
+The system correctly handles multi-day gaps (weekends, holidays):
+- `days_since_last_trading` shows actual calendar days elapsed (e.g., 3 for Monday following Friday)
+- Daily P&L reflects cumulative price changes over the gap period
+- Holdings chain remains consistent (Monday starts with Friday's ending positions)
 
 **Examples:**
 
-All results for a specific job:
+All results for a specific job (no reasoning):
 ```bash
 curl "http://localhost:8080/results?job_id=550e8400-e29b-41d4-a716-446655440000"
 ```
 
-Results for a specific date:
+Results for a specific date with summary reasoning:
 ```bash
-curl "http://localhost:8080/results?date=2025-01-16"
+curl "http://localhost:8080/results?date=2025-01-16&reasoning=summary"
 ```
 
-Results for a specific model:
+Results for a specific model with full reasoning:
 ```bash
-curl "http://localhost:8080/results?model=gpt-4"
+curl "http://localhost:8080/results?model=gpt-4&reasoning=full"
 ```
 
 Combine filters:
 ```bash
-curl "http://localhost:8080/results?job_id=550e8400-e29b-41d4-a716-446655440000&date=2025-01-16&model=gpt-4"
+curl "http://localhost:8080/results?job_id=550e8400-e29b-41d4-a716-446655440000&date=2025-01-16&model=gpt-4&reasoning=summary"
 ```
 
 ---

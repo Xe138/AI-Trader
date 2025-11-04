@@ -42,26 +42,45 @@ CREATE TABLE job_details (
 );
 ```
 
-### positions
-Trading position records with P&L.
+### trading_days
+
+Core table for each model-day execution with daily P&L metrics.
 
 ```sql
-CREATE TABLE positions (
+CREATE TABLE trading_days (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    job_id TEXT,
-    date TEXT,
-    model TEXT,
-    action_id INTEGER,
-    action_type TEXT,
-    symbol TEXT,
-    amount INTEGER,
-    price REAL,
-    cash REAL,
-    portfolio_value REAL,
-    daily_profit REAL,
-    daily_return_pct REAL,
-    created_at TEXT
+    job_id TEXT NOT NULL,
+    model TEXT NOT NULL,
+    date TEXT NOT NULL,
+
+    -- Starting position (cash only, holdings from previous day)
+    starting_cash REAL NOT NULL,
+    starting_portfolio_value REAL NOT NULL,
+
+    -- Daily performance metrics
+    daily_profit REAL NOT NULL,
+    daily_return_pct REAL NOT NULL,
+
+    -- Ending state (cash only, holdings in separate table)
+    ending_cash REAL NOT NULL,
+    ending_portfolio_value REAL NOT NULL,
+
+    -- Reasoning
+    reasoning_summary TEXT,
+    reasoning_full TEXT,
+
+    -- Metadata
+    total_actions INTEGER DEFAULT 0,
+    session_duration_seconds REAL,
+    days_since_last_trading INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP,
+
+    UNIQUE(job_id, model, date),
+    FOREIGN KEY (job_id) REFERENCES jobs(job_id)
 );
+
+CREATE INDEX idx_trading_days_lookup ON trading_days(job_id, model, date);
 ```
 
 **Column Descriptions:**
@@ -70,44 +89,122 @@ CREATE TABLE positions (
 |--------|------|-------------|
 | id | INTEGER | Primary key, auto-incremented |
 | job_id | TEXT | Foreign key to jobs table |
-| date | TEXT | Trading date (YYYY-MM-DD) |
 | model | TEXT | Model signature/identifier |
-| action_id | INTEGER | Sequential action ID for the day (0 = start-of-day baseline) |
-| action_type | TEXT | Type of action: 'no_trade', 'buy', or 'sell' |
-| symbol | TEXT | Stock symbol (null for no_trade) |
-| amount | INTEGER | Number of shares traded (null for no_trade) |
-| price | REAL | Price per share (null for no_trade) |
-| cash | REAL | Cash balance after action |
-| portfolio_value | REAL | Total portfolio value (cash + holdings value) |
-| daily_profit | REAL | **Daily profit/loss compared to start-of-day portfolio value (action_id=0).** Calculated as: `current_portfolio_value - start_of_day_portfolio_value`. This shows the actual gain/loss from price movements and trading decisions, not affected by merely buying/selling stocks. |
-| daily_return_pct | REAL | **Daily return percentage compared to start-of-day portfolio value.** Calculated as: `(daily_profit / start_of_day_portfolio_value) * 100` |
-| created_at | TEXT | ISO 8601 timestamp with 'Z' suffix |
+| date | TEXT | Trading date (YYYY-MM-DD) |
+| starting_cash | REAL | Cash balance at start of day |
+| starting_portfolio_value | REAL | Total portfolio value at start (includes holdings valued at current prices) |
+| daily_profit | REAL | Dollar P&L from previous close (portfolio appreciation/depreciation) |
+| daily_return_pct | REAL | Percentage return from previous close |
+| ending_cash | REAL | Cash balance at end of day |
+| ending_portfolio_value | REAL | Total portfolio value at end |
+| reasoning_summary | TEXT | AI-generated 2-3 sentence summary of trading strategy |
+| reasoning_full | TEXT | JSON array of complete conversation log |
+| total_actions | INTEGER | Number of trades executed during the day |
+| session_duration_seconds | REAL | AI session duration in seconds |
+| days_since_last_trading | INTEGER | Days since previous trading day (1=normal, 3=weekend, 0=first day) |
+| created_at | TIMESTAMP | Record creation timestamp |
+| completed_at | TIMESTAMP | Session completion timestamp |
 
 **Important Notes:**
 
-- **Position tracking flow:** Positions are written by trade tools (`buy()`, `sell()` in `agent_tools/tool_trade.py`) and no-trade records (`add_no_trade_record_to_db()` in `tools/price_tools.py`). Each trade creates a new position record.
+- **Day-centric structure:** Each row represents one complete trading day for one model
+- **First trading day:** `daily_profit = 0`, `daily_return_pct = 0`, `days_since_last_trading = 0`
+- **Subsequent days:** Daily P&L calculated by valuing previous day's holdings at current prices
+- **Weekend gaps:** System handles multi-day gaps automatically (e.g., Monday following Friday shows `days_since_last_trading = 3`)
+- **Starting holdings:** Derived from previous day's ending holdings (not stored in this table, see `holdings` table)
+- **Unique constraint:** One record per (job_id, model, date) combination
 
-- **Action ID sequence:**
-  - `action_id=0`: Start-of-day position (created by `ModelDayExecutor._initialize_starting_position()` on first day only)
-  - `action_id=1+`: Each trade or no-trade action increments the action_id
+**Daily P&L Calculation:**
 
-- **Profit calculation:** Daily profit is calculated by comparing current portfolio value to the **start-of-day** portfolio value (action_id=0 for the current date). This ensures that:
-  - Buying stocks doesn't show as a loss (cash ↓, stock value ↑ equally)
-  - Selling stocks doesn't show as a gain (cash ↑, stock value ↓ equally)
-  - Only actual price movements and strategic trading show as profit/loss
+Daily profit accurately reflects portfolio appreciation from price movements:
+
+1. Get previous day's ending holdings and cash
+2. Value those holdings at current day's opening prices
+3. `daily_profit = current_value - previous_value`
+4. `daily_return_pct = (daily_profit / previous_value) * 100`
+
+This ensures buying/selling stocks doesn't affect P&L - only price changes do.
+
+---
 
 ### holdings
-Portfolio holdings breakdown per position.
+
+Portfolio holdings snapshots (ending positions only).
 
 ```sql
 CREATE TABLE holdings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    position_id INTEGER,
-    symbol TEXT,
-    quantity REAL,
-    FOREIGN KEY (position_id) REFERENCES positions(id) ON DELETE CASCADE
+    trading_day_id INTEGER NOT NULL,
+    symbol TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+
+    FOREIGN KEY (trading_day_id) REFERENCES trading_days(id) ON DELETE CASCADE,
+    UNIQUE(trading_day_id, symbol)
 );
+
+CREATE INDEX idx_holdings_day ON holdings(trading_day_id);
 ```
+
+**Column Descriptions:**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Primary key, auto-incremented |
+| trading_day_id | INTEGER | Foreign key to trading_days table |
+| symbol | TEXT | Stock symbol |
+| quantity | INTEGER | Number of shares held at end of day |
+
+**Important Notes:**
+
+- **Ending positions only:** This table stores only the final holdings at end of day
+- **Starting positions:** Derived by querying holdings for previous day's trading_day_id
+- **Cascade deletion:** Holdings are automatically deleted when parent trading_day is deleted
+- **Unique constraint:** One row per (trading_day_id, symbol) combination
+- **No cash:** Cash is stored directly in trading_days table (`ending_cash`)
+
+---
+
+### actions
+
+Trade execution ledger.
+
+```sql
+CREATE TABLE actions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trading_day_id INTEGER NOT NULL,
+
+    action_type TEXT NOT NULL,
+    symbol TEXT,
+    quantity INTEGER,
+    price REAL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (trading_day_id) REFERENCES trading_days(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_actions_day ON actions(trading_day_id);
+```
+
+**Column Descriptions:**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Primary key, auto-incremented |
+| trading_day_id | INTEGER | Foreign key to trading_days table |
+| action_type | TEXT | Trade type: 'buy', 'sell', or 'no_trade' |
+| symbol | TEXT | Stock symbol (NULL for no_trade) |
+| quantity | INTEGER | Number of shares traded (NULL for no_trade) |
+| price | REAL | Execution price per share (NULL for no_trade) |
+| created_at | TIMESTAMP | Timestamp of trade execution |
+
+**Important Notes:**
+
+- **Trade ledger:** Sequential log of all trades executed during a trading day
+- **No_trade actions:** Recorded when agent decides not to trade
+- **Cascade deletion:** Actions are automatically deleted when parent trading_day is deleted
+- **Execution order:** Use `created_at` to determine trade execution sequence
+- **Price snapshot:** Records actual execution price at time of trade
 
 ### price_data
 Cached historical price data.
