@@ -540,3 +540,227 @@ def get_database_stats(db_path: str = "data/jobs.db") -> dict:
     conn.close()
 
     return stats
+
+
+class Database:
+    """Database wrapper class with helper methods for trading_days schema."""
+
+    def __init__(self, db_path: str = None):
+        """Initialize database connection.
+
+        Args:
+            db_path: Path to SQLite database file.
+                     If None, uses default from deployment config.
+        """
+        if db_path is None:
+            from tools.deployment_config import get_database_path
+            db_path = get_database_path()
+
+        self.db_path = db_path
+        self.connection = sqlite3.connect(db_path, check_same_thread=False)
+        self.connection.row_factory = sqlite3.Row
+
+    def create_trading_day(
+        self,
+        job_id: str,
+        model: str,
+        date: str,
+        starting_cash: float,
+        starting_portfolio_value: float,
+        daily_profit: float,
+        daily_return_pct: float,
+        ending_cash: float,
+        ending_portfolio_value: float,
+        reasoning_summary: str = None,
+        reasoning_full: str = None,
+        total_actions: int = 0,
+        session_duration_seconds: float = None,
+        days_since_last_trading: int = 1
+    ) -> int:
+        """Create a new trading day record.
+
+        Returns:
+            trading_day_id
+        """
+        cursor = self.connection.execute(
+            """
+            INSERT INTO trading_days (
+                job_id, model, date,
+                starting_cash, starting_portfolio_value,
+                daily_profit, daily_return_pct,
+                ending_cash, ending_portfolio_value,
+                reasoning_summary, reasoning_full,
+                total_actions, session_duration_seconds,
+                days_since_last_trading,
+                completed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """,
+            (
+                job_id, model, date,
+                starting_cash, starting_portfolio_value,
+                daily_profit, daily_return_pct,
+                ending_cash, ending_portfolio_value,
+                reasoning_summary, reasoning_full,
+                total_actions, session_duration_seconds,
+                days_since_last_trading
+            )
+        )
+        self.connection.commit()
+        return cursor.lastrowid
+
+    def get_previous_trading_day(
+        self,
+        job_id: str,
+        model: str,
+        current_date: str
+    ) -> dict:
+        """Get the most recent trading day before current_date.
+
+        Handles weekends/holidays by finding actual previous trading day.
+
+        Returns:
+            dict with keys: id, date, ending_cash, ending_portfolio_value
+            or None if no previous day exists
+        """
+        cursor = self.connection.execute(
+            """
+            SELECT id, date, ending_cash, ending_portfolio_value
+            FROM trading_days
+            WHERE job_id = ? AND model = ? AND date < ?
+            ORDER BY date DESC
+            LIMIT 1
+            """,
+            (job_id, model, current_date)
+        )
+
+        row = cursor.fetchone()
+        if row:
+            return {
+                "id": row[0],
+                "date": row[1],
+                "ending_cash": row[2],
+                "ending_portfolio_value": row[3]
+            }
+        return None
+
+    def get_ending_holdings(self, trading_day_id: int) -> list:
+        """Get ending holdings for a trading day.
+
+        Returns:
+            List of dicts with keys: symbol, quantity
+        """
+        cursor = self.connection.execute(
+            """
+            SELECT symbol, quantity
+            FROM holdings
+            WHERE trading_day_id = ?
+            ORDER BY symbol
+            """,
+            (trading_day_id,)
+        )
+
+        return [{"symbol": row[0], "quantity": row[1]} for row in cursor.fetchall()]
+
+    def get_starting_holdings(self, trading_day_id: int) -> list:
+        """Get starting holdings from previous day's ending holdings.
+
+        Returns:
+            List of dicts with keys: symbol, quantity
+            Empty list if first trading day
+        """
+        # Get previous trading day
+        cursor = self.connection.execute(
+            """
+            SELECT td_prev.id
+            FROM trading_days td_current
+            JOIN trading_days td_prev ON
+                td_prev.job_id = td_current.job_id AND
+                td_prev.model = td_current.model AND
+                td_prev.date < td_current.date
+            WHERE td_current.id = ?
+            ORDER BY td_prev.date DESC
+            LIMIT 1
+            """,
+            (trading_day_id,)
+        )
+
+        row = cursor.fetchone()
+        if not row:
+            # First trading day - no previous holdings
+            return []
+
+        previous_day_id = row[0]
+
+        # Get previous day's ending holdings
+        return self.get_ending_holdings(previous_day_id)
+
+    def create_holding(
+        self,
+        trading_day_id: int,
+        symbol: str,
+        quantity: int
+    ) -> int:
+        """Create a holding record.
+
+        Returns:
+            holding_id
+        """
+        cursor = self.connection.execute(
+            """
+            INSERT INTO holdings (trading_day_id, symbol, quantity)
+            VALUES (?, ?, ?)
+            """,
+            (trading_day_id, symbol, quantity)
+        )
+        self.connection.commit()
+        return cursor.lastrowid
+
+    def create_action(
+        self,
+        trading_day_id: int,
+        action_type: str,
+        symbol: str = None,
+        quantity: int = None,
+        price: float = None
+    ) -> int:
+        """Create an action record.
+
+        Returns:
+            action_id
+        """
+        cursor = self.connection.execute(
+            """
+            INSERT INTO actions (trading_day_id, action_type, symbol, quantity, price)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (trading_day_id, action_type, symbol, quantity, price)
+        )
+        self.connection.commit()
+        return cursor.lastrowid
+
+    def get_actions(self, trading_day_id: int) -> list:
+        """Get all actions for a trading day.
+
+        Returns:
+            List of dicts with keys: action_type, symbol, quantity, price, created_at
+        """
+        cursor = self.connection.execute(
+            """
+            SELECT action_type, symbol, quantity, price, created_at
+            FROM actions
+            WHERE trading_day_id = ?
+            ORDER BY created_at
+            """,
+            (trading_day_id,)
+        )
+
+        return [
+            {
+                "action_type": row[0],
+                "symbol": row[1],
+                "quantity": row[2],
+                "price": row[3],
+                "created_at": row[4]
+            }
+            for row in cursor.fetchall()
+        ]
