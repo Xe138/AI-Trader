@@ -158,13 +158,13 @@ class ModelDayExecutor:
             # Update session summary
             await self._update_session_summary(cursor, session_id, conversation, agent)
 
-            # Commit and close connection before _write_results_to_db opens a new one
+            # Commit and close connection
             conn.commit()
             conn.close()
             conn = None  # Mark as closed
 
-            # Store positions (pass session_id) - this opens its own connection
-            self._write_results_to_db(agent, session_id)
+            # Note: Positions are written by trade tools (buy/sell) or no_trade_record
+            # No need to write positions here - that was creating duplicate/corrupt records
 
             # Update status to completed
             self.job_manager.update_job_detail_status(
@@ -431,127 +431,3 @@ class ModelDayExecutor:
                 total_messages = ?
             WHERE id = ?
         """, (session_summary, completed_at, len(conversation), session_id))
-
-    def _write_results_to_db(self, agent, session_id: int) -> None:
-        """
-        Write execution results to SQLite.
-
-        Args:
-            agent: Trading agent instance
-            session_id: Trading session ID (for linking positions)
-
-        Writes to:
-            - positions: Position record with action and P&L (linked to session)
-            - holdings: Current portfolio holdings
-            - tool_usage: Tool usage stats (if available)
-        """
-        conn = get_db_connection(self.db_path)
-        cursor = conn.cursor()
-
-        try:
-            # Get current positions and trade info
-            positions = agent.get_positions() if hasattr(agent, 'get_positions') else {}
-            last_trade = agent.get_last_trade() if hasattr(agent, 'get_last_trade') else None
-
-            # Calculate portfolio value
-            current_prices = agent.get_current_prices() if hasattr(agent, 'get_current_prices') else {}
-            total_value = self._calculate_portfolio_value(positions, current_prices)
-
-            # Get previous value for P&L calculation
-            cursor.execute("""
-                SELECT portfolio_value
-                FROM positions
-                WHERE job_id = ? AND model = ? AND date < ?
-                ORDER BY date DESC
-                LIMIT 1
-            """, (self.job_id, self.model_sig, self.date))
-
-            row = cursor.fetchone()
-            previous_value = row[0] if row else 10000.0  # Initial portfolio value
-
-            daily_profit = total_value - previous_value
-            daily_return_pct = (daily_profit / previous_value * 100) if previous_value > 0 else 0
-
-            # Determine action_id (sequence number for this model)
-            cursor.execute("""
-                SELECT COALESCE(MAX(action_id), 0) + 1
-                FROM positions
-                WHERE job_id = ? AND model = ?
-            """, (self.job_id, self.model_sig))
-
-            action_id = cursor.fetchone()[0]
-
-            # Insert position record
-            action_type = last_trade.get("action") if last_trade else "no_trade"
-            symbol = last_trade.get("symbol") if last_trade else None
-            amount = last_trade.get("amount") if last_trade else None
-            price = last_trade.get("price") if last_trade else None
-            cash = positions.get("CASH", 0.0)
-
-            from datetime import datetime
-            created_at = datetime.utcnow().isoformat() + "Z"
-
-            cursor.execute("""
-                INSERT INTO positions (
-                    job_id, date, model, action_id, action_type, symbol,
-                    amount, price, cash, portfolio_value, daily_profit, daily_return_pct,
-                    session_id, created_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                self.job_id, self.date, self.model_sig, action_id, action_type,
-                symbol, amount, price, cash, total_value,
-                daily_profit, daily_return_pct, session_id, created_at
-            ))
-
-            position_id = cursor.lastrowid
-
-            # Insert holdings
-            for symbol, quantity in positions.items():
-                cursor.execute("""
-                    INSERT INTO holdings (position_id, symbol, quantity)
-                    VALUES (?, ?, ?)
-                """, (position_id, symbol, float(quantity)))
-
-            # Insert tool usage (if available)
-            if hasattr(agent, 'get_tool_usage') and hasattr(agent, 'get_tool_usage'):
-                tool_usage = agent.get_tool_usage()
-                for tool_name, count in tool_usage.items():
-                    cursor.execute("""
-                        INSERT INTO tool_usage (
-                            job_id, date, model, tool_name, call_count
-                        )
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (self.job_id, self.date, self.model_sig, tool_name, count))
-
-            conn.commit()
-            logger.debug(f"Wrote results to DB for {self.model_sig} on {self.date}")
-
-        finally:
-            conn.close()
-
-    def _calculate_portfolio_value(
-        self,
-        positions: Dict[str, float],
-        current_prices: Dict[str, float]
-    ) -> float:
-        """
-        Calculate total portfolio value.
-
-        Args:
-            positions: Current holdings (symbol: quantity)
-            current_prices: Current market prices (symbol: price)
-
-        Returns:
-            Total portfolio value in dollars
-        """
-        total = 0.0
-
-        for symbol, quantity in positions.items():
-            if symbol == "CASH":
-                total += quantity
-            else:
-                price = current_prices.get(symbol, 0.0)
-                total += quantity * price
-
-        return total
