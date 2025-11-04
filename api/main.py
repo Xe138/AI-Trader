@@ -713,6 +713,14 @@ def create_app(
         Returns:
             Health status and timestamp
         """
+        from tools.deployment_config import is_dev_mode
+
+        # Log at DEBUG in dev mode, INFO in prod mode
+        if is_dev_mode():
+            logger.debug("Health check")
+        else:
+            logger.info("Health check")
+
         try:
             # Test database connection
             conn = get_db_connection(app.state.db_path)
