@@ -24,6 +24,7 @@ from api.simulation_worker import SimulationWorker
 from api.database import get_db_connection
 from api.date_utils import validate_date_range, expand_date_range, get_max_simulation_days
 from tools.deployment_config import get_deployment_mode_dict, log_dev_mode_startup_warning
+from api.routes import results_v2
 import threading
 import time
 
@@ -424,108 +425,9 @@ def create_app(
             logger.error(f"Failed to get job status: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-    @app.get("/results")
-    async def get_results(
-        job_id: Optional[str] = Query(None, description="Filter by job ID"),
-        date: Optional[str] = Query(None, description="Filter by date (YYYY-MM-DD)"),
-        model: Optional[str] = Query(None, description="Filter by model signature")
-    ):
-        """
-        Query simulation results.
-
-        Supports filtering by job_id, date, and/or model.
-        Returns position data with holdings.
-
-        Args:
-            job_id: Optional job UUID filter
-            date: Optional date filter (YYYY-MM-DD)
-            model: Optional model signature filter
-
-        Returns:
-            List of position records with holdings
-        """
-        try:
-            conn = get_db_connection(app.state.db_path)
-            cursor = conn.cursor()
-
-            # Build query with filters
-            query = """
-                SELECT
-                    p.id,
-                    p.job_id,
-                    p.date,
-                    p.model,
-                    p.action_id,
-                    p.action_type,
-                    p.symbol,
-                    p.amount,
-                    p.price,
-                    p.cash,
-                    p.portfolio_value,
-                    p.daily_profit,
-                    p.daily_return_pct,
-                    p.created_at
-                FROM positions p
-                WHERE 1=1
-            """
-            params = []
-
-            if job_id:
-                query += " AND p.job_id = ?"
-                params.append(job_id)
-
-            if date:
-                query += " AND p.date = ?"
-                params.append(date)
-
-            if model:
-                query += " AND p.model = ?"
-                params.append(model)
-
-            query += " ORDER BY p.date, p.model, p.action_id"
-
-            cursor.execute(query, params)
-            rows = cursor.fetchall()
-
-            results = []
-            for row in rows:
-                position_id = row[0]
-
-                # Get holdings for this position
-                cursor.execute("""
-                    SELECT symbol, quantity
-                    FROM holdings
-                    WHERE position_id = ?
-                    ORDER BY symbol
-                """, (position_id,))
-
-                holdings = [{"symbol": h[0], "quantity": h[1]} for h in cursor.fetchall()]
-
-                results.append({
-                    "id": row[0],
-                    "job_id": row[1],
-                    "date": row[2],
-                    "model": row[3],
-                    "action_id": row[4],
-                    "action_type": row[5],
-                    "symbol": row[6],
-                    "amount": row[7],
-                    "price": row[8],
-                    "cash": row[9],
-                    "portfolio_value": row[10],
-                    "daily_profit": row[11],
-                    "daily_return_pct": row[12],
-                    "created_at": row[13],
-                    "holdings": holdings
-                })
-
-            conn.close()
-
-            return {"results": results, "count": len(results)}
-
-        except Exception as e:
-            logger.error(f"Failed to query results: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    # OLD /results endpoint - REPLACED by results_v2.py
+    # This endpoint used the old positions table schema and is no longer needed
+    # The new endpoint is defined in api/routes/results_v2.py
 
     @app.get("/reasoning", response_model=ReasoningResponse)
     async def get_reasoning(
@@ -744,6 +646,9 @@ def create_app(
             timestamp=datetime.utcnow().isoformat() + "Z",
             **deployment_info
         )
+
+    # Include routers
+    app.include_router(results_v2.router)
 
     return app
 
