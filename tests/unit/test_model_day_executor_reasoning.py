@@ -25,6 +25,7 @@ def test_db(tmp_path):
     return db_path
 
 
+@pytest.mark.skip(reason="Methods removed in schema migration Task 2. Will be deleted in Task 6.")
 def test_create_trading_session(test_db):
     """Should create trading session record."""
     executor = ModelDayExecutor(
@@ -54,6 +55,7 @@ def test_create_trading_session(test_db):
     conn.close()
 
 
+@pytest.mark.skip(reason="Methods removed in schema migration Task 2. Will be deleted in Task 6.")
 @pytest.mark.asyncio
 async def test_store_reasoning_logs(test_db):
     """Should store conversation with summaries."""
@@ -106,6 +108,7 @@ async def test_store_reasoning_logs(test_db):
     conn.close()
 
 
+@pytest.mark.skip(reason="Methods removed in schema migration Task 2. Will be deleted in Task 6.")
 @pytest.mark.asyncio
 async def test_update_session_summary(test_db):
     """Should update session with overall summary."""
@@ -155,6 +158,7 @@ async def test_update_session_summary(test_db):
     conn.close()
 
 
+@pytest.mark.skip(reason="Methods removed in schema migration Task 2. Will be deleted in Task 6.")
 @pytest.mark.asyncio
 async def test_store_reasoning_logs_with_tool_messages(test_db):
     """Should store tool messages with tool_name and tool_input."""
