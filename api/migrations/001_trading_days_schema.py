@@ -13,6 +13,26 @@ def create_trading_days_schema(db: "Database") -> None:
     Args:
         db: Database instance to apply migration to
     """
+    # Enable foreign key constraint enforcement
+    db.connection.execute("PRAGMA foreign_keys = ON")
+
+    # Create jobs table if it doesn't exist (prerequisite for foreign key)
+    db.connection.execute("""
+        CREATE TABLE IF NOT EXISTS jobs (
+            job_id TEXT PRIMARY KEY,
+            config_path TEXT NOT NULL,
+            status TEXT NOT NULL CHECK(status IN ('pending', 'downloading_data', 'running', 'completed', 'partial', 'failed')),
+            date_range TEXT NOT NULL,
+            models TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            started_at TEXT,
+            updated_at TEXT,
+            completed_at TEXT,
+            total_duration_seconds REAL,
+            error TEXT,
+            warnings TEXT
+        )
+    """)
 
     # Create trading_days table
     db.connection.execute("""
