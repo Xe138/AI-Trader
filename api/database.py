@@ -553,8 +553,8 @@ class Database:
                      If None, uses default from deployment config.
         """
         if db_path is None:
-            from tools.deployment_config import get_database_path
-            db_path = get_database_path()
+            from tools.deployment_config import get_db_path
+            db_path = get_db_path("data/trading.db")
 
         self.db_path = db_path
         self.connection = sqlite3.connect(db_path, check_same_thread=False)

@@ -42,14 +42,18 @@ class TestAgentPnLIntegration:
         db.connection.close()
 
     @pytest.mark.asyncio
-    @patch('tools.deployment_config.get_database_path')
+    @patch('agent.base_agent.base_agent.is_dev_mode')
+    @patch('tools.deployment_config.get_db_path')
     @patch('tools.general_tools.get_config_value')
     @patch('tools.general_tools.write_config_value')
     async def test_run_trading_session_creates_trading_day_record(
-        self, mock_write_config, mock_get_config, mock_db_path, test_db
+        self, mock_write_config, mock_get_config, mock_db_path, mock_is_dev, test_db
     ):
         """Test that run_trading_session creates a trading_day record with P&L."""
         from agent.base_agent.base_agent import BaseAgent
+
+        # Setup dev mode
+        mock_is_dev.return_value = True
 
         # Setup database path
         mock_db_path.return_value = test_db.db_path
@@ -71,8 +75,9 @@ class TestAgentPnLIntegration:
             init_date="2025-01-01"
         )
 
-        # Initialize agent
-        await agent.initialize()
+        # Skip actual initialization - just set up mocks directly
+        agent.client = Mock()
+        agent.tools = []
 
         # Mock the AI model to return finish signal immediately
         agent.model = AsyncMock()
@@ -99,23 +104,41 @@ class TestAgentPnLIntegration:
                     agent.context_injector.session_id = "test-session-id"
                     agent.context_injector.job_id = "test-job"
 
-                    # NOTE: This test currently verifies the setup works
-                    # Once we integrate P&L calculation, this test should verify:
-                    # 1. trading_day record is created
-                    # 2. P&L metrics are calculated correctly
-                    # 3. Holdings are saved
+                    # Mock get_current_position_from_db to return initial holdings
+                    with patch('agent_tools.tool_trade.get_current_position_from_db') as mock_get_position:
+                        mock_get_position.return_value = ({"CASH": 10000.0}, 0)
 
-                    # For now, just verify the agent can run without error
-                    try:
-                        await agent.run_trading_session("2025-01-15")
-                        # Test passes if no exception is raised
-                        # After implementation, verify database records
-                    except AttributeError as e:
-                        # Expected to fail before implementation
-                        if "pnl_calculator" in str(e):
-                            pytest.skip("P&L calculator not yet integrated")
-                        else:
-                            raise
+                        # Mock add_no_trade_record_to_db to avoid FK constraint issues
+                        with patch('tools.price_tools.add_no_trade_record_to_db') as mock_no_trade:
+                            # Run trading session
+                            await agent.run_trading_session("2025-01-15")
+
+                            # Verify trading_day record was created
+                            cursor = test_db.connection.execute(
+                                """
+                                SELECT id, model, date, starting_cash, ending_cash,
+                                       starting_portfolio_value, ending_portfolio_value,
+                                       daily_profit, daily_return_pct, total_actions
+                                FROM trading_days
+                                WHERE job_id = ? AND model = ? AND date = ?
+                                """,
+                                ("test-job", "test-model", "2025-01-15")
+                            )
+                            row = cursor.fetchone()
+
+                            # Verify record exists
+                            assert row is not None, "trading_day record should be created"
+
+                            # Verify basic fields
+                            assert row[1] == "test-model"
+                            assert row[2] == "2025-01-15"
+                            assert row[3] == 10000.0  # starting_cash
+                            assert row[5] == 10000.0  # starting_portfolio_value (first day)
+                            assert row[7] == 0.0  # daily_profit (first day)
+                            assert row[8] == 0.0  # daily_return_pct (first day)
+
+                            # Verify action count
+                            assert row[9] == 0  # total_actions (no trades executed in test)
 
     @pytest.mark.asyncio
     async def test_pnl_calculation_components_exist(self):

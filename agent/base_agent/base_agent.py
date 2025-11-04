@@ -285,41 +285,39 @@ class BaseAgent:
 
         return current_prices
 
-    def _get_current_portfolio_state(self) -> tuple[Dict[str, int], float]:
+    def _get_current_portfolio_state(self, today_date: str, job_id: str) -> tuple[Dict[str, int], float]:
         """
-        Get current portfolio state from position.jsonl file.
+        Get current portfolio state from database.
+
+        Args:
+            today_date: Current trading date
+            job_id: Job ID for this trading session
 
         Returns:
             Tuple of (holdings dict, cash balance)
         """
-        if not os.path.exists(self.position_file):
-            # No position file yet - return initial state
-            return {}, self.initial_cash
+        from agent_tools.tool_trade import get_current_position_from_db
 
-        # Read last line of position file
-        with open(self.position_file, "r") as f:
-            lines = f.readlines()
-            if not lines:
-                return {}, self.initial_cash
-
-            last_line = lines[-1].strip()
-            if not last_line:
-                return {}, self.initial_cash
-
-            position_data = json.loads(last_line)
-            positions = position_data.get("positions", {})
+        try:
+            # Get position from database
+            position_dict, _ = get_current_position_from_db(job_id, self.signature, today_date)
 
             # Extract holdings (exclude CASH)
             holdings = {
                 symbol: int(qty)
-                for symbol, qty in positions.items()
+                for symbol, qty in position_dict.items()
                 if symbol != "CASH" and qty > 0
             }
 
             # Extract cash
-            cash = float(positions.get("CASH", self.initial_cash))
+            cash = float(position_dict.get("CASH", self.initial_cash))
 
             return holdings, cash
+
+        except Exception as e:
+            # If no position found (first trading day), return initial state
+            print(f"⚠️ Could not get position from database: {e}")
+            return {}, self.initial_cash
 
     def _calculate_portfolio_value(
         self,
@@ -579,8 +577,13 @@ Summary:"""
                     print(agent_response)
                     break
 
-                # Extract tool messages
+                # Extract tool messages and count trade actions
                 tool_msgs = extract_tool_messages(response)
+                for tool_msg in tool_msgs:
+                    tool_name = getattr(tool_msg, 'name', None) or tool_msg.get('name') if isinstance(tool_msg, dict) else None
+                    if tool_name in ['buy', 'sell']:
+                        action_count += 1
+
                 tool_response = '\n'.join([msg.content for msg in tool_msgs])
 
                 # Prepare new messages
@@ -603,8 +606,8 @@ Summary:"""
         summarizer = ReasoningSummarizer(model=self.model)
         summary = await summarizer.generate_summary(self.conversation_history)
 
-        # 8. Get current portfolio state from position.jsonl file
-        current_holdings, current_cash = self._get_current_portfolio_state()
+        # 8. Get current portfolio state from database
+        current_holdings, current_cash = self._get_current_portfolio_state(today_date, job_id)
 
         # 9. Save final holdings to database
         for symbol, quantity in current_holdings.items():
@@ -618,13 +621,7 @@ Summary:"""
         # 10. Calculate final portfolio value
         final_value = self._calculate_portfolio_value(current_holdings, current_prices, current_cash)
 
-        # 11. Count actions from trade tool calls
-        action_count = sum(
-            1 for msg in self.conversation_history
-            if msg.get("role") == "tool" and msg.get("tool_name") in ["buy", "sell"]
-        )
-
-        # 12. Update trading_day with completion data
+        # 11. Update trading_day with completion data
         db.connection.execute(
             """
             UPDATE trading_days
