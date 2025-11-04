@@ -30,7 +30,7 @@ services:
     restart: unless-stopped  # Keep API server running
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
+      interval: 1h  # Check once per hour (effectively startup-only for typical usage)
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 40s  # Initial startup verification period
