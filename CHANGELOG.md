@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2025-11-03
+
 ### Fixed
 - **Critical:** Fixed position tracking bugs causing cash reset and positions lost over weekends
   - Removed redundant `ModelDayExecutor._write_results_to_db()` that created corrupt records with cash=0 and holdings=[]
@@ -17,6 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Position tracking now exclusively handled by trade tools (`buy()`, `sell()`) and `add_no_trade_record_to_db()`
 - Daily profit calculation compares to start-of-day (action_id=0) portfolio value for accurate P&L tracking
+
+### Added
+- Standardized testing scripts for different workflows:
+  - `scripts/test.sh` - Interactive menu for all testing operations
+  - `scripts/quick_test.sh` - Fast unit test feedback (~10-30s)
+  - `scripts/run_tests.sh` - Main test runner with full configuration options
+  - `scripts/coverage_report.sh` - Coverage analysis with HTML/JSON/terminal reports
+  - `scripts/ci_test.sh` - CI/CD optimized testing with JUnit/coverage XML output
+- Comprehensive testing documentation in `docs/developer/testing.md`
+- Test coverage requirement: 85% minimum (currently at 89.86%)
 
 ## [0.3.0] - 2025-11-03
 
