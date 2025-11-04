@@ -17,6 +17,7 @@ from tools.price_tools import get_open_prices
 import json
 from api.database import get_db_connection
 from datetime import datetime, timezone
+from tools.deployment_config import get_db_path
 mcp = FastMCP("TradeTools")
 
 
@@ -43,7 +44,7 @@ def get_current_position_from_db(
           - position_dict: {"AAPL": 10, "MSFT": 5, "CASH": 8500.0}
           - action_count: Number of holdings (for action_id tracking)
     """
-    db_path = "data/trading.db"
+    db_path = get_db_path("data/jobs.db")
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
 
