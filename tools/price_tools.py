@@ -1,3 +1,11 @@
+"""
+Price data utilities and position management.
+
+NOTE: This module uses the OLD positions table schema.
+It is being replaced by the new trading_days schema.
+Position update operations will be migrated to use the new schema in a future update.
+"""
+
 import os
 from dotenv import load_dotenv
 load_dotenv()

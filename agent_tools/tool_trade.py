@@ -1,3 +1,11 @@
+"""
+Trade execution tool for MCP interface.
+
+NOTE: This module uses the OLD positions table schema.
+It is being replaced by the new trading_days schema.
+Trade operations will be migrated to use the new schema in a future update.
+"""
+
 from fastmcp import FastMCP
 import sys
 import os

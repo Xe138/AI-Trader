@@ -7,6 +7,10 @@ This module provides:
 - Result persistence to SQLite (positions, holdings, reasoning)
 - Automatic status updates via JobManager
 - Cleanup of temporary resources
+
+NOTE: This module uses the OLD positions table schema.
+It is being replaced by the new trading_days schema.
+Some position-related code is commented out during migration.
 """
 
 import logging

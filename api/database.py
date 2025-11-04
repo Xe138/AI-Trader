@@ -116,40 +116,45 @@ def initialize_database(db_path: str = "data/jobs.db") -> None:
     """)
 
     # Table 3: Positions - Trading positions and P&L
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS positions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id TEXT NOT NULL,
-            date TEXT NOT NULL,
-            model TEXT NOT NULL,
-            action_id INTEGER NOT NULL,
-            action_type TEXT CHECK(action_type IN ('buy', 'sell', 'no_trade')),
-            symbol TEXT,
-            amount INTEGER,
-            price REAL,
-            cash REAL NOT NULL,
-            portfolio_value REAL NOT NULL,
-            daily_profit REAL,
-            daily_return_pct REAL,
-            cumulative_profit REAL,
-            cumulative_return_pct REAL,
-            simulation_run_id TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE,
-            FOREIGN KEY (simulation_run_id) REFERENCES simulation_runs(run_id) ON DELETE SET NULL
-        )
-    """)
+    # DEPRECATED: Old positions table replaced by trading_days, holdings, and actions tables
+    # This table creation is commented out to prevent conflicts with new schema
+    # Use Database class from api.database for new schema access
+    # cursor.execute("""
+    #     CREATE TABLE IF NOT EXISTS positions (
+    #         id INTEGER PRIMARY KEY AUTOINCREMENT,
+    #         job_id TEXT NOT NULL,
+    #         date TEXT NOT NULL,
+    #         model TEXT NOT NULL,
+    #         action_id INTEGER NOT NULL,
+    #         action_type TEXT CHECK(action_type IN ('buy', 'sell', 'no_trade')),
+    #         symbol TEXT,
+    #         amount INTEGER,
+    #         price REAL,
+    #         cash REAL NOT NULL,
+    #         portfolio_value REAL NOT NULL,
+    #         daily_profit REAL,
+    #         daily_return_pct REAL,
+    #         cumulative_profit REAL,
+    #         cumulative_return_pct REAL,
+    #         simulation_run_id TEXT,
+    #         created_at TEXT NOT NULL,
+    #         FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE,
+    #         FOREIGN KEY (simulation_run_id) REFERENCES simulation_runs(run_id) ON DELETE SET NULL
+    #     )
+    # """)
 
     # Table 4: Holdings - Portfolio holdings
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS holdings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            position_id INTEGER NOT NULL,
-            symbol TEXT NOT NULL,
-            quantity INTEGER NOT NULL,
-            FOREIGN KEY (position_id) REFERENCES positions(id) ON DELETE CASCADE
-        )
-    """)
+    # DEPRECATED: Old holdings table (linked to positions) replaced by new holdings table (linked to trading_days)
+    # This table creation is commented out to prevent conflicts with new schema
+    # cursor.execute("""
+    #     CREATE TABLE IF NOT EXISTS holdings (
+    #         id INTEGER PRIMARY KEY AUTOINCREMENT,
+    #         position_id INTEGER NOT NULL,
+    #         symbol TEXT NOT NULL,
+    #         quantity INTEGER NOT NULL,
+    #         FOREIGN KEY (position_id) REFERENCES positions(id) ON DELETE CASCADE
+    #     )
+    # """)
 
     # Table 5: Trading Sessions - One per model-day trading session
     cursor.execute("""
@@ -350,31 +355,40 @@ def _create_indexes(cursor: sqlite3.Cursor) -> None:
         ON job_details(job_id, date, model)
     """)
 
-    # Positions table indexes
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_positions_job_id ON positions(job_id)
-    """)
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_positions_date ON positions(date)
-    """)
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_positions_model ON positions(model)
-    """)
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_positions_date_model ON positions(date, model)
-    """)
-    cursor.execute("""
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_positions_unique
-        ON positions(job_id, date, model, action_id)
-    """)
+    # DEPRECATED: Positions table indexes (only create if table exists for backward compatibility)
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='positions'")
+    if cursor.fetchone():
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_positions_job_id ON positions(job_id)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_positions_date ON positions(date)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_positions_model ON positions(model)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_positions_date_model ON positions(date, model)
+        """)
+        cursor.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_positions_unique
+            ON positions(job_id, date, model, action_id)
+        """)
 
-    # Holdings table indexes
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_holdings_position_id ON holdings(position_id)
-    """)
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_holdings_symbol ON holdings(symbol)
-    """)
+    # DEPRECATED: Old holdings table indexes (only create if table exists)
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='holdings'")
+    if cursor.fetchone():
+        # Check if this is the old holdings table (linked to positions)
+        cursor.execute("PRAGMA table_info(holdings)")
+        columns = [col[1] for col in cursor.fetchall()]
+        if 'position_id' in columns:
+            # Old holdings table
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_holdings_position_id ON holdings(position_id)
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_holdings_symbol ON holdings(symbol)
+            """)
 
     # Trading sessions table indexes
     cursor.execute("""
