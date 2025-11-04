@@ -560,6 +560,35 @@ class Database:
         self.connection = sqlite3.connect(db_path, check_same_thread=False)
         self.connection.row_factory = sqlite3.Row
 
+        # Auto-initialize schema if needed
+        self._initialize_schema()
+
+    def _initialize_schema(self):
+        """Initialize database schema if tables don't exist."""
+        import importlib.util
+        import os
+
+        # Check if trading_days table exists
+        cursor = self.connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='trading_days'"
+        )
+
+        if cursor.fetchone() is None:
+            # Schema doesn't exist, create it
+            # Import migration module using importlib (module name starts with number)
+            migration_path = os.path.join(
+                os.path.dirname(__file__),
+                'migrations',
+                '001_trading_days_schema.py'
+            )
+            spec = importlib.util.spec_from_file_location(
+                "trading_days_schema",
+                migration_path
+            )
+            migration_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(migration_module)
+            migration_module.create_trading_days_schema(self)
+
     def create_trading_day(
         self,
         job_id: str,
