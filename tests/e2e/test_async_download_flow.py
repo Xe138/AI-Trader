@@ -55,7 +55,7 @@ def test_complete_async_download_flow(test_client, monkeypatch):
     monkeypatch.setattr("api.price_data_manager.PriceDataManager", MockPriceManager)
 
     # Mock execution to avoid actual trading
-    def mock_execute_date(self, date, models, config_path):
+    def mock_execute_date(self, date, models, config_path, completion_skips=None):
         # Update job details to simulate successful execution
         from api.job_manager import JobManager
         job_manager = JobManager(db_path=test_client.app.state.db_path)
@@ -155,7 +155,7 @@ def test_flow_with_partial_data(test_client, monkeypatch):
 
     monkeypatch.setattr("api.price_data_manager.PriceDataManager", MockPriceManagerPartial)
 
-    def mock_execute_date(self, date, models, config_path):
+    def mock_execute_date(self, date, models, config_path, completion_skips=None):
         # Update job details to simulate successful execution
         from api.job_manager import JobManager
         job_manager = JobManager(db_path=test_client.app.state.db_path)

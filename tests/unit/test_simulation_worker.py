@@ -50,7 +50,7 @@ class TestSimulationWorkerExecution:
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
         # Mock _prepare_data to return both dates
-        worker._prepare_data = Mock(return_value=(["2025-01-16", "2025-01-17"], []))
+        worker._prepare_data = Mock(return_value=(["2025-01-16", "2025-01-17"], [], {}))
 
         # Mock ModelDayExecutor
         with patch("api.simulation_worker.ModelDayExecutor") as mock_executor_class:
@@ -82,7 +82,7 @@ class TestSimulationWorkerExecution:
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
         # Mock _prepare_data to return both dates
-        worker._prepare_data = Mock(return_value=(["2025-01-16", "2025-01-17"], []))
+        worker._prepare_data = Mock(return_value=(["2025-01-16", "2025-01-17"], [], {}))
 
         execution_order = []
 
@@ -127,7 +127,7 @@ class TestSimulationWorkerExecution:
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
         # Mock _prepare_data to return the date
-        worker._prepare_data = Mock(return_value=(["2025-01-16"], []))
+        worker._prepare_data = Mock(return_value=(["2025-01-16"], [], {}))
 
         def create_mock_executor(job_id, date, model_sig, config_path, db_path):
             """Create mock executor that simulates job detail status updates."""
@@ -168,7 +168,7 @@ class TestSimulationWorkerExecution:
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
         # Mock _prepare_data to return the date
-        worker._prepare_data = Mock(return_value=(["2025-01-16"], []))
+        worker._prepare_data = Mock(return_value=(["2025-01-16"], [], {}))
 
         call_count = 0
 
@@ -223,7 +223,7 @@ class TestSimulationWorkerErrorHandling:
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
         # Mock _prepare_data to return the date
-        worker._prepare_data = Mock(return_value=(["2025-01-16"], []))
+        worker._prepare_data = Mock(return_value=(["2025-01-16"], [], {}))
 
         execution_count = 0
 
@@ -298,7 +298,7 @@ class TestSimulationWorkerConcurrency:
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
         # Mock _prepare_data to return the date
-        worker._prepare_data = Mock(return_value=(["2025-01-16"], []))
+        worker._prepare_data = Mock(return_value=(["2025-01-16"], [], {}))
 
         with patch("api.simulation_worker.ModelDayExecutor") as mock_executor_class:
             mock_executor = Mock()
@@ -521,7 +521,7 @@ class TestSimulationWorkerHelperMethods:
         worker.job_manager.get_completed_model_dates = Mock(return_value={})
 
         # Execute
-        available_dates, warnings = worker._prepare_data(
+        available_dates, warnings, completion_skips = worker._prepare_data(
             requested_dates=["2025-10-01"],
             models=["gpt-5"],
             config_path="config.json"
@@ -570,7 +570,7 @@ class TestSimulationWorkerHelperMethods:
         worker.job_manager.get_completed_model_dates = Mock(return_value={})
 
         # Execute
-        available_dates, warnings = worker._prepare_data(
+        available_dates, warnings, completion_skips = worker._prepare_data(
             requested_dates=["2025-10-01"],
             models=["gpt-5"],
             config_path="config.json"

@@ -26,7 +26,7 @@ def test_worker_prepares_data_before_execution(tmp_path):
 
     def mock_prepare(*args, **kwargs):
         prepare_called.append(True)
-        return (["2025-10-01"], [])  # Return available dates, no warnings
+        return (["2025-10-01"], [], {})  # Return available dates, no warnings, no completion skips
 
     worker._prepare_data = mock_prepare
 
@@ -55,7 +55,7 @@ def test_worker_handles_no_available_dates(tmp_path):
     worker = SimulationWorker(job_id=job_id, db_path=db_path)
 
     # Mock _prepare_data to return empty dates
-    worker._prepare_data = Mock(return_value=([], []))
+    worker._prepare_data = Mock(return_value=([], [], {}))
 
     # Run worker
     result = worker.run()
@@ -84,7 +84,7 @@ def test_worker_stores_warnings(tmp_path):
 
     # Mock _prepare_data to return warnings
     warnings = ["Rate limited", "Skipped 1 date"]
-    worker._prepare_data = Mock(return_value=(["2025-10-01"], warnings))
+    worker._prepare_data = Mock(return_value=(["2025-10-01"], warnings, {}))
     worker._execute_date = Mock()
 
     # Run worker

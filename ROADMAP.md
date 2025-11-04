@@ -61,6 +61,15 @@ curl -X POST http://localhost:5000/simulate/to-date \
 
 **Focus:** Comprehensive testing, documentation, and production readiness
 
+#### API Consolidation & Improvements
+- **Endpoint Refactoring** - Simplify API surface before v1.0
+  - Merge results and reasoning endpoints:
+    - Current: `/jobs/{job_id}/results` and `/jobs/{job_id}/reasoning/{model_name}` are separate
+    - Consolidated: Single endpoint with query parameters to control response
+    - `/jobs/{job_id}/results?include_reasoning=true&model=<model_name>`
+    - Benefits: Fewer endpoints, more consistent API design, easier to use
+    - Maintains backward compatibility with legacy endpoints (deprecated but functional)
+
 #### Testing & Validation
 - **Comprehensive Test Suite** - Full coverage of core functionality
   - Unit tests for all agent components
@@ -93,10 +102,37 @@ curl -X POST http://localhost:5000/simulate/to-date \
   - File system error handling (disk full, permission errors)
   - Comprehensive error messages with troubleshooting guidance
   - Logging improvements:
-    - Structured logging with consistent format
-    - Log rotation and size management
-    - Error classification (user error vs. system error)
-    - Debug mode for detailed diagnostics
+    - **Configurable Log Levels** - Environment-based logging control
+      - `LOG_LEVEL` environment variable (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+      - Per-component log level configuration (API, agents, MCP tools, database)
+      - Default production level: INFO, development level: DEBUG
+    - **Structured Logging** - Consistent, parseable log format
+      - JSON-formatted logs option for production (machine-readable)
+      - Human-readable format for development
+      - Consistent fields: timestamp, level, component, message, context
+      - Correlation IDs for request tracing across components
+    - **Log Clarity & Organization** - Improve log readability
+      - Clear log prefixes per component: `[API]`, `[AGENT]`, `[MCP]`, `[DB]`
+      - Reduce noise: consolidate repetitive messages, rate-limit verbose logs
+      - Action-oriented messages: "Starting simulation job_id=123" vs "Job started"
+      - Include relevant context: model name, date, symbols in trading logs
+      - Progress indicators for long operations (e.g., "Processing date 15/30")
+    - **Log Rotation & Management** - Prevent disk space issues
+      - Automatic log rotation by size (default: 10MB per file)
+      - Retention policy (default: 30 days)
+      - Separate log files per component (api.log, agents.log, mcp.log)
+      - Archive old logs with compression
+    - **Error Classification** - Distinguish error types
+      - User errors (invalid input, configuration issues): WARN level
+      - System errors (API failures, database errors): ERROR level
+      - Critical failures (MCP service down, data corruption): CRITICAL level
+      - Include error codes for programmatic handling
+    - **Debug Mode** - Enhanced diagnostics for troubleshooting
+      - `DEBUG=true` environment variable
+      - Detailed request/response logging (sanitize API keys)
+      - MCP tool call/response logging with timing
+      - Database query logging with execution time
+      - Memory and resource usage tracking
 
 #### Performance & Scalability
 - **Performance Optimization** - Ensure efficient resource usage

@@ -327,12 +327,68 @@ DEPLOYMENT_MODE=DEV python main.py configs/default_config.json
 
 ## Testing Changes
 
+### Automated Test Scripts
+
+The project includes standardized test scripts for different workflows:
+
+```bash
+# Quick feedback during development (unit tests only, ~10-30 seconds)
+bash scripts/quick_test.sh
+
+# Full test suite with coverage (before commits/PRs)
+bash scripts/run_tests.sh
+
+# Generate coverage report with HTML output
+bash scripts/coverage_report.sh -o
+
+# CI/CD optimized testing (for automation)
+bash scripts/ci_test.sh -f -m 85
+
+# Interactive menu (recommended for beginners)
+bash scripts/test.sh
+```
+
+**Common test script options:**
+```bash
+# Run only unit tests
+bash scripts/run_tests.sh -t unit
+
+# Run with custom markers
+bash scripts/run_tests.sh -m "unit and not slow"
+
+# Fail fast on first error
+bash scripts/run_tests.sh -f
+
+# Run tests in parallel
+bash scripts/run_tests.sh -p
+
+# Skip coverage reporting (faster)
+bash scripts/run_tests.sh -n
+```
+
+**Available test markers:**
+- `unit` - Fast, isolated unit tests
+- `integration` - Tests with real dependencies
+- `e2e` - End-to-end tests (requires Docker)
+- `slow` - Tests taking >10 seconds
+- `performance` - Performance benchmarks
+- `security` - Security tests
+
+### Manual Testing Workflow
+
 When modifying agent behavior or adding tools:
 1. Create test config with short date range (2-3 days)
 2. Set `max_steps` low (e.g., 10) to iterate faster
 3. Check logs in `data/agent_data/[signature]/log/[date]/`
 4. Verify position updates in `position/position.jsonl`
 5. Use `main.sh` only for full end-to-end testing
+
+### Test Coverage
+
+- **Minimum coverage:** 85%
+- **Target coverage:** 90%
+- **Configuration:** `pytest.ini`
+- **Coverage reports:** `htmlcov/index.html`, `coverage.xml`, terminal output
 
 See [docs/developer/testing.md](docs/developer/testing.md) for complete testing guide.
 
