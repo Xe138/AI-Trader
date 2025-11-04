@@ -896,12 +896,14 @@ All simulation data is stored in SQLite database at `data/jobs.db`.
 
 - **jobs** - Job metadata and status
 - **job_details** - Per model-day execution details
-- **positions** - Trading position records
-- **holdings** - Portfolio holdings breakdown
-- **reasoning_logs** - AI decision reasoning (if enabled)
+- **trading_days** - Day-centric trading results with daily P&L metrics
+- **holdings** - Portfolio holdings snapshots (ending positions only)
+- **actions** - Trade execution ledger
 - **tool_usage** - MCP tool usage statistics
 - **price_data** - Historical price data cache
 - **price_coverage** - Data availability tracking
+
+See [docs/developer/database-schema.md](docs/developer/database-schema.md) for complete schema reference.
 
 ### Data Retention
 
