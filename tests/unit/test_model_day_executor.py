@@ -18,21 +18,21 @@ from unittest.mock import Mock, patch, MagicMock, AsyncMock
 from pathlib import Path
 
 
-def create_mock_agent(positions=None, last_trade=None, current_prices=None,
-                     reasoning_steps=None, tool_usage=None, session_result=None,
+def create_mock_agent(reasoning_steps=None, tool_usage=None, session_result=None,
                      conversation_history=None):
     """Helper to create properly mocked agent."""
     mock_agent = Mock()
 
-    # Default values
-    mock_agent.get_positions.return_value = positions or {"CASH": 10000.0}
-    mock_agent.get_last_trade.return_value = last_trade
-    mock_agent.get_current_prices.return_value = current_prices or {}
+    # Note: Removed get_positions, get_last_trade, get_current_prices
+    # These methods don't exist in BaseAgent and were only used by
+    # the now-deleted _write_results_to_db() method
+
     mock_agent.get_reasoning_steps.return_value = reasoning_steps or []
     mock_agent.get_tool_usage.return_value = tool_usage or {}
     mock_agent.get_conversation_history.return_value = conversation_history or []
 
     # Async methods - use AsyncMock
+    mock_agent.set_context = AsyncMock()
     mock_agent.run_trading_session = AsyncMock(return_value=session_result or {"success": True})
     mock_agent.generate_summary = AsyncMock(return_value="Mock summary")
     mock_agent.summarize_message = AsyncMock(return_value="Mock message summary")
@@ -93,23 +93,33 @@ class TestModelDayExecutorInitialization:
 class TestModelDayExecutorExecution:
     """Test trading session execution."""
 
-    def test_execute_success(self, clean_db, sample_job_data):
+    def test_execute_success(self, clean_db, sample_job_data, tmp_path):
         """Should execute trading session and write results to DB."""
         from api.model_day_executor import ModelDayExecutor
         from api.job_manager import JobManager
+        import json
+
+        # Create a temporary config file
+        config_path = tmp_path / "test_config.json"
+        config_data = {
+            "agent_type": "BaseAgent",
+            "models": [],
+            "agent_config": {
+                "initial_cash": 10000.0
+            }
+        }
+        config_path.write_text(json.dumps(config_data))
 
         # Create job and job_detail
         manager = JobManager(db_path=clean_db)
         job_id = manager.create_job(
-            config_path="configs/test.json",
+            config_path=str(config_path),
             date_range=["2025-01-16"],
             models=["gpt-5"]
         )
 
         # Mock agent execution
         mock_agent = create_mock_agent(
-            positions={"AAPL": 10, "CASH": 7500.0},
-            current_prices={"AAPL": 250.0},
             session_result={"success": True, "total_steps": 15, "stop_signal_received": True}
         )
 
@@ -122,7 +132,7 @@ class TestModelDayExecutorExecution:
                 job_id=job_id,
                 date="2025-01-16",
                 model_sig="gpt-5",
-                config_path="configs/test.json",
+                config_path=str(config_path),
                 db_path=clean_db
             )
 
@@ -182,25 +192,34 @@ class TestModelDayExecutorExecution:
 class TestModelDayExecutorDataPersistence:
     """Test result persistence to SQLite."""
 
-    def test_writes_position_to_database(self, clean_db):
-        """Should write position record to SQLite."""
+    def test_creates_initial_position(self, clean_db, tmp_path):
+        """Should create initial position record (action_id=0) on first day."""
         from api.model_day_executor import ModelDayExecutor
         from api.job_manager import JobManager
         from api.database import get_db_connection
+        import json
+
+        # Create a temporary config file
+        config_path = tmp_path / "test_config.json"
+        config_data = {
+            "agent_type": "BaseAgent",
+            "models": [],
+            "agent_config": {
+                "initial_cash": 10000.0
+            }
+        }
+        config_path.write_text(json.dumps(config_data))
 
         # Create job
         manager = JobManager(db_path=clean_db)
         job_id = manager.create_job(
-            config_path="configs/test.json",
+            config_path=str(config_path),
             date_range=["2025-01-16"],
             models=["gpt-5"]
         )
 
-        # Mock successful execution
+        # Mock successful execution (no trades)
         mock_agent = create_mock_agent(
-            positions={"AAPL": 10, "CASH": 7500.0},
-            last_trade={"action": "buy", "symbol": "AAPL", "amount": 10, "price": 250.0},
-            current_prices={"AAPL": 250.0},
             session_result={"success": True, "total_steps": 10}
         )
 
@@ -213,84 +232,32 @@ class TestModelDayExecutorDataPersistence:
                 job_id=job_id,
                 date="2025-01-16",
                 model_sig="gpt-5",
-                config_path="configs/test.json",
+                config_path=str(config_path),
                 db_path=clean_db
             )
 
             with patch.object(executor, '_initialize_agent', return_value=mock_agent):
                 executor.execute()
 
-        # Verify position written to database
+        # Verify initial position created (action_id=0)
         conn = get_db_connection(clean_db)
         cursor = conn.cursor()
 
         cursor.execute("""
-            SELECT job_id, date, model, action_id, action_type
+            SELECT job_id, date, model, action_id, action_type, cash, portfolio_value
             FROM positions
             WHERE job_id = ? AND date = ? AND model = ?
         """, (job_id, "2025-01-16", "gpt-5"))
 
         row = cursor.fetchone()
-        assert row is not None
+        assert row is not None, "Should create initial position record"
         assert row[0] == job_id
         assert row[1] == "2025-01-16"
         assert row[2] == "gpt-5"
-
-        conn.close()
-
-    def test_writes_holdings_to_database(self, clean_db):
-        """Should write holdings records to SQLite."""
-        from api.model_day_executor import ModelDayExecutor
-        from api.job_manager import JobManager
-        from api.database import get_db_connection
-
-        # Create job
-        manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
-            config_path="configs/test.json",
-            date_range=["2025-01-16"],
-            models=["gpt-5"]
-        )
-
-        # Mock successful execution
-        mock_agent = create_mock_agent(
-            positions={"AAPL": 10, "MSFT": 5, "CASH": 7500.0},
-            current_prices={"AAPL": 250.0, "MSFT": 300.0},
-            session_result={"success": True}
-        )
-
-        with patch("api.model_day_executor.RuntimeConfigManager") as mock_runtime:
-            mock_instance = Mock()
-            mock_instance.create_runtime_config.return_value = "/tmp/runtime_test.json"
-            mock_runtime.return_value = mock_instance
-
-            executor = ModelDayExecutor(
-                job_id=job_id,
-                date="2025-01-16",
-                model_sig="gpt-5",
-                config_path="configs/test.json",
-                db_path=clean_db
-            )
-
-            with patch.object(executor, '_initialize_agent', return_value=mock_agent):
-                executor.execute()
-
-        # Verify holdings written
-        conn = get_db_connection(clean_db)
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT h.symbol, h.quantity
-            FROM holdings h
-            JOIN positions p ON h.position_id = p.id
-            WHERE p.job_id = ? AND p.date = ? AND p.model = ?
-            ORDER BY h.symbol
-        """, (job_id, "2025-01-16", "gpt-5"))
-
-        holdings = cursor.fetchall()
-        assert len(holdings) == 3
-        assert holdings[0][0] == "AAPL"
-        assert holdings[0][1] == 10.0
+        assert row[3] == 0, "Initial position should have action_id=0"
+        assert row[4] == "no_trade"
+        assert row[5] == 10000.0, "Initial cash should be $10,000"
+        assert row[6] == 10000.0, "Initial portfolio value should be $10,000"
 
         conn.close()
 
@@ -310,7 +277,6 @@ class TestModelDayExecutorDataPersistence:
 
         # Mock execution with reasoning
         mock_agent = create_mock_agent(
-            positions={"CASH": 10000.0},
             reasoning_steps=[
                 {"step": 1, "reasoning": "Analyzing market data"},
                 {"step": 2, "reasoning": "Evaluating risk"}
@@ -361,7 +327,6 @@ class TestModelDayExecutorCleanup:
         )
 
         mock_agent = create_mock_agent(
-            positions={"CASH": 10000.0},
             session_result={"success": True}
         )
 
@@ -421,57 +386,10 @@ class TestModelDayExecutorCleanup:
 class TestModelDayExecutorPositionCalculations:
     """Test position and P&L calculations."""
 
+    @pytest.mark.skip(reason="Method _calculate_portfolio_value() removed - portfolio value calculated by trade tools")
     def test_calculates_portfolio_value(self, clean_db):
-        """Should calculate total portfolio value."""
-        from api.model_day_executor import ModelDayExecutor
-        from api.job_manager import JobManager
-        from api.database import get_db_connection
-
-        manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
-            config_path="configs/test.json",
-            date_range=["2025-01-16"],
-            models=["gpt-5"]
-        )
-
-        mock_agent = create_mock_agent(
-            positions={"AAPL": 10, "CASH": 7500.0},  # 10 shares @ $250 = $2500
-            current_prices={"AAPL": 250.0},
-            session_result={"success": True}
-        )
-
-        with patch("api.model_day_executor.RuntimeConfigManager") as mock_runtime:
-            mock_instance = Mock()
-            mock_instance.create_runtime_config.return_value = "/tmp/runtime_test.json"
-            mock_runtime.return_value = mock_instance
-
-            executor = ModelDayExecutor(
-                job_id=job_id,
-                date="2025-01-16",
-                model_sig="gpt-5",
-                config_path="configs/test.json",
-                db_path=clean_db
-            )
-
-            with patch.object(executor, '_initialize_agent', return_value=mock_agent):
-                executor.execute()
-
-        # Verify portfolio value calculated correctly
-        conn = get_db_connection(clean_db)
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT portfolio_value
-            FROM positions
-            WHERE job_id = ? AND date = ? AND model = ?
-        """, (job_id, "2025-01-16", "gpt-5"))
-
-        row = cursor.fetchone()
-        assert row is not None
-        # Portfolio value should be 2500 (stocks) + 7500 (cash) = 10000
-        assert row[0] == 10000.0
-
-        conn.close()
+        """DEPRECATED: Portfolio value is now calculated by trade tools, not ModelDayExecutor."""
+        pass
 
 
 # Coverage target: 90%+ for api/model_day_executor.py

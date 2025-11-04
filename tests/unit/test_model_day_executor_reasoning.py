@@ -211,56 +211,7 @@ async def test_store_reasoning_logs_with_tool_messages(test_db):
     conn.close()
 
 
+@pytest.mark.skip(reason="Method _write_results_to_db() removed - positions written by trade tools")
 def test_write_results_includes_session_id(test_db):
-    """Should include session_id when writing positions."""
-    from agent.mock_provider.mock_langchain_model import MockChatModel
-    from agent.base_agent.base_agent import BaseAgent
-
-    executor = ModelDayExecutor(
-        job_id="test-job",
-        date="2025-01-01",
-        model_sig="test-model",
-        config_path="configs/default_config.json",
-        db_path=test_db
-    )
-
-    # Create mock agent with positions
-    agent = BaseAgent(
-        signature="test-model",
-        basemodel="mock",
-        stock_symbols=["AAPL"],
-        init_date="2025-01-01"
-    )
-    agent.model = MockChatModel(model="test", signature="test")
-
-    # Mock positions data
-    agent.positions = {"AAPL": 10, "CASH": 8500.0}
-    agent.last_trade = {"action": "buy", "symbol": "AAPL", "amount": 10, "price": 150.0}
-    agent.current_prices = {"AAPL": 150.0}
-
-    # Add required methods
-    agent.get_positions = lambda: agent.positions
-    agent.get_last_trade = lambda: agent.last_trade
-    agent.get_current_prices = lambda: agent.current_prices
-
-    conn = get_db_connection(test_db)
-    cursor = conn.cursor()
-
-    # Create session
-    session_id = executor._create_trading_session(cursor)
-    conn.commit()
-
-    # Write results
-    executor._write_results_to_db(agent, session_id)
-
-    # Verify position has session_id
-    cursor.execute("SELECT * FROM positions WHERE job_id = ? AND model = ?",
-                   ("test-job", "test-model"))
-    position = cursor.fetchone()
-
-    assert position is not None
-    assert position['session_id'] == session_id
-    assert position['action_type'] == 'buy'
-    assert position['symbol'] == 'AAPL'
-
-    conn.close()
+    """DEPRECATED: This test verified _write_results_to_db() which has been removed."""
+    pass
