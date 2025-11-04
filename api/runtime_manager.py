@@ -48,7 +48,8 @@ class RuntimeConfigManager:
         self,
         job_id: str,
         model_sig: str,
-        date: str
+        date: str,
+        trading_day_id: int = None
     ) -> str:
         """
         Create isolated runtime config file for this execution.
@@ -57,6 +58,7 @@ class RuntimeConfigManager:
             job_id: Job UUID
             model_sig: Model signature
             date: Trading date (YYYY-MM-DD)
+            trading_day_id: Trading day record ID (optional, can be set later)
 
         Returns:
             Path to created runtime config file
@@ -79,7 +81,8 @@ class RuntimeConfigManager:
             "TODAY_DATE": date,
             "SIGNATURE": model_sig,
             "IF_TRADE": False,
-            "JOB_ID": job_id
+            "JOB_ID": job_id,
+            "TRADING_DAY_ID": trading_day_id
         }
 
         with open(config_path, "w", encoding="utf-8") as f:

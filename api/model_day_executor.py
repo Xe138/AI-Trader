@@ -138,11 +138,15 @@ class ModelDayExecutor:
 
             # Create and inject context with correct values
             from agent.context_injector import ContextInjector
+            from tools.general_tools import get_config_value
+            trading_day_id = get_config_value('TRADING_DAY_ID')  # Get from runtime config
+
             context_injector = ContextInjector(
                 signature=self.model_sig,
                 today_date=self.date,  # Current trading day
                 job_id=self.job_id,
-                session_id=session_id
+                session_id=session_id,
+                trading_day_id=trading_day_id
             )
             logger.info(f"[DEBUG] ModelDayExecutor: Created ContextInjector with signature={self.model_sig}, date={self.date}, job_id={self.job_id}, session_id={session_id}")
             logger.info(f"[DEBUG] ModelDayExecutor: Calling await agent.set_context()")

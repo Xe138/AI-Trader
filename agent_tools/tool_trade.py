@@ -91,12 +91,21 @@ def get_current_position_from_db(job_id: str, model: str, date: str) -> Tuple[Di
 
 
 def _buy_impl(symbol: str, amount: int, signature: str = None, today_date: str = None,
-              job_id: str = None, session_id: int = None) -> Dict[str, Any]:
+              job_id: str = None, session_id: int = None, trading_day_id: int = None) -> Dict[str, Any]:
     """
     Internal buy implementation - accepts injected context parameters.
 
+    Args:
+        symbol: Stock symbol
+        amount: Number of shares
+        signature: Model signature (injected)
+        today_date: Trading date (injected)
+        job_id: Job ID (injected)
+        session_id: Session ID (injected, DEPRECATED)
+        trading_day_id: Trading day ID (injected)
+
     This function is not exposed to the AI model. It receives runtime context
-    (signature, today_date, job_id, session_id) from the ContextInjector.
+    (signature, today_date, job_id, session_id, trading_day_id) from the ContextInjector.
     """
     # Validate required parameters
     if not job_id:
@@ -139,61 +148,29 @@ def _buy_impl(symbol: str, amount: int, signature: str = None, today_date: str =
         new_position["CASH"] = cash_left
         new_position[symbol] = new_position.get(symbol, 0) + amount
 
-        # Step 5: Calculate portfolio value and P&L
-        portfolio_value = cash_left
-        for sym, qty in new_position.items():
-            if sym != "CASH":
-                try:
-                    price = get_open_prices(today_date, [sym])[f'{sym}_price']
-                    portfolio_value += qty * price
-                except KeyError:
-                    pass  # Symbol price not available, skip
+        # Step 5: Write to actions table (NEW SCHEMA)
+        # NOTE: P&L is now calculated at the trading_days level, not per-trade
+        if trading_day_id is None:
+            # Get trading_day_id from runtime config if not provided
+            from tools.general_tools import get_config_value
+            trading_day_id = get_config_value('TRADING_DAY_ID')
 
-        # Get start-of-day portfolio value (action_id=0 for today) for P&L calculation
-        cursor.execute("""
-            SELECT portfolio_value
-            FROM positions
-            WHERE job_id = ? AND model = ? AND date = ? AND action_id = 0
-            LIMIT 1
-        """, (job_id, signature, today_date))
+            if trading_day_id is None:
+                raise ValueError("trading_day_id not found in runtime config")
 
-        row = cursor.fetchone()
-
-        if row:
-            # Compare to start of day (action_id=0)
-            start_of_day_value = row[0]
-            daily_profit = portfolio_value - start_of_day_value
-            daily_return_pct = (daily_profit / start_of_day_value * 100) if start_of_day_value > 0 else 0
-        else:
-            # First action of first day - no baseline yet
-            daily_profit = 0.0
-            daily_return_pct = 0.0
-
-        # Step 6: Write to positions table
         created_at = datetime.utcnow().isoformat() + "Z"
 
         cursor.execute("""
-            INSERT INTO positions (
-                job_id, date, model, action_id, action_type, symbol,
-                amount, price, cash, portfolio_value, daily_profit,
-                daily_return_pct, session_id, created_at
+            INSERT INTO actions (
+                trading_day_id, action_type, symbol, quantity, price, created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (
-            job_id, today_date, signature, next_action_id, "buy", symbol,
-            amount, this_symbol_price, cash_left, portfolio_value, daily_profit,
-            daily_return_pct, session_id, created_at
+            trading_day_id, "buy", symbol, amount, this_symbol_price, created_at
         ))
 
-        position_id = cursor.lastrowid
-
-        # Step 7: Write to holdings table
-        for sym, qty in new_position.items():
-            if sym != "CASH":
-                cursor.execute("""
-                    INSERT INTO holdings (position_id, symbol, quantity)
-                    VALUES (?, ?, ?)
-                """, (position_id, sym, qty))
+        # NOTE: Holdings are written by BaseAgent at end of day, not per-trade
+        # This keeps the data model clean (one holdings snapshot per day)
 
         conn.commit()
         print(f"[buy] {signature} bought {amount} shares of {symbol} at ${this_symbol_price}")
@@ -209,7 +186,7 @@ def _buy_impl(symbol: str, amount: int, signature: str = None, today_date: str =
 
 @mcp.tool()
 def buy(symbol: str, amount: int, signature: str = None, today_date: str = None,
-        job_id: str = None, session_id: int = None) -> Dict[str, Any]:
+        job_id: str = None, session_id: int = None, trading_day_id: int = None) -> Dict[str, Any]:
     """
     Buy stock shares.
 
@@ -222,15 +199,14 @@ def buy(symbol: str, amount: int, signature: str = None, today_date: str = None,
           - Success: {"CASH": remaining_cash, "SYMBOL": shares, ...}
           - Failure: {"error": error_message, ...}
 
-    Note: signature, today_date, job_id, session_id are automatically injected by the system.
-    Do not provide these parameters - they will be added automatically.
+    Note: signature, today_date, job_id, session_id, trading_day_id are
+    automatically injected by the system. Do not provide these parameters.
     """
-    # Delegate to internal implementation
-    return _buy_impl(symbol, amount, signature, today_date, job_id, session_id)
+    return _buy_impl(symbol, amount, signature, today_date, job_id, session_id, trading_day_id)
 
 
 def _sell_impl(symbol: str, amount: int, signature: str = None, today_date: str = None,
-               job_id: str = None, session_id: int = None) -> Dict[str, Any]:
+               job_id: str = None, session_id: int = None, trading_day_id: int = None) -> Dict[str, Any]:
     """
     Sell stock function - writes to SQLite database.
 
@@ -240,7 +216,8 @@ def _sell_impl(symbol: str, amount: int, signature: str = None, today_date: str 
         signature: Model signature (injected by ContextInjector)
         today_date: Trading date YYYY-MM-DD (injected by ContextInjector)
         job_id: Job UUID (injected by ContextInjector)
-        session_id: Trading session ID (injected by ContextInjector)
+        session_id: Trading session ID (injected by ContextInjector, DEPRECATED)
+        trading_day_id: Trading day ID (injected by ContextInjector)
 
     Returns:
         Dict[str, Any]:
@@ -287,61 +264,25 @@ def _sell_impl(symbol: str, amount: int, signature: str = None, today_date: str 
         new_position[symbol] -= amount
         new_position["CASH"] = new_position.get("CASH", 0) + (this_symbol_price * amount)
 
-        # Step 5: Calculate portfolio value and P&L
-        portfolio_value = new_position["CASH"]
-        for sym, qty in new_position.items():
-            if sym != "CASH":
-                try:
-                    price = get_open_prices(today_date, [sym])[f'{sym}_price']
-                    portfolio_value += qty * price
-                except KeyError:
-                    pass
+        # Step 5: Write to actions table (NEW SCHEMA)
+        # NOTE: P&L is now calculated at the trading_days level, not per-trade
+        if trading_day_id is None:
+            from tools.general_tools import get_config_value
+            trading_day_id = get_config_value('TRADING_DAY_ID')
 
-        # Get start-of-day portfolio value (action_id=0 for today) for P&L calculation
-        cursor.execute("""
-            SELECT portfolio_value
-            FROM positions
-            WHERE job_id = ? AND model = ? AND date = ? AND action_id = 0
-            LIMIT 1
-        """, (job_id, signature, today_date))
+            if trading_day_id is None:
+                raise ValueError("trading_day_id not found in runtime config")
 
-        row = cursor.fetchone()
-
-        if row:
-            # Compare to start of day (action_id=0)
-            start_of_day_value = row[0]
-            daily_profit = portfolio_value - start_of_day_value
-            daily_return_pct = (daily_profit / start_of_day_value * 100) if start_of_day_value > 0 else 0
-        else:
-            # First action of first day - no baseline yet
-            daily_profit = 0.0
-            daily_return_pct = 0.0
-
-        # Step 6: Write to positions table
         created_at = datetime.utcnow().isoformat() + "Z"
 
         cursor.execute("""
-            INSERT INTO positions (
-                job_id, date, model, action_id, action_type, symbol,
-                amount, price, cash, portfolio_value, daily_profit,
-                daily_return_pct, session_id, created_at
+            INSERT INTO actions (
+                trading_day_id, action_type, symbol, quantity, price, created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (
-            job_id, today_date, signature, next_action_id, "sell", symbol,
-            amount, this_symbol_price, new_position["CASH"], portfolio_value, daily_profit,
-            daily_return_pct, session_id, created_at
+            trading_day_id, "sell", symbol, amount, this_symbol_price, created_at
         ))
-
-        position_id = cursor.lastrowid
-
-        # Step 7: Write to holdings table
-        for sym, qty in new_position.items():
-            if sym != "CASH":
-                cursor.execute("""
-                    INSERT INTO holdings (position_id, symbol, quantity)
-                    VALUES (?, ?, ?)
-                """, (position_id, sym, qty))
 
         conn.commit()
         print(f"[sell] {signature} sold {amount} shares of {symbol} at ${this_symbol_price}")
@@ -357,7 +298,7 @@ def _sell_impl(symbol: str, amount: int, signature: str = None, today_date: str 
 
 @mcp.tool()
 def sell(symbol: str, amount: int, signature: str = None, today_date: str = None,
-         job_id: str = None, session_id: int = None) -> Dict[str, Any]:
+         job_id: str = None, session_id: int = None, trading_day_id: int = None) -> Dict[str, Any]:
     """
     Sell stock shares.
 
@@ -370,11 +311,10 @@ def sell(symbol: str, amount: int, signature: str = None, today_date: str = None
           - Success: {"CASH": remaining_cash, "SYMBOL": shares, ...}
           - Failure: {"error": error_message, ...}
 
-    Note: signature, today_date, job_id, session_id are automatically injected by the system.
-    Do not provide these parameters - they will be added automatically.
+    Note: signature, today_date, job_id, session_id, trading_day_id are
+    automatically injected by the system. Do not provide these parameters.
     """
-    # Delegate to internal implementation
-    return _sell_impl(symbol, amount, signature, today_date, job_id, session_id)
+    return _sell_impl(symbol, amount, signature, today_date, job_id, session_id, trading_day_id)
 
 
 if __name__ == "__main__":
