@@ -362,30 +362,8 @@ def _create_indexes(cursor: sqlite3.Cursor) -> None:
                 CREATE INDEX IF NOT EXISTS idx_holdings_symbol ON holdings(symbol)
             """)
 
-    # Trading sessions table indexes
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sessions_job_id ON trading_sessions(job_id)
-    """)
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sessions_date ON trading_sessions(date)
-    """)
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sessions_model ON trading_sessions(model)
-    """)
-    cursor.execute("""
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_unique
-        ON trading_sessions(job_id, date, model)
-    """)
-
-    # Reasoning logs table indexes
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_reasoning_logs_session_id
-        ON reasoning_logs(session_id)
-    """)
-    cursor.execute("""
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_reasoning_logs_unique
-        ON reasoning_logs(session_id, message_index)
-    """)
+    # OLD TABLE INDEXES REMOVED (trading_sessions, reasoning_logs)
+    # These tables have been replaced by trading_days with reasoning_full JSON column
 
     # Tool usage table indexes
     cursor.execute("""

@@ -44,23 +44,44 @@ def clean_db(test_db_path):
             conn = get_db_connection(clean_db)
             # ... test code
     """
-    # Ensure schema exists
+    # Ensure schema exists (both old initialize_database and new Database class)
     initialize_database(test_db_path)
+
+    # Also ensure new schema exists (trading_days, holdings, actions)
+    from api.database import Database
+    db = Database(test_db_path)
+    db.connection.close()
 
     # Clear all tables
     conn = get_db_connection(test_db_path)
     cursor = conn.cursor()
 
-    # Delete in correct order (respecting foreign keys)
-    cursor.execute("DELETE FROM tool_usage")
-    cursor.execute("DELETE FROM reasoning_logs")
-    cursor.execute("DELETE FROM holdings")
-    cursor.execute("DELETE FROM positions")
-    cursor.execute("DELETE FROM simulation_runs")
-    cursor.execute("DELETE FROM job_details")
-    cursor.execute("DELETE FROM jobs")
-    cursor.execute("DELETE FROM price_data_coverage")
-    cursor.execute("DELETE FROM price_data")
+    # Get list of tables that exist
+    cursor.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name NOT LIKE 'sqlite_%'
+    """)
+    tables = [row[0] for row in cursor.fetchall()]
+
+    # Delete in correct order (respecting foreign keys), only if table exists
+    if 'tool_usage' in tables:
+        cursor.execute("DELETE FROM tool_usage")
+    if 'actions' in tables:
+        cursor.execute("DELETE FROM actions")
+    if 'holdings' in tables:
+        cursor.execute("DELETE FROM holdings")
+    if 'trading_days' in tables:
+        cursor.execute("DELETE FROM trading_days")
+    if 'simulation_runs' in tables:
+        cursor.execute("DELETE FROM simulation_runs")
+    if 'job_details' in tables:
+        cursor.execute("DELETE FROM job_details")
+    if 'jobs' in tables:
+        cursor.execute("DELETE FROM jobs")
+    if 'price_data_coverage' in tables:
+        cursor.execute("DELETE FROM price_data_coverage")
+    if 'price_data' in tables:
+        cursor.execute("DELETE FROM price_data")
 
     conn.commit()
     conn.close()

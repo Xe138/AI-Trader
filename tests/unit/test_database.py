@@ -104,16 +104,15 @@ class TestSchemaInitialization:
         tables = [row[0] for row in cursor.fetchall()]
 
         expected_tables = [
+            'actions',
             'holdings',
             'job_details',
             'jobs',
-            'positions',
-            'reasoning_logs',
             'tool_usage',
             'price_data',
             'price_data_coverage',
             'simulation_runs',
-            'trading_sessions'  # Added in reasoning logs feature
+            'trading_days'  # New day-centric schema
         ]
 
         assert sorted(tables) == sorted(expected_tables)
@@ -149,19 +148,19 @@ class TestSchemaInitialization:
 
         conn.close()
 
-    def test_initialize_database_creates_positions_table(self, clean_db):
-        """Should create positions table with correct schema."""
+    def test_initialize_database_creates_trading_days_table(self, clean_db):
+        """Should create trading_days table with correct schema."""
         conn = get_db_connection(clean_db)
         cursor = conn.cursor()
 
-        cursor.execute("PRAGMA table_info(positions)")
+        cursor.execute("PRAGMA table_info(trading_days)")
         columns = {row[1]: row[2] for row in cursor.fetchall()}
 
         required_columns = [
-            'id', 'job_id', 'date', 'model', 'action_id', 'action_type',
-            'symbol', 'amount', 'price', 'cash', 'portfolio_value',
-            'daily_profit', 'daily_return_pct', 'cumulative_profit',
-            'cumulative_return_pct', 'created_at'
+            'id', 'job_id', 'date', 'model', 'starting_cash', 'ending_cash',
+            'starting_portfolio_value', 'ending_portfolio_value',
+            'daily_profit', 'daily_return_pct', 'days_since_last_trading',
+            'total_actions', 'reasoning_summary', 'reasoning_full', 'created_at'
         ]
 
         for col_name in required_columns:
@@ -188,20 +187,9 @@ class TestSchemaInitialization:
             'idx_job_details_job_id',
             'idx_job_details_status',
             'idx_job_details_unique',
-            'idx_positions_job_id',
-            'idx_positions_date',
-            'idx_positions_model',
-            'idx_positions_date_model',
-            'idx_positions_unique',
-            'idx_positions_session_id',  # Link positions to trading sessions
-            'idx_holdings_position_id',
-            'idx_holdings_symbol',
-            'idx_sessions_job_id',  # Trading sessions indexes
-            'idx_sessions_date',
-            'idx_sessions_model',
-            'idx_sessions_unique',
-            'idx_reasoning_logs_session_id',  # Reasoning logs now linked to sessions
-            'idx_reasoning_logs_unique',
+            'idx_trading_days_lookup',  # Compound index in new schema
+            'idx_holdings_day',
+            'idx_actions_day',
             'idx_tool_usage_job_date_model'
         ]
 
@@ -274,8 +262,8 @@ class TestForeignKeyConstraints:
 
         conn.close()
 
-    def test_cascade_delete_positions(self, clean_db, sample_job_data, sample_position_data):
-        """Should cascade delete positions when job is deleted."""
+    def test_cascade_delete_trading_days(self, clean_db, sample_job_data):
+        """Should cascade delete trading_days when job is deleted."""
         conn = get_db_connection(clean_db)
         cursor = conn.cursor()
 
@@ -292,14 +280,19 @@ class TestForeignKeyConstraints:
             sample_job_data["created_at"]
         ))
 
-        # Insert position
+        # Insert trading_day
         cursor.execute("""
-            INSERT INTO positions (
-                job_id, date, model, action_id, action_type, symbol, amount, price,
-                cash, portfolio_value, daily_profit, daily_return_pct,
-                cumulative_profit, cumulative_return_pct, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, tuple(sample_position_data.values()))
+            INSERT INTO trading_days (
+                job_id, date, model, starting_cash, ending_cash,
+                starting_portfolio_value, ending_portfolio_value,
+                daily_profit, daily_return_pct, days_since_last_trading,
+                total_actions, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            sample_job_data["job_id"], "2025-01-16", "test-model",
+            10000.0, 9500.0, 10000.0, 9500.0,
+            -500.0, -5.0, 0, 1, "2025-01-16T10:00:00Z"
+        ))
 
         conn.commit()
 
@@ -307,14 +300,14 @@ class TestForeignKeyConstraints:
         cursor.execute("DELETE FROM jobs WHERE job_id = ?", (sample_job_data["job_id"],))
         conn.commit()
 
-        # Verify position was cascade deleted
-        cursor.execute("SELECT COUNT(*) FROM positions WHERE job_id = ?", (sample_job_data["job_id"],))
+        # Verify trading_day was cascade deleted
+        cursor.execute("SELECT COUNT(*) FROM trading_days WHERE job_id = ?", (sample_job_data["job_id"],))
         assert cursor.fetchone()[0] == 0
 
         conn.close()
 
-    def test_cascade_delete_holdings(self, clean_db, sample_job_data, sample_position_data):
-        """Should cascade delete holdings when position is deleted."""
+    def test_cascade_delete_holdings(self, clean_db, sample_job_data):
+        """Should cascade delete holdings when trading_day is deleted."""
         conn = get_db_connection(clean_db)
         cursor = conn.cursor()
 
@@ -331,35 +324,40 @@ class TestForeignKeyConstraints:
             sample_job_data["created_at"]
         ))
 
-        # Insert position
+        # Insert trading_day
         cursor.execute("""
-            INSERT INTO positions (
-                job_id, date, model, action_id, action_type, symbol, amount, price,
-                cash, portfolio_value, daily_profit, daily_return_pct,
-                cumulative_profit, cumulative_return_pct, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, tuple(sample_position_data.values()))
+            INSERT INTO trading_days (
+                job_id, date, model, starting_cash, ending_cash,
+                starting_portfolio_value, ending_portfolio_value,
+                daily_profit, daily_return_pct, days_since_last_trading,
+                total_actions, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            sample_job_data["job_id"], "2025-01-16", "test-model",
+            10000.0, 9500.0, 10000.0, 9500.0,
+            -500.0, -5.0, 0, 1, "2025-01-16T10:00:00Z"
+        ))
 
-        position_id = cursor.lastrowid
+        trading_day_id = cursor.lastrowid
 
         # Insert holding
         cursor.execute("""
-            INSERT INTO holdings (position_id, symbol, quantity)
+            INSERT INTO holdings (trading_day_id, symbol, quantity)
             VALUES (?, ?, ?)
-        """, (position_id, "AAPL", 10))
+        """, (trading_day_id, "AAPL", 10))
 
         conn.commit()
 
         # Verify holding exists
-        cursor.execute("SELECT COUNT(*) FROM holdings WHERE position_id = ?", (position_id,))
+        cursor.execute("SELECT COUNT(*) FROM holdings WHERE trading_day_id = ?", (trading_day_id,))
         assert cursor.fetchone()[0] == 1
 
-        # Delete position
-        cursor.execute("DELETE FROM positions WHERE id = ?", (position_id,))
+        # Delete trading_day
+        cursor.execute("DELETE FROM trading_days WHERE id = ?", (trading_day_id,))
         conn.commit()
 
         # Verify holding was cascade deleted
-        cursor.execute("SELECT COUNT(*) FROM holdings WHERE position_id = ?", (position_id,))
+        cursor.execute("SELECT COUNT(*) FROM holdings WHERE trading_day_id = ?", (trading_day_id,))
         assert cursor.fetchone()[0] == 0
 
         conn.close()
@@ -374,11 +372,17 @@ class TestUtilityFunctions:
         # Initialize database
         initialize_database(test_db_path)
 
+        # Also initialize new schema
+        from api.database import Database
+        db = Database(test_db_path)
+        db.connection.close()
+
         # Verify tables exist
         conn = get_db_connection(test_db_path)
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
-        assert cursor.fetchone()[0] == 10  # Updated to reflect all tables including trading_sessions
+        # New schema: jobs, job_details, trading_days, holdings, actions, tool_usage, price_data, price_data_coverage, simulation_runs (9 tables)
+        assert cursor.fetchone()[0] == 9
         conn.close()
 
         # Drop all tables
@@ -410,9 +414,9 @@ class TestUtilityFunctions:
         assert "database_size_mb" in stats
         assert stats["jobs"] == 0
         assert stats["job_details"] == 0
-        assert stats["positions"] == 0
+        assert stats["trading_days"] == 0
         assert stats["holdings"] == 0
-        assert stats["reasoning_logs"] == 0
+        assert stats["actions"] == 0
         assert stats["tool_usage"] == 0
 
     def test_get_database_stats_with_data(self, clean_db, sample_job_data):
@@ -486,67 +490,6 @@ class TestSchemaMigration:
         # Clean up after test - drop all tables so we don't affect other tests
         drop_all_tables(test_db_path)
 
-    def test_migration_adds_simulation_run_id_column(self, test_db_path):
-        """Should add simulation_run_id column to existing positions table without it."""
-        from api.database import drop_all_tables
-
-        # Start with a clean slate
-        drop_all_tables(test_db_path)
-
-        # Create database without simulation_run_id column (simulate old schema)
-        conn = get_db_connection(test_db_path)
-        cursor = conn.cursor()
-
-        # Create jobs table first (for foreign key)
-        cursor.execute("""
-            CREATE TABLE jobs (
-                job_id TEXT PRIMARY KEY,
-                config_path TEXT NOT NULL,
-                status TEXT NOT NULL CHECK(status IN ('pending', 'downloading_data', 'running', 'completed', 'partial', 'failed')),
-                date_range TEXT NOT NULL,
-                models TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            )
-        """)
-
-        # Create positions table without simulation_run_id column (old schema)
-        cursor.execute("""
-            CREATE TABLE positions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                job_id TEXT NOT NULL,
-                date TEXT NOT NULL,
-                model TEXT NOT NULL,
-                action_id INTEGER NOT NULL,
-                cash REAL NOT NULL,
-                portfolio_value REAL NOT NULL,
-                created_at TEXT NOT NULL,
-                FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE
-            )
-        """)
-        conn.commit()
-
-        # Verify simulation_run_id column doesn't exist
-        cursor.execute("PRAGMA table_info(positions)")
-        columns = [row[1] for row in cursor.fetchall()]
-        assert 'simulation_run_id' not in columns
-
-        conn.close()
-
-        # Run initialize_database which should trigger migration
-        initialize_database(test_db_path)
-
-        # Verify simulation_run_id column was added
-        conn = get_db_connection(test_db_path)
-        cursor = conn.cursor()
-        cursor.execute("PRAGMA table_info(positions)")
-        columns = [row[1] for row in cursor.fetchall()]
-        assert 'simulation_run_id' in columns
-
-        conn.close()
-
-        # Clean up after test - drop all tables so we don't affect other tests
-        drop_all_tables(test_db_path)
-
 
 @pytest.mark.unit
 class TestCheckConstraints:
@@ -586,8 +529,8 @@ class TestCheckConstraints:
 
         conn.close()
 
-    def test_positions_action_type_constraint(self, clean_db, sample_job_data):
-        """Should reject invalid action_type values."""
+    def test_actions_action_type_constraint(self, clean_db, sample_job_data):
+        """Should reject invalid action_type values in actions table."""
         conn = get_db_connection(clean_db)
         cursor = conn.cursor()
 
@@ -597,13 +540,29 @@ class TestCheckConstraints:
             VALUES (?, ?, ?, ?, ?, ?)
         """, tuple(sample_job_data.values()))
 
-        # Try to insert position with invalid action_type
+        # Insert trading_day
+        cursor.execute("""
+            INSERT INTO trading_days (
+                job_id, date, model, starting_cash, ending_cash,
+                starting_portfolio_value, ending_portfolio_value,
+                daily_profit, daily_return_pct, days_since_last_trading,
+                total_actions, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            sample_job_data["job_id"], "2025-01-16", "test-model",
+            10000.0, 9500.0, 10000.0, 9500.0,
+            -500.0, -5.0, 0, 1, "2025-01-16T10:00:00Z"
+        ))
+
+        trading_day_id = cursor.lastrowid
+
+        # Try to insert action with invalid action_type
         with pytest.raises(sqlite3.IntegrityError, match="CHECK constraint failed"):
             cursor.execute("""
-                INSERT INTO positions (
-                    job_id, date, model, action_id, action_type, cash, portfolio_value, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (sample_job_data["job_id"], "2025-01-16", "gpt-5", 1, "invalid_action", 10000, 10000, "2025-01-16T00:00:00Z"))
+                INSERT INTO actions (
+                    trading_day_id, action_type, symbol, quantity, price, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            """, (trading_day_id, "invalid_action", "AAPL", 10, 150.0, "2025-01-16T10:00:00Z"))
 
         conn.close()
 
