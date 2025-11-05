@@ -633,14 +633,10 @@ Summary:"""
                 # Capture assistant response
                 self._capture_message("assistant", agent_response)
 
-                # Check stop signal
-                if STOP_SIGNAL in agent_response:
-                    print("✅ Received stop signal, trading session ended")
-                    print(agent_response)
-                    break
-
-                # Extract tool messages and count trade actions
+                # Extract tool messages BEFORE checking stop signal
+                # (agent may call tools AND return FINISH_SIGNAL in same response)
                 tool_msgs = extract_tool_messages(response)
+                print(f"[DEBUG] Extracted {len(tool_msgs)} tool messages from response")
                 for tool_msg in tool_msgs:
                     tool_name = getattr(tool_msg, 'name', None) or tool_msg.get('name') if isinstance(tool_msg, dict) else None
                     tool_content = getattr(tool_msg, 'content', '') or tool_msg.get('content', '') if isinstance(tool_msg, dict) else str(tool_msg)
@@ -652,6 +648,12 @@ Summary:"""
                         action_count += 1
 
                 tool_response = '\n'.join([msg.content for msg in tool_msgs])
+
+                # Check stop signal AFTER processing tools
+                if STOP_SIGNAL in agent_response:
+                    print("✅ Received stop signal, trading session ended")
+                    print(agent_response)
+                    break
 
                 # Prepare new messages
                 new_messages = [
