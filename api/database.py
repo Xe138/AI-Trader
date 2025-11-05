@@ -518,7 +518,7 @@ class Database:
         """
         if db_path is None:
             from tools.deployment_config import get_db_path
-            db_path = get_db_path("data/trading.db")
+            db_path = get_db_path("data/jobs.db")
 
         self.db_path = db_path
         self.connection = sqlite3.connect(db_path, check_same_thread=False)
