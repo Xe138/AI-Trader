@@ -91,7 +91,8 @@ def get_current_position_from_db(
 
 
 def _buy_impl(symbol: str, amount: int, signature: str = None, today_date: str = None,
-              job_id: str = None, session_id: int = None, trading_day_id: int = None) -> Dict[str, Any]:
+              job_id: str = None, session_id: int = None, trading_day_id: int = None,
+              _current_position: Dict[str, float] = None) -> Dict[str, Any]:
     """
     Internal buy implementation - accepts injected context parameters.
 
@@ -103,9 +104,13 @@ def _buy_impl(symbol: str, amount: int, signature: str = None, today_date: str =
         job_id: Job ID (injected)
         session_id: Session ID (injected, DEPRECATED)
         trading_day_id: Trading day ID (injected)
+        _current_position: Current position state (injected by ContextInjector)
 
     This function is not exposed to the AI model. It receives runtime context
     (signature, today_date, job_id, session_id, trading_day_id) from the ContextInjector.
+
+    The _current_position parameter enables intra-day position tracking, ensuring
+    sell proceeds are immediately available for subsequent buys.
     """
     # Validate required parameters
     if not job_id:
@@ -121,7 +126,13 @@ def _buy_impl(symbol: str, amount: int, signature: str = None, today_date: str =
 
     try:
         # Step 1: Get current position
-        current_position, next_action_id = get_current_position_from_db(job_id, signature, today_date)
+        # Use injected position if available (for intra-day tracking),
+        # otherwise query database for starting position
+        if _current_position is not None:
+            current_position = _current_position
+            next_action_id = 0  # Not used in new schema
+        else:
+            current_position, next_action_id = get_current_position_from_db(job_id, signature, today_date)
 
         # Step 2: Get stock price
         try:
@@ -186,7 +197,8 @@ def _buy_impl(symbol: str, amount: int, signature: str = None, today_date: str =
 
 @mcp.tool()
 def buy(symbol: str, amount: int, signature: str = None, today_date: str = None,
-        job_id: str = None, session_id: int = None, trading_day_id: int = None) -> Dict[str, Any]:
+        job_id: str = None, session_id: int = None, trading_day_id: int = None,
+        _current_position: Dict[str, float] = None) -> Dict[str, Any]:
     """
     Buy stock shares.
 
@@ -199,14 +211,15 @@ def buy(symbol: str, amount: int, signature: str = None, today_date: str = None,
           - Success: {"CASH": remaining_cash, "SYMBOL": shares, ...}
           - Failure: {"error": error_message, ...}
 
-    Note: signature, today_date, job_id, session_id, trading_day_id are
-    automatically injected by the system. Do not provide these parameters.
+    Note: signature, today_date, job_id, session_id, trading_day_id, _current_position
+    are automatically injected by the system. Do not provide these parameters.
     """
-    return _buy_impl(symbol, amount, signature, today_date, job_id, session_id, trading_day_id)
+    return _buy_impl(symbol, amount, signature, today_date, job_id, session_id, trading_day_id, _current_position)
 
 
 def _sell_impl(symbol: str, amount: int, signature: str = None, today_date: str = None,
-               job_id: str = None, session_id: int = None, trading_day_id: int = None) -> Dict[str, Any]:
+               job_id: str = None, session_id: int = None, trading_day_id: int = None,
+               _current_position: Dict[str, float] = None) -> Dict[str, Any]:
     """
     Sell stock function - writes to SQLite database.
 
@@ -218,11 +231,15 @@ def _sell_impl(symbol: str, amount: int, signature: str = None, today_date: str 
         job_id: Job UUID (injected by ContextInjector)
         session_id: Trading session ID (injected by ContextInjector, DEPRECATED)
         trading_day_id: Trading day ID (injected by ContextInjector)
+        _current_position: Current position state (injected by ContextInjector)
 
     Returns:
         Dict[str, Any]:
           - Success: {"CASH": amount, symbol: quantity, ...}
           - Failure: {"error": message, ...}
+
+    The _current_position parameter enables intra-day position tracking, ensuring
+    sell proceeds are immediately available for subsequent buys.
     """
     # Validate required parameters
     if not job_id:
@@ -238,7 +255,13 @@ def _sell_impl(symbol: str, amount: int, signature: str = None, today_date: str 
 
     try:
         # Step 1: Get current position
-        current_position, next_action_id = get_current_position_from_db(job_id, signature, today_date)
+        # Use injected position if available (for intra-day tracking),
+        # otherwise query database for starting position
+        if _current_position is not None:
+            current_position = _current_position
+            next_action_id = 0  # Not used in new schema
+        else:
+            current_position, next_action_id = get_current_position_from_db(job_id, signature, today_date)
 
         # Step 2: Validate position exists
         if symbol not in current_position:
@@ -298,7 +321,8 @@ def _sell_impl(symbol: str, amount: int, signature: str = None, today_date: str 
 
 @mcp.tool()
 def sell(symbol: str, amount: int, signature: str = None, today_date: str = None,
-         job_id: str = None, session_id: int = None, trading_day_id: int = None) -> Dict[str, Any]:
+         job_id: str = None, session_id: int = None, trading_day_id: int = None,
+         _current_position: Dict[str, float] = None) -> Dict[str, Any]:
     """
     Sell stock shares.
 
@@ -311,10 +335,10 @@ def sell(symbol: str, amount: int, signature: str = None, today_date: str = None
           - Success: {"CASH": remaining_cash, "SYMBOL": shares, ...}
           - Failure: {"error": error_message, ...}
 
-    Note: signature, today_date, job_id, session_id, trading_day_id are
-    automatically injected by the system. Do not provide these parameters.
+    Note: signature, today_date, job_id, session_id, trading_day_id, _current_position
+    are automatically injected by the system. Do not provide these parameters.
     """
-    return _sell_impl(symbol, amount, signature, today_date, job_id, session_id, trading_day_id)
+    return _sell_impl(symbol, amount, signature, today_date, job_id, session_id, trading_day_id, _current_position)
 
 
 if __name__ == "__main__":

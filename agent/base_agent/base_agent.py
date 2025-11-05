@@ -533,6 +533,8 @@ Summary:"""
         # Update context injector with current trading date
         if self.context_injector:
             self.context_injector.today_date = today_date
+            # Reset position state for new trading day (enables intra-day tracking)
+            self.context_injector.reset_position()
 
         # Clear conversation history for new trading day
         self.clear_conversation_history()
