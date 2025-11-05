@@ -28,16 +28,17 @@ def get_current_position_from_db(
     initial_cash: float = 10000.0
 ) -> Tuple[Dict[str, float], int]:
     """
-    Get current position from database (new schema).
+    Get starting position for current trading day from database (new schema).
 
-    Queries most recent trading_day record for this job+model up to date.
-    Returns ending holdings and cash from that day.
+    Queries most recent trading_day record BEFORE the given date (previous day's ending).
+    Returns ending holdings and cash from that previous day, which becomes the
+    starting position for the current day.
 
     Args:
         job_id: Job UUID
         model: Model signature
-        date: Current trading date
-        initial_cash: Initial cash if no prior data
+        date: Current trading date (will query for date < this)
+        initial_cash: Initial cash if no prior data (first trading day)
 
     Returns:
         (position_dict, action_count) where:
@@ -49,11 +50,11 @@ def get_current_position_from_db(
     cursor = conn.cursor()
 
     try:
-        # Query most recent trading_day up to date
+        # Query most recent trading_day BEFORE current date (previous day's ending position)
         cursor.execute("""
             SELECT id, ending_cash
             FROM trading_days
-            WHERE job_id = ? AND model = ? AND date <= ?
+            WHERE job_id = ? AND model = ? AND date < ?
             ORDER BY date DESC
             LIMIT 1
         """, (job_id, model, date))
