@@ -319,6 +319,60 @@ class BaseAgent:
             print(f"⚠️ Could not get position from database: {e}")
             return {}, self.initial_cash
 
+    def _calculate_final_position_from_actions(
+        self,
+        trading_day_id: int,
+        starting_cash: float
+    ) -> tuple[Dict[str, int], float]:
+        """
+        Calculate final holdings and cash from starting position + actions.
+
+        This is the correct way to get end-of-day position: start with the
+        starting position and apply all trades from the actions table.
+
+        Args:
+            trading_day_id: The trading day ID
+            starting_cash: Cash at start of day
+
+        Returns:
+            (holdings_dict, final_cash) where holdings_dict maps symbol -> quantity
+        """
+        from api.database import Database
+
+        db = Database()
+
+        # 1. Get starting holdings (from previous day's ending)
+        starting_holdings_list = db.get_starting_holdings(trading_day_id)
+        holdings = {h["symbol"]: h["quantity"] for h in starting_holdings_list}
+
+        # 2. Initialize cash
+        cash = starting_cash
+
+        # 3. Get all actions for this trading day
+        actions = db.get_actions(trading_day_id)
+
+        # 4. Apply each action to calculate final state
+        for action in actions:
+            symbol = action["symbol"]
+            quantity = action["quantity"]
+            price = action["price"]
+            action_type = action["action_type"]
+
+            if action_type == "buy":
+                # Add to holdings
+                holdings[symbol] = holdings.get(symbol, 0) + quantity
+                # Deduct from cash
+                cash -= quantity * price
+
+            elif action_type == "sell":
+                # Remove from holdings
+                holdings[symbol] = holdings.get(symbol, 0) - quantity
+                # Add to cash
+                cash += quantity * price
+
+        # 5. Return final state
+        return holdings, cash
+
     def _calculate_portfolio_value(
         self,
         holdings: Dict[str, int],
@@ -614,8 +668,14 @@ Summary:"""
         summarizer = ReasoningSummarizer(model=self.model)
         summary = await summarizer.generate_summary(self.conversation_history)
 
-        # 8. Get current portfolio state from database
-        current_holdings, current_cash = self._get_current_portfolio_state(today_date, job_id)
+        # 8. Calculate final portfolio state from starting position + actions
+        # NOTE: We must calculate from actions, not query database, because:
+        # - On first day, database query returns empty (no previous day)
+        # - This method applies all trades to get accurate final state
+        current_holdings, current_cash = self._calculate_final_position_from_actions(
+            trading_day_id=trading_day_id,
+            starting_cash=starting_cash
+        )
 
         # 9. Save final holdings to database
         for symbol, quantity in current_holdings.items():
