@@ -419,7 +419,7 @@ class BaseAgent:
         }
 
         if tool_name:
-            message["tool_name"] = tool_name
+            message["name"] = tool_name  # Use "name" not "tool_name" for consistency with summarizer
         if tool_input:
             message["tool_input"] = tool_input
 
@@ -643,6 +643,11 @@ Summary:"""
                 tool_msgs = extract_tool_messages(response)
                 for tool_msg in tool_msgs:
                     tool_name = getattr(tool_msg, 'name', None) or tool_msg.get('name') if isinstance(tool_msg, dict) else None
+                    tool_content = getattr(tool_msg, 'content', '') or tool_msg.get('content', '') if isinstance(tool_msg, dict) else str(tool_msg)
+
+                    # Capture tool message to conversation history
+                    self._capture_message("tool", tool_content, tool_name=tool_name)
+
                     if tool_name in ['buy', 'sell']:
                         action_count += 1
 
