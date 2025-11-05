@@ -71,6 +71,12 @@ Provide a concise summary that includes the actual trades executed:"""
         Returns:
             Formatted text representation with emphasis on trades
         """
+        # Debug: Log what we're formatting
+        print(f"[DEBUG ReasoningSummarizer] Formatting {len(reasoning_log)} messages")
+        assistant_count = sum(1 for m in reasoning_log if m.get('role') == 'assistant')
+        tool_count = sum(1 for m in reasoning_log if m.get('role') == 'tool')
+        print(f"[DEBUG ReasoningSummarizer] Breakdown: {assistant_count} assistant, {tool_count} tool")
+
         formatted_parts = []
         trades_executed = []
 

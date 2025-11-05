@@ -670,6 +670,15 @@ Summary:"""
         session_duration = time.time() - session_start
 
         # 7. Generate reasoning summary
+        # Debug: Log conversation history size
+        print(f"\n[DEBUG] Generating summary from {len(self.conversation_history)} messages")
+        assistant_msgs = [m for m in self.conversation_history if m.get('role') == 'assistant']
+        tool_msgs = [m for m in self.conversation_history if m.get('role') == 'tool']
+        print(f"[DEBUG] Assistant messages: {len(assistant_msgs)}, Tool messages: {len(tool_msgs)}")
+        if assistant_msgs:
+            first_assistant = assistant_msgs[0]
+            print(f"[DEBUG] First assistant message preview: {first_assistant.get('content', '')[:200]}...")
+
         summarizer = ReasoningSummarizer(model=self.model)
         summary = await summarizer.generate_summary(self.conversation_history)
 
