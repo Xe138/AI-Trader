@@ -52,10 +52,6 @@ class ContextInjector:
         """
         # Inject context parameters for trade tools
         if request.name in ["buy", "sell"]:
-            # Debug: Log self attributes BEFORE injection
-            print(f"[ContextInjector.__call__] ENTRY: id={id(self)}, self.signature={self.signature}, self.today_date={self.today_date}, self.job_id={self.job_id}, self.session_id={self.session_id}, self.trading_day_id={self.trading_day_id}")
-            print(f"[ContextInjector.__call__] Args BEFORE injection: {request.args}")
-
             # ALWAYS inject/override context parameters (don't trust AI-provided values)
             request.args["signature"] = self.signature
             request.args["today_date"] = self.today_date
@@ -65,9 +61,6 @@ class ContextInjector:
                 request.args["session_id"] = self.session_id
             if self.trading_day_id:
                 request.args["trading_day_id"] = self.trading_day_id
-
-            # Debug logging
-            print(f"[ContextInjector] Tool: {request.name}, Args after injection: {request.args}")
 
         # Call the actual tool handler
         return await handler(request)
