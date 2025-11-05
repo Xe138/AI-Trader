@@ -337,12 +337,12 @@ def get_today_init_position_from_db(
     cursor = conn.cursor()
 
     try:
-        # Get most recent position before today
+        # Get most recent trading day before today
         cursor.execute("""
-            SELECT p.id, p.cash
-            FROM positions p
-            WHERE p.job_id = ? AND p.model = ? AND p.date < ?
-            ORDER BY p.date DESC, p.action_id DESC
+            SELECT id, ending_cash
+            FROM trading_days
+            WHERE job_id = ? AND model = ? AND date < ?
+            ORDER BY date DESC
             LIMIT 1
         """, (job_id, modelname, today_date))
 
@@ -353,15 +353,15 @@ def get_today_init_position_from_db(
             logger.info(f"No previous position found for {modelname}, returning initial cash")
             return {"CASH": 10000.0}
 
-        position_id, cash = row
+        trading_day_id, cash = row
         position_dict = {"CASH": cash}
 
-        # Get holdings for this position
+        # Get holdings for this trading day
         cursor.execute("""
             SELECT symbol, quantity
             FROM holdings
-            WHERE position_id = ?
-        """, (position_id,))
+            WHERE trading_day_id = ?
+        """, (trading_day_id,))
 
         for symbol, quantity in cursor.fetchall():
             position_dict[symbol] = quantity

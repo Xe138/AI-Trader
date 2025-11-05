@@ -660,8 +660,6 @@ Summary:"""
     
     async def _handle_trading_result(self, today_date: str) -> None:
         """Handle trading results with database writes."""
-        from tools.price_tools import add_no_trade_record_to_db
-
         if_trade = get_config_value("IF_TRADE")
 
         if if_trade:
@@ -669,23 +667,10 @@ Summary:"""
             print("✅ Trading completed")
         else:
             print("📊 No trading, maintaining positions")
-
-            # Get context from runtime config
-            job_id = get_config_value("JOB_ID")
-            session_id = self.context_injector.session_id if self.context_injector else None
-
-            if not job_id or not session_id:
-                raise ValueError("Missing JOB_ID or session_id for no-trade record")
-
-            # Write no-trade record to database
-            add_no_trade_record_to_db(
-                today_date,
-                self.signature,
-                job_id,
-                session_id
-            )
-
             write_config_value("IF_TRADE", False)
+
+        # Note: In new schema, trading_day record is created at session start
+        # and updated at session end, so no separate no-trade record needed
     
     def register_agent(self) -> None:
         """Register new agent, create initial positions"""
