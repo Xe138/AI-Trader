@@ -36,15 +36,17 @@ class ReasoningSummarizer:
             summary_prompt = f"""You are reviewing your own trading decisions for the day.
 Summarize your trading strategy and key decisions in 2-3 sentences.
 
+IMPORTANT: Explicitly state what trades you executed (e.g., "sold 2 GOOGL shares" or "bought 10 NVDA shares"). If you made no trades, state that clearly.
+
 Focus on:
-- What you analyzed
-- Why you made the trades you did
+- What specific trades you executed (buy/sell, symbols, quantities)
+- Why you made those trades
 - Your overall strategy for the day
 
 Trading session log:
 {log_text}
 
-Provide a concise summary:"""
+Provide a concise summary that includes the actual trades executed:"""
 
             response = await self.model.ainvoke([
                 {"role": "user", "content": summary_prompt}
@@ -67,21 +69,33 @@ Provide a concise summary:"""
             reasoning_log: List of message dicts
 
         Returns:
-            Formatted text representation
+            Formatted text representation with emphasis on trades
         """
         formatted_parts = []
+        trades_executed = []
 
         for msg in reasoning_log:
             role = msg.get("role", "")
             content = msg.get("content", "")
+            tool_name = msg.get("name", "")
 
             if role == "assistant":
                 # AI's thoughts
                 formatted_parts.append(f"AI: {content[:200]}")
             elif role == "tool":
-                # Tool results
-                tool_name = msg.get("name", "tool")
-                formatted_parts.append(f"{tool_name}: {content[:100]}")
+                # Highlight trade tool calls
+                if tool_name in ["buy", "sell"]:
+                    trades_executed.append(f"{tool_name.upper()}: {content[:150]}")
+                    formatted_parts.append(f"TRADE - {tool_name.upper()}: {content[:150]}")
+                else:
+                    # Other tool results (search, price, etc.)
+                    formatted_parts.append(f"{tool_name}: {content[:100]}")
+
+        # Add summary of trades at the top
+        if trades_executed:
+            trade_summary = f"TRADES EXECUTED ({len(trades_executed)}):\n" + "\n".join(trades_executed)
+            formatted_parts.insert(0, trade_summary)
+            formatted_parts.insert(1, "\n--- FULL LOG ---")
 
         return "\n".join(formatted_parts)
 
