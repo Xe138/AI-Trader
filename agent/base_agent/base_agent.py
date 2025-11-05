@@ -538,6 +538,10 @@ Summary:"""
         from tools.general_tools import write_config_value
         write_config_value('TRADING_DAY_ID', trading_day_id)
 
+        # Update context_injector with trading_day_id for MCP tools
+        if self.context_injector:
+            self.context_injector.trading_day_id = trading_day_id
+
         # 6. Run AI trading session
         action_count = 0
 
