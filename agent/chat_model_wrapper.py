@@ -57,6 +57,19 @@ class ToolCallArgsParsingWrapper:
                     if 'message' in choice:
                         message = choice['message']
                         print(f"[DEBUG] Message keys: {message.keys()}")
+
+                        # Check tool_calls structure
+                        if 'tool_calls' in message and message['tool_calls']:
+                            print(f"[DEBUG] Found {len(message['tool_calls'])} tool_calls")
+                            for j, tc in enumerate(message['tool_calls']):
+                                print(f"[DEBUG] tool_calls[{j}] keys: {tc.keys()}")
+                                if 'function' in tc:
+                                    print(f"[DEBUG] tool_calls[{j}].function keys: {tc['function'].keys()}")
+                                    if 'arguments' in tc['function']:
+                                        args = tc['function']['arguments']
+                                        print(f"[DEBUG] tool_calls[{j}].function.arguments type: {type(args)}")
+                                        print(f"[DEBUG] tool_calls[{j}].function.arguments value: {repr(args)[:200]}")
+
                         if 'invalid_tool_calls' in message:
                             print(f"[DEBUG] Found invalid_tool_calls: {len(message['invalid_tool_calls'])} items")
                             for j, inv in enumerate(message['invalid_tool_calls']):
@@ -65,45 +78,9 @@ class ToolCallArgsParsingWrapper:
                                     print(f"[DEBUG] invalid_tool_calls[{j}].args type: {type(inv['args'])}")
                                     print(f"[DEBUG] invalid_tool_calls[{j}].args value: {inv['args']}")
 
-            if 'choices' in response_dict:
-                for choice in response_dict['choices']:
-                    if 'message' not in choice:
-                        continue
+            # REMOVED: No conversion needed yet - gathering data first
 
-                    message = choice['message']
-
-                    # Fix regular tool_calls: string args -> dict
-                    if 'tool_calls' in message and message['tool_calls']:
-                        for tool_call in message['tool_calls']:
-                            if 'function' in tool_call and 'arguments' in tool_call['function']:
-                                args = tool_call['function']['arguments']
-                                # Parse string arguments to dict
-                                if isinstance(args, str):
-                                    try:
-                                        tool_call['function']['arguments'] = json.loads(args)
-                                        print(f"[DEBUG] Converted tool_calls args from string to dict")
-                                    except json.JSONDecodeError:
-                                        # Keep as string if parsing fails
-                                        pass
-
-                    # Fix invalid_tool_calls: dict args -> string
-                    if 'invalid_tool_calls' in message and message['invalid_tool_calls']:
-                        print(f"[DEBUG] Processing {len(message['invalid_tool_calls'])} invalid_tool_calls")
-                        for idx, invalid_call in enumerate(message['invalid_tool_calls']):
-                            if 'args' in invalid_call:
-                                args = invalid_call['args']
-                                print(f"[DEBUG] invalid_call[{idx}].args before: type={type(args)}, value={args}")
-                                # Convert dict arguments to JSON string
-                                if isinstance(args, dict):
-                                    try:
-                                        invalid_call['args'] = json.dumps(args)
-                                        print(f"[DEBUG] Converted invalid_call[{idx}].args to string: {invalid_call['args']}")
-                                    except (TypeError, ValueError) as e:
-                                        print(f"[DEBUG] Failed to convert invalid_call[{idx}].args: {e}")
-                                        # Keep as-is if serialization fails
-                                        pass
-
-            # Call original method with fixed response
+            # Call original method with unmodified response
             return original_create_chat_result(response_dict, generation_info)
 
         # Replace the method
