@@ -51,16 +51,26 @@ class ToolCallArgsParsingWrapper:
                     message = choice['message']
                     print(f"  Message keys: {list(message.keys())}")
 
-                    if 'tool_calls' in message and message['tool_calls']:
-                        print(f"  tool_calls count: {len(message['tool_calls'])}")
-                        for i, tc in enumerate(message['tool_calls'][:2]):  # Show first 2
-                            print(f"  tool_calls[{i}] keys: {list(tc.keys())}")
-                            if 'function' in tc:
-                                print(f"    function keys: {list(tc['function'].keys())}")
-                                if 'arguments' in tc['function']:
-                                    args = tc['function']['arguments']
-                                    print(f"    arguments type: {type(args).__name__}")
-                                    print(f"    arguments value (first 100 chars): {str(args)[:100]}")
+                    # Check for raw tool_calls in message (before parse_tool_call processing)
+                    if 'tool_calls' in message:
+                        tool_calls_value = message['tool_calls']
+                        print(f"  message['tool_calls'] type: {type(tool_calls_value)}")
+
+                        if tool_calls_value:
+                            print(f"  tool_calls count: {len(tool_calls_value)}")
+                            for i, tc in enumerate(tool_calls_value):  # Show ALL
+                                print(f"  tool_calls[{i}] type: {type(tc)}")
+                                print(f"  tool_calls[{i}] keys: {list(tc.keys()) if isinstance(tc, dict) else 'N/A'}")
+                                if isinstance(tc, dict):
+                                    if 'function' in tc:
+                                        print(f"    function keys: {list(tc['function'].keys())}")
+                                        if 'arguments' in tc['function']:
+                                            args = tc['function']['arguments']
+                                            print(f"    function.arguments type: {type(args).__name__}")
+                                            print(f"    function.arguments value: {str(args)[:100]}")
+                                    if 'args' in tc:
+                                        print(f"    ALSO HAS 'args' KEY: type={type(tc['args']).__name__}")
+                                        print(f"    args value: {str(tc['args'])[:100]}")
 
             # Fix tool_calls: Normalize to OpenAI format if needed
             if 'choices' in response_dict:
