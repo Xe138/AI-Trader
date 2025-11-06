@@ -7,13 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.1] - 2025-11-05
+## [0.4.1] - 2025-11-06
 
 ### Fixed
-- Resolved Pydantic validation errors when using DeepSeek Chat v3.1 through systematic debugging
-- Root cause: Initial implementation incorrectly converted tool_calls arguments from strings to dictionaries, causing LangChain's `parse_tool_call()` to fail and create invalid_tool_calls with wrong format
-- Solution: Removed unnecessary conversion logic - DeepSeek already returns arguments in correct format (JSON strings)
-- `ToolCallArgsParsingWrapper` now acts as a simple passthrough proxy (kept for backward compatibility)
+- Fixed "No trading" message always displaying despite trading activity by initializing `IF_TRADE` to `True` (trades expected by default)
+- Root cause: `IF_TRADE` was initialized to `False` in runtime config but never updated when trades executed
+
+### Note
+- ChatDeepSeek integration was reverted as it conflicts with OpenRouter unified gateway architecture
+- System uses `OPENAI_API_BASE` (OpenRouter) with single `OPENAI_API_KEY` for all providers
+- Sporadic DeepSeek validation errors appear to be transient and do not require code changes
 
 ## [0.4.0] - 2025-11-05
 
