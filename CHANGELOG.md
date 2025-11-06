@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - 2025-11-04
+## [0.4.1] - 2025-11-05
+
+### Fixed
+- Fixed Pydantic validation error for tool_calls when using DeepSeek and other AI providers that return `args` as JSON strings instead of dictionaries. Added `ToolCallArgsParsingWrapper` that monkey-patches ChatOpenAI's `_create_chat_result` method to parse string arguments before AIMessage construction.
+
+## [0.4.0] - 2025-11-05
 
 ### BREAKING CHANGES
 
@@ -129,6 +134,49 @@ New `/results?reasoning=full` returns:
 - Database helper methods with 7 new functions for `trading_days` schema operations
 - Test coverage increased with 36+ new comprehensive tests
 - Documentation updated with complete API reference and database schema details
+
+### Fixed
+- **Critical:** Intra-day position tracking for sell-then-buy trades (e20dce7)
+  - Sell proceeds now immediately available for subsequent buy orders within same trading session
+  - ContextInjector maintains in-memory position state during trading sessions
+  - Position updates accumulate after each successful trade
+  - Enables agents to rebalance portfolios (sell + buy) in single session
+  - Added 13 comprehensive tests for position tracking
+- **Critical:** Tool message extraction in conversation history (462de3a, abb9cd0)
+  - Fixed bug where tool messages (buy/sell trades) were not captured when agent completed in single step
+  - Tool extraction now happens BEFORE finish signal check
+  - Reasoning summaries now accurately reflect actual trades executed
+  - Resolves issue where summarizer saw 0 tools despite multiple trades
+- Reasoning summary generation improvements (6d126db)
+  - Summaries now explicitly mention specific trades executed (symbols, quantities, actions)
+  - Added TRADES EXECUTED section highlighting tool calls
+  - Example: 'sold 1 GOOGL and 1 AMZN to reduce exposure' instead of 'maintain core holdings'
+- Final holdings calculation accuracy (a8d912b)
+  - Final positions now calculated from actions instead of querying incomplete database records
+  - Correctly handles first trading day with multiple trades
+  - New `_calculate_final_position_from_actions()` method applies all trades to calculate final state
+  - Holdings now persist correctly across all trading days
+  - Added 3 comprehensive tests for final position calculation
+- Holdings persistence between trading days (aa16480)
+  - Query now retrieves previous day's ending position as current day's starting position
+  - Changed query from `date <=` to `date <` to prevent returning incomplete current-day records
+  - Fixes empty starting_position/final_position in API responses despite successful trades
+  - Updated tests to verify correct previous-day retrieval
+- Context injector trading_day_id synchronization (05620fa)
+  - ContextInjector now updated with trading_day_id after record creation
+  - Fixes "Trade failed: trading_day_id not found in runtime config" error
+  - MCP tools now correctly receive trading_day_id via context injection
+- Schema migration compatibility fixes (7c71a04)
+  - Updated position queries to use new trading_days schema instead of obsolete positions table
+  - Removed obsolete add_no_trade_record_to_db function calls
+  - Fixes "no such table: positions" error
+  - Simplified _handle_trading_result logic
+- Database referential integrity (9da65c2)
+  - Corrected Database default path from "data/trading.db" to "data/jobs.db"
+  - Ensures all components use same database file
+  - Fixes FOREIGN KEY constraint failures when creating trading_day records
+- Debug logging cleanup (1e7bdb5)
+  - Removed verbose debug logging from ContextInjector for cleaner output
 
 ## [0.3.1] - 2025-11-03
 
