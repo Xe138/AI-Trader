@@ -4,6 +4,78 @@ This document outlines planned features and improvements for the AI-Trader proje
 
 ## Release Planning
 
+### v0.5.0 - Performance Metrics & Status APIs (Planned)
+
+**Focus:** Enhanced observability and performance tracking
+
+#### Performance Metrics API
+- **Performance Summary Endpoint** - Query model performance over date ranges
+  - `GET /metrics/performance` - Aggregated performance metrics
+    - Query parameters: `model`, `start_date`, `end_date`
+    - Returns comprehensive performance summary:
+      - Total return (dollar amount and percentage)
+      - Number of trades executed (buy + sell)
+      - Win rate (profitable trading days / total trading days)
+      - Average daily P&L (profit and loss)
+      - Best/worst trading day (highest/lowest daily P&L)
+      - Final portfolio value (cash + holdings at market value)
+      - Number of trading days in queried range
+      - Starting vs. ending portfolio comparison
+    - Use cases:
+      - Compare model performance across different time periods
+      - Evaluate strategy effectiveness
+      - Identify top-performing models
+    - Example: `GET /metrics/performance?model=gpt-4&start_date=2025-01-01&end_date=2025-01-31`
+  - Filtering options:
+    - Single model or all models
+    - Custom date ranges
+    - Exclude incomplete trading days
+  - Response format: JSON with clear metric definitions
+
+#### Status & Coverage Endpoint
+- **System Status Summary** - Data availability and simulation progress
+  - `GET /status` - Comprehensive system status
+    - Price data coverage section:
+      - Available symbols (NASDAQ 100 constituents)
+      - Date range of downloaded price data per symbol
+      - Total trading days with complete data
+      - Missing data gaps (symbols without data, date gaps)
+      - Last data refresh timestamp
+    - Model simulation status section:
+      - List of all configured models (enabled/disabled)
+      - Date ranges simulated per model (first and last trading day)
+      - Total trading days completed per model
+      - Most recent simulation date per model
+      - Completion percentage (simulated days / available data days)
+    - System health section:
+      - Database connectivity status
+      - MCP services status (Math, Search, Trade, LocalPrices)
+      - API version and deployment mode
+      - Disk space usage (database size, log size)
+    - Use cases:
+      - Verify data availability before triggering simulations
+      - Identify which models need updates to latest data
+      - Monitor system health and readiness
+      - Plan data downloads for missing date ranges
+    - Example: `GET /status` (no parameters required)
+  - Benefits:
+    - Single endpoint for complete system overview
+    - No need to query multiple endpoints for status
+    - Clear visibility into data gaps
+    - Track simulation progress across models
+
+#### Implementation Details
+- Database queries for efficient metric calculation
+- Caching for frequently accessed metrics (optional)
+- Response time target: <500ms for typical queries
+- Comprehensive error handling for missing data
+
+#### Benefits
+- **Better Observability** - Clear view of system state and model performance
+- **Data-Driven Decisions** - Quantitative metrics for model comparison
+- **Proactive Monitoring** - Identify data gaps before simulations fail
+- **User Experience** - Single endpoint to check "what's available and what's been done"
+
 ### v1.0.0 - Production Stability & Validation (Planned)
 
 **Focus:** Comprehensive testing, documentation, and production readiness

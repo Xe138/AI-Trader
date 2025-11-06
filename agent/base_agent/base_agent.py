@@ -33,6 +33,7 @@ from tools.deployment_config import (
 from agent.context_injector import ContextInjector
 from agent.pnl_calculator import DailyPnLCalculator
 from agent.reasoning_summarizer import ReasoningSummarizer
+from agent.chat_model_wrapper import ToolCallArgsParsingWrapper
 
 # Load environment variables
 load_dotenv()
@@ -211,14 +212,16 @@ class BaseAgent:
                 self.model = MockChatModel(date="2025-01-01")  # Date will be updated per session
                 print(f"🤖 Using MockChatModel (DEV mode)")
             else:
-                self.model = ChatOpenAI(
+                base_model = ChatOpenAI(
                     model=self.basemodel,
                     base_url=self.openai_base_url,
                     api_key=self.openai_api_key,
                     max_retries=3,
                     timeout=30
                 )
-                print(f"🤖 Using {self.basemodel} (PROD mode)")
+                # Wrap model with diagnostic wrapper
+                self.model = ToolCallArgsParsingWrapper(model=base_model)
+                print(f"🤖 Using {self.basemodel} (PROD mode) with diagnostic wrapper")
         except Exception as e:
             raise RuntimeError(f"❌ Failed to initialize AI model: {e}")
 
