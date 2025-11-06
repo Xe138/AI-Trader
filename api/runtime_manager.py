@@ -80,7 +80,7 @@ class RuntimeConfigManager:
         initial_config = {
             "TODAY_DATE": date,
             "SIGNATURE": model_sig,
-            "IF_TRADE": False,
+            "IF_TRADE": True,  # FIX: Trades are expected by default
             "JOB_ID": job_id,
             "TRADING_DAY_ID": trading_day_id
         }

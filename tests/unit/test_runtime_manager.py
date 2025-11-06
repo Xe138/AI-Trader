@@ -63,7 +63,7 @@ class TestRuntimeConfigCreation:
 
             assert config["TODAY_DATE"] == "2025-01-16"
             assert config["SIGNATURE"] == "gpt-5"
-            assert config["IF_TRADE"] is False
+            assert config["IF_TRADE"] is True
             assert config["JOB_ID"] == "test-job-123"
 
     def test_create_runtime_config_unique_paths(self):
@@ -107,6 +107,32 @@ class TestRuntimeConfigCreation:
 
             # Config file should exist
             assert os.path.exists(config_path)
+
+    def test_create_runtime_config_if_trade_defaults_true(self):
+        """Test that IF_TRADE initializes to True (trades expected by default)"""
+        from api.runtime_manager import RuntimeConfigManager
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manager = RuntimeConfigManager(data_dir=temp_dir)
+
+            config_path = manager.create_runtime_config(
+                job_id="test-job-123",
+                model_sig="test-model",
+                date="2025-01-16",
+                trading_day_id=1
+            )
+
+            try:
+                # Read the config file
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+
+                # Verify IF_TRADE is True by default
+                assert config["IF_TRADE"] is True, "IF_TRADE should initialize to True"
+            finally:
+                # Cleanup
+                if os.path.exists(config_path):
+                    os.remove(config_path)
 
 
 @pytest.mark.unit
