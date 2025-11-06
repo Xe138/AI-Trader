@@ -12,7 +12,6 @@ from typing import Dict, List, Optional, Any
 from pathlib import Path
 
 from langchain_mcp_adapters.client import MultiServerMCPClient
-from langchain_openai import ChatOpenAI
 from langchain.agents import create_agent
 from dotenv import load_dotenv
 
@@ -33,6 +32,7 @@ from tools.deployment_config import (
 from agent.context_injector import ContextInjector
 from agent.pnl_calculator import DailyPnLCalculator
 from agent.reasoning_summarizer import ReasoningSummarizer
+from agent.model_factory import create_model
 
 # Load environment variables
 load_dotenv()
@@ -126,7 +126,7 @@ class BaseAgent:
         # Initialize components
         self.client: Optional[MultiServerMCPClient] = None
         self.tools: Optional[List] = None
-        self.model: Optional[ChatOpenAI] = None
+        self.model: Optional[Any] = None
         self.agent: Optional[Any] = None
 
         # Context injector for MCP tools
@@ -211,14 +211,18 @@ class BaseAgent:
                 self.model = MockChatModel(date="2025-01-01")  # Date will be updated per session
                 print(f"🤖 Using MockChatModel (DEV mode)")
             else:
-                self.model = ChatOpenAI(
-                    model=self.basemodel,
-                    base_url=self.openai_base_url,
+                # Use model factory for provider-specific implementations
+                self.model = create_model(
+                    basemodel=self.basemodel,
                     api_key=self.openai_api_key,
-                    max_retries=3,
+                    base_url=self.openai_base_url,
+                    temperature=0.7,
                     timeout=30
                 )
-                print(f"🤖 Using {self.basemodel} (PROD mode)")
+
+                # Determine model type for logging
+                model_class = self.model.__class__.__name__
+                print(f"🤖 Using {self.basemodel} via {model_class} (PROD mode)")
         except Exception as e:
             raise RuntimeError(f"❌ Failed to initialize AI model: {e}")
 
