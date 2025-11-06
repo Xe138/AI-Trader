@@ -679,11 +679,13 @@ To propose a new feature:
 
 - **v0.1.0** - Initial release with batch execution
 - **v0.2.0** - Docker deployment support
-- **v0.3.0** - REST API, on-demand downloads, database storage (current)
+- **v0.3.0** - REST API, on-demand downloads, database storage
+- **v0.4.0** - Daily P&L calculation, day-centric results API, reasoning summaries (current)
+- **v0.5.0** - Performance metrics & status APIs (planned)
 - **v1.0.0** - Production stability & validation (planned)
 - **v1.1.0** - API authentication & security (planned)
 - **v1.2.0** - Position history & analytics (planned)
-- **v1.3.0** - Performance metrics & analytics (planned)
+- **v1.3.0** - Advanced performance metrics & analytics (planned)
 - **v1.4.0** - Data management API (planned)
 - **v1.5.0** - Web dashboard UI (planned)
 - **v1.6.0** - Advanced configuration & customization (planned)
@@ -691,4 +693,4 @@ To propose a new feature:
 
 ---
 
-Last updated: 2025-11-01
+Last updated: 2025-11-06
