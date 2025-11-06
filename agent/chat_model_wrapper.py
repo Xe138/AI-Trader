@@ -32,6 +32,23 @@ class ToolCallArgsParsingWrapper:
             # Model doesn't have this method (e.g., MockChatModel), skip patching
             return
 
+        # CRITICAL: Also patch parse_tool_call to see what it's returning
+        from langchain_core.output_parsers import openai_tools
+        original_parse_tool_call = openai_tools.parse_tool_call
+
+        def patched_parse_tool_call(raw_tool_call, *, partial=False, strict=False, return_id=True):
+            """Patched parse_tool_call to log what it returns"""
+            result = original_parse_tool_call(raw_tool_call, partial=partial, strict=strict, return_id=return_id)
+            if result:
+                args_type = type(result.get('args', None)).__name__
+                print(f"[DIAGNOSTIC] parse_tool_call returned: args type = {args_type}")
+                if args_type == 'str':
+                    print(f"[DIAGNOSTIC] ⚠️ BUG FOUND! parse_tool_call returned STRING args: {result['args']}")
+            return result
+
+        # Replace globally
+        openai_tools.parse_tool_call = patched_parse_tool_call
+
         original_create_chat_result = self.wrapped_model._create_chat_result
 
         @wraps(original_create_chat_result)
