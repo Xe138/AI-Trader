@@ -33,7 +33,6 @@ from tools.deployment_config import (
 from agent.context_injector import ContextInjector
 from agent.pnl_calculator import DailyPnLCalculator
 from agent.reasoning_summarizer import ReasoningSummarizer
-from agent.chat_model_wrapper import ToolCallArgsParsingWrapper
 
 # Load environment variables
 load_dotenv()
@@ -209,10 +208,10 @@ class BaseAgent:
             # Create AI model (mock in DEV mode, real in PROD mode)
             if is_dev_mode():
                 from agent.mock_provider import MockChatModel
-                base_model = MockChatModel(date="2025-01-01")  # Date will be updated per session
+                self.model = MockChatModel(date="2025-01-01")  # Date will be updated per session
                 print(f"🤖 Using MockChatModel (DEV mode)")
             else:
-                base_model = ChatOpenAI(
+                self.model = ChatOpenAI(
                     model=self.basemodel,
                     base_url=self.openai_base_url,
                     api_key=self.openai_api_key,
@@ -220,10 +219,6 @@ class BaseAgent:
                     timeout=30
                 )
                 print(f"🤖 Using {self.basemodel} (PROD mode)")
-
-            # Wrap model to fix tool_calls args parsing
-            self.model = ToolCallArgsParsingWrapper(model=base_model)
-            print(f"✅ Applied tool_calls args parsing wrapper")
         except Exception as e:
             raise RuntimeError(f"❌ Failed to initialize AI model: {e}")
 
@@ -546,7 +541,7 @@ Summary:"""
 
         # Update mock model date if in dev mode
         if is_dev_mode():
-            self.model.wrapped_model.date = today_date
+            self.model.date = today_date
 
         # Get job_id from context injector
         job_id = self.context_injector.job_id if self.context_injector else get_config_value("JOB_ID")
