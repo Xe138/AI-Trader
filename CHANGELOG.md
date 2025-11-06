@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2025-11-05
+
+### Fixed
+- Fixed "No trading" message always displaying despite trading activity by initializing `IF_TRADE` to `True` (trades expected by default)
+- Resolved sporadic Pydantic validation errors for DeepSeek tool_calls arguments by switching to native `ChatDeepSeek` integration
+
+### Added
+- Added `agent/model_factory.py` for provider-specific model creation
+- Added `langchain-deepseek` dependency for native DeepSeek support
+- Added integration tests for DeepSeek tool calls argument parsing
+
+### Changed
+- `BaseAgent` now uses model factory instead of direct `ChatOpenAI` instantiation
+- DeepSeek models (`deepseek/*`) now use `ChatDeepSeek` instead of OpenAI compatibility layer
+
 ## [0.4.1] - 2025-11-05
 
 ### Fixed

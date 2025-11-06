@@ -167,11 +167,17 @@ bash main.sh
 ### Agent System
 
 **BaseAgent Key Methods:**
-- `initialize()`: Connect to MCP services, create AI model
+- `initialize()`: Connect to MCP services, create AI model via model factory
 - `run_trading_session(date)`: Execute single day's trading with retry logic
 - `run_date_range(init_date, end_date)`: Process all weekdays in range
 - `get_trading_dates()`: Resume from last date in position.jsonl
 - `register_agent()`: Create initial position file with $10,000 cash
+
+**Model Factory:**
+The `create_model()` factory automatically selects the appropriate chat model:
+- `deepseek/*` models → `ChatDeepSeek` (native tool calling support)
+- `openai/*` models → `ChatOpenAI`
+- Other providers → `ChatOpenAI` (OpenAI-compatible endpoint)
 
 **Adding Custom Agents:**
 1. Create new class inheriting from `BaseAgent`
@@ -453,3 +459,9 @@ The project uses a well-organized documentation structure:
 - Agent must output `<FINISH_SIGNAL>` within `max_steps`
 - Increase `max_steps` if agent needs more reasoning time
 - Check `log.jsonl` for errors preventing completion
+
+**DeepSeek Pydantic Validation Errors:**
+- Error: "Input should be a valid dictionary [type=dict_type, input_value='...', input_type=str]"
+- Cause: Using `ChatOpenAI` for DeepSeek models (OpenAI compatibility layer issue)
+- Fix: Ensure `langchain-deepseek` is installed and basemodel uses `deepseek/` prefix
+- The model factory automatically uses `ChatDeepSeek` for native support
