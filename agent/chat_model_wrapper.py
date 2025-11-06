@@ -37,9 +37,15 @@ class ToolCallArgsParsingWrapper:
         @wraps(original_create_chat_result)
         def patched_create_chat_result(response: Any, generation_info: Optional[Dict] = None):
             """Patched version with diagnostic logging and args parsing"""
+            import traceback
             response_dict = response if isinstance(response, dict) else response.model_dump()
 
             # DIAGNOSTIC: Log response structure for debugging
+            print(f"\n[DIAGNOSTIC] _create_chat_result called")
+            print(f"  Response type: {type(response)}")
+            print(f"  Call stack:")
+            for line in traceback.format_stack()[-5:-1]:  # Show last 4 stack frames
+                print(f"    {line.strip()}")
             print(f"\n[DIAGNOSTIC] Response structure:")
             print(f"  Response keys: {list(response_dict.keys())}")
 
@@ -116,7 +122,18 @@ class ToolCallArgsParsingWrapper:
                                         # Keep as-is if serialization fails
 
             # Call original method with fixed response
-            return original_create_chat_result(response_dict, generation_info)
+            print(f"[DIAGNOSTIC] Calling original_create_chat_result...")
+            result = original_create_chat_result(response_dict, generation_info)
+            print(f"[DIAGNOSTIC] original_create_chat_result returned successfully")
+            print(f"[DIAGNOSTIC] Result type: {type(result)}")
+            if hasattr(result, 'generations') and result.generations:
+                gen = result.generations[0]
+                if hasattr(gen, 'message') and hasattr(gen.message, 'tool_calls'):
+                    print(f"[DIAGNOSTIC] Result has {len(gen.message.tool_calls)} tool_calls")
+                    if gen.message.tool_calls:
+                        tc = gen.message.tool_calls[0]
+                        print(f"[DIAGNOSTIC] tool_calls[0]['args'] type in result: {type(tc['args'])}")
+            return result
 
         # Replace the method
         self.wrapped_model._create_chat_result = patched_create_chat_result
