@@ -50,19 +50,36 @@ class ToolCallArgsParsingWrapper:
 
             if 'choices' in response_dict:
                 for choice in response_dict['choices']:
-                    if 'message' in choice and 'tool_calls' in choice['message']:
-                        tool_calls = choice['message']['tool_calls']
-                        if tool_calls:
-                            for tool_call in tool_calls:
-                                if 'function' in tool_call and 'arguments' in tool_call['function']:
-                                    args = tool_call['function']['arguments']
-                                    # Parse string arguments to dict
-                                    if isinstance(args, str):
-                                        try:
-                                            tool_call['function']['arguments'] = json.loads(args)
-                                        except json.JSONDecodeError:
-                                            # Keep as string if parsing fails
-                                            pass
+                    if 'message' not in choice:
+                        continue
+
+                    message = choice['message']
+
+                    # Fix regular tool_calls: string args -> dict
+                    if 'tool_calls' in message and message['tool_calls']:
+                        for tool_call in message['tool_calls']:
+                            if 'function' in tool_call and 'arguments' in tool_call['function']:
+                                args = tool_call['function']['arguments']
+                                # Parse string arguments to dict
+                                if isinstance(args, str):
+                                    try:
+                                        tool_call['function']['arguments'] = json.loads(args)
+                                    except json.JSONDecodeError:
+                                        # Keep as string if parsing fails
+                                        pass
+
+                    # Fix invalid_tool_calls: dict args -> string
+                    if 'invalid_tool_calls' in message and message['invalid_tool_calls']:
+                        for invalid_call in message['invalid_tool_calls']:
+                            if 'args' in invalid_call:
+                                args = invalid_call['args']
+                                # Convert dict arguments to JSON string
+                                if isinstance(args, dict):
+                                    try:
+                                        invalid_call['args'] = json.dumps(args)
+                                    except (TypeError, ValueError):
+                                        # Keep as-is if serialization fails
+                                        pass
 
             # Call original method with fixed response
             return original_create_chat_result(response_dict, generation_info)
