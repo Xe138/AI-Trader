@@ -10,10 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.1] - 2025-11-05
 
 ### Fixed
-- Fixed Pydantic validation errors for both `tool_calls` and `invalid_tool_calls` when using DeepSeek and other AI providers:
-  - `tool_calls.args`: Converts JSON strings to dictionaries (for successful tool calls)
-  - `invalid_tool_calls.args`: Converts dictionaries to JSON strings (for failed tool calls)
-- Added `ToolCallArgsParsingWrapper` that monkey-patches ChatOpenAI's `_create_chat_result` method to normalize arguments before AIMessage construction.
+- Resolved Pydantic validation errors when using DeepSeek Chat v3.1 through systematic debugging
+- Root cause: Initial implementation incorrectly converted tool_calls arguments from strings to dictionaries, causing LangChain's `parse_tool_call()` to fail and create invalid_tool_calls with wrong format
+- Solution: Removed unnecessary conversion logic - DeepSeek already returns arguments in correct format (JSON strings)
+- `ToolCallArgsParsingWrapper` now acts as a simple passthrough proxy (kept for backward compatibility)
 
 ## [0.4.0] - 2025-11-05
 
