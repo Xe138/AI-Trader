@@ -48,6 +48,23 @@ class ToolCallArgsParsingWrapper:
             # Fix tool_calls in the response dict before passing to original method
             response_dict = response if isinstance(response, dict) else response.model_dump()
 
+            # DIAGNOSTIC: Log response structure
+            print(f"\n[DEBUG] Response keys: {response_dict.keys()}")
+            if 'choices' in response_dict:
+                print(f"[DEBUG] Number of choices: {len(response_dict['choices'])}")
+                for i, choice in enumerate(response_dict['choices']):
+                    print(f"[DEBUG] Choice {i} keys: {choice.keys()}")
+                    if 'message' in choice:
+                        message = choice['message']
+                        print(f"[DEBUG] Message keys: {message.keys()}")
+                        if 'invalid_tool_calls' in message:
+                            print(f"[DEBUG] Found invalid_tool_calls: {len(message['invalid_tool_calls'])} items")
+                            for j, inv in enumerate(message['invalid_tool_calls']):
+                                print(f"[DEBUG] invalid_tool_calls[{j}] keys: {inv.keys()}")
+                                if 'args' in inv:
+                                    print(f"[DEBUG] invalid_tool_calls[{j}].args type: {type(inv['args'])}")
+                                    print(f"[DEBUG] invalid_tool_calls[{j}].args value: {inv['args']}")
+
             if 'choices' in response_dict:
                 for choice in response_dict['choices']:
                     if 'message' not in choice:
@@ -64,20 +81,25 @@ class ToolCallArgsParsingWrapper:
                                 if isinstance(args, str):
                                     try:
                                         tool_call['function']['arguments'] = json.loads(args)
+                                        print(f"[DEBUG] Converted tool_calls args from string to dict")
                                     except json.JSONDecodeError:
                                         # Keep as string if parsing fails
                                         pass
 
                     # Fix invalid_tool_calls: dict args -> string
                     if 'invalid_tool_calls' in message and message['invalid_tool_calls']:
-                        for invalid_call in message['invalid_tool_calls']:
+                        print(f"[DEBUG] Processing {len(message['invalid_tool_calls'])} invalid_tool_calls")
+                        for idx, invalid_call in enumerate(message['invalid_tool_calls']):
                             if 'args' in invalid_call:
                                 args = invalid_call['args']
+                                print(f"[DEBUG] invalid_call[{idx}].args before: type={type(args)}, value={args}")
                                 # Convert dict arguments to JSON string
                                 if isinstance(args, dict):
                                     try:
                                         invalid_call['args'] = json.dumps(args)
-                                    except (TypeError, ValueError):
+                                        print(f"[DEBUG] Converted invalid_call[{idx}].args to string: {invalid_call['args']}")
+                                    except (TypeError, ValueError) as e:
+                                        print(f"[DEBUG] Failed to convert invalid_call[{idx}].args: {e}")
                                         # Keep as-is if serialization fails
                                         pass
 
