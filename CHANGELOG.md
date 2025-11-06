@@ -7,28 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.2] - 2025-11-05
+## [0.4.1] - 2025-11-05
 
 ### Fixed
 - Fixed "No trading" message always displaying despite trading activity by initializing `IF_TRADE` to `True` (trades expected by default)
 - Resolved sporadic Pydantic validation errors for DeepSeek tool_calls arguments by switching to native `ChatDeepSeek` integration
+- Root cause: OpenAI compatibility layer did not consistently parse DeepSeek's tool_calls arguments from JSON strings to dicts
+- Solution: Use native `langchain-deepseek` package which properly handles DeepSeek's response format
 
 ### Added
 - Added `agent/model_factory.py` for provider-specific model creation
-- Added `langchain-deepseek` dependency for native DeepSeek support
+- Added `langchain-deepseek>=0.1.20` dependency for native DeepSeek support
 - Added integration tests for DeepSeek tool calls argument parsing
 
 ### Changed
 - `BaseAgent` now uses model factory instead of direct `ChatOpenAI` instantiation
-- DeepSeek models (`deepseek/*`) now use `ChatDeepSeek` instead of OpenAI compatibility layer
-
-## [0.4.1] - 2025-11-05
-
-### Fixed
-- Resolved Pydantic validation errors when using DeepSeek Chat v3.1 through systematic debugging
-- Root cause: Initial implementation incorrectly converted tool_calls arguments from strings to dictionaries, causing LangChain's `parse_tool_call()` to fail and create invalid_tool_calls with wrong format
-- Solution: Removed unnecessary conversion logic - DeepSeek already returns arguments in correct format (JSON strings)
-- `ToolCallArgsParsingWrapper` now acts as a simple passthrough proxy (kept for backward compatibility)
+- DeepSeek models (`deepseek/*`) now use `ChatDeepSeek` for native tool calling support
+- Removed obsolete `ToolCallArgsParsingWrapper` and related tests
 
 ## [0.4.0] - 2025-11-05
 
