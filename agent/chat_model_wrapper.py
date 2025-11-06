@@ -37,13 +37,21 @@ class ToolCallArgsParsingWrapper:
         original_parse_tool_call = langchain_base.parse_tool_call
 
         def patched_parse_tool_call(raw_tool_call, *, partial=False, strict=False, return_id=True):
-            """Patched parse_tool_call to log what it returns"""
+            """Patched parse_tool_call to fix string args bug and add logging"""
             result = original_parse_tool_call(raw_tool_call, partial=partial, strict=strict, return_id=return_id)
             if result:
                 args_type = type(result.get('args', None)).__name__
                 print(f"[DIAGNOSTIC] parse_tool_call returned: args type = {args_type}")
                 if args_type == 'str':
-                    print(f"[DIAGNOSTIC] ⚠️ BUG FOUND! parse_tool_call returned STRING args: {result['args']}")
+                    print(f"[DIAGNOSTIC] ⚠️ BUG FOUND! parse_tool_call returned STRING args, fixing...")
+                    # FIX: parse_tool_call sometimes returns string args instead of dict
+                    # This happens when it fails to parse but doesn't raise an exception
+                    try:
+                        result['args'] = json.loads(result['args'])
+                        print(f"[DIAGNOSTIC] ✓ Fixed! Converted string args to dict")
+                    except (json.JSONDecodeError, TypeError) as e:
+                        print(f"[DIAGNOSTIC] ❌ Failed to parse args: {e}")
+                        # Leave as string if we can't parse it
             return result
 
         # Replace in base.py's namespace (where _convert_dict_to_message uses it)
