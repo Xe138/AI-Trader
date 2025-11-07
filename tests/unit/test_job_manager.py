@@ -26,11 +26,12 @@ class TestJobCreation:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16", "2025-01-17"],
             models=["gpt-5", "claude-3.7-sonnet"]
         )
+        job_id = job_result["job_id"]
 
         assert job_id is not None
         job = manager.get_job(job_id)
@@ -44,11 +45,12 @@ class TestJobCreation:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16", "2025-01-17"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         progress = manager.get_job_progress(job_id)
         assert progress["total_model_days"] == 2  # 2 dates × 1 model
@@ -60,11 +62,12 @@ class TestJobCreation:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job1_id = manager.create_job(
+        job1_result = manager.create_job(
             "configs/test.json",
             ["2025-01-16"],
             ["gpt-5"]
         )
+        job1_id = job1_result["job_id"]
 
         with pytest.raises(ValueError, match="Another simulation job is already running"):
             manager.create_job(
@@ -78,20 +81,22 @@ class TestJobCreation:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job1_id = manager.create_job(
+        job1_result = manager.create_job(
             "configs/test.json",
             ["2025-01-16"],
             ["gpt-5"]
         )
+        job1_id = job1_result["job_id"]
 
         manager.update_job_status(job1_id, "completed")
 
         # Now second job should be allowed
-        job2_id = manager.create_job(
+        job2_result = manager.create_job(
             "configs/test.json",
             ["2025-01-17"],
             ["gpt-5"]
         )
+        job2_id = job2_result["job_id"]
         assert job2_id is not None
 
 
@@ -104,11 +109,12 @@ class TestJobStatusTransitions:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             "configs/test.json",
             ["2025-01-16"],
             ["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         # Update detail to running
         manager.update_job_detail_status(job_id, "2025-01-16", "gpt-5", "running")
@@ -122,11 +128,12 @@ class TestJobStatusTransitions:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             "configs/test.json",
             ["2025-01-16"],
             ["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         manager.update_job_detail_status(job_id, "2025-01-16", "gpt-5", "running")
         manager.update_job_detail_status(job_id, "2025-01-16", "gpt-5", "completed")
@@ -141,11 +148,12 @@ class TestJobStatusTransitions:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             "configs/test.json",
             ["2025-01-16"],
             ["gpt-5", "claude-3.7-sonnet"]
         )
+        job_id = job_result["job_id"]
 
         # First model succeeds
         manager.update_job_detail_status(job_id, "2025-01-16", "gpt-5", "running")
@@ -183,10 +191,12 @@ class TestJobRetrieval:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job1_id = manager.create_job("configs/test.json", ["2025-01-16"], ["gpt-5"])
+        job1_result = manager.create_job("configs/test.json", ["2025-01-16"], ["gpt-5"])
+        job1_id = job1_result["job_id"]
         manager.update_job_status(job1_id, "completed")
 
-        job2_id = manager.create_job("configs/test.json", ["2025-01-17"], ["gpt-5"])
+        job2_result = manager.create_job("configs/test.json", ["2025-01-17"], ["gpt-5"])
+        job2_id = job2_result["job_id"]
 
         current = manager.get_current_job()
         assert current["job_id"] == job2_id
@@ -204,11 +214,12 @@ class TestJobRetrieval:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             "configs/test.json",
             ["2025-01-16", "2025-01-17"],
             ["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         found = manager.find_job_by_date_range(["2025-01-16", "2025-01-17"])
         assert found["job_id"] == job_id
@@ -237,11 +248,12 @@ class TestJobProgress:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             "configs/test.json",
             ["2025-01-16", "2025-01-17"],
             ["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         progress = manager.get_job_progress(job_id)
         assert progress["total_model_days"] == 2
@@ -254,11 +266,12 @@ class TestJobProgress:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             "configs/test.json",
             ["2025-01-16"],
             ["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         manager.update_job_detail_status(job_id, "2025-01-16", "gpt-5", "running")
 
@@ -270,11 +283,12 @@ class TestJobProgress:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             "configs/test.json",
             ["2025-01-16"],
             ["gpt-5", "claude-3.7-sonnet"]
         )
+        job_id = job_result["job_id"]
 
         manager.update_job_detail_status(job_id, "2025-01-16", "gpt-5", "completed")
 
@@ -311,7 +325,8 @@ class TestConcurrencyControl:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job("configs/test.json", ["2025-01-16"], ["gpt-5"])
+        job_result = manager.create_job("configs/test.json", ["2025-01-16"], ["gpt-5"])
+        job_id = job_result["job_id"]
         manager.update_job_status(job_id, "running")
 
         assert manager.can_start_new_job() is False
@@ -321,7 +336,8 @@ class TestConcurrencyControl:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job("configs/test.json", ["2025-01-16"], ["gpt-5"])
+        job_result = manager.create_job("configs/test.json", ["2025-01-16"], ["gpt-5"])
+        job_id = job_result["job_id"]
         manager.update_job_status(job_id, "completed")
 
         assert manager.can_start_new_job() is True
@@ -331,13 +347,15 @@ class TestConcurrencyControl:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job1_id = manager.create_job("configs/test.json", ["2025-01-16"], ["gpt-5"])
+        job1_result = manager.create_job("configs/test.json", ["2025-01-16"], ["gpt-5"])
+        job1_id = job1_result["job_id"]
 
         # Complete first job
         manager.update_job_status(job1_id, "completed")
 
         # Create second job
-        job2_id = manager.create_job("configs/test.json", ["2025-01-17"], ["gpt-5"])
+        job2_result = manager.create_job("configs/test.json", ["2025-01-17"], ["gpt-5"])
+        job2_id = job2_result["job_id"]
 
         running = manager.get_running_jobs()
         assert len(running) == 1
@@ -368,12 +386,13 @@ class TestJobCleanup:
         conn.close()
 
         # Create recent job
-        recent_id = manager.create_job("configs/test.json", ["2025-01-16"], ["gpt-5"])
+        recent_result = manager.create_job("configs/test.json", ["2025-01-16"], ["gpt-5"])
+        recent_id = recent_result["job_id"]
 
         # Cleanup jobs older than 30 days
-        result = manager.cleanup_old_jobs(days=30)
+        cleanup_result = manager.cleanup_old_jobs(days=30)
 
-        assert result["jobs_deleted"] == 1
+        assert cleanup_result["jobs_deleted"] == 1
         assert manager.get_job("old-job") is None
         assert manager.get_job(recent_id) is not None
 
@@ -387,7 +406,8 @@ class TestJobUpdateOperations:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job("configs/test.json", ["2025-01-16"], ["gpt-5"])
+        job_result = manager.create_job("configs/test.json", ["2025-01-16"], ["gpt-5"])
+        job_id = job_result["job_id"]
 
         manager.update_job_status(job_id, "failed", error="MCP service unavailable")
 
@@ -401,7 +421,8 @@ class TestJobUpdateOperations:
         import time
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job("configs/test.json", ["2025-01-16"], ["gpt-5"])
+        job_result = manager.create_job("configs/test.json", ["2025-01-16"], ["gpt-5"])
+        job_id = job_result["job_id"]
 
         # Start
         manager.update_job_detail_status(job_id, "2025-01-16", "gpt-5", "running")
@@ -432,11 +453,12 @@ class TestJobWarnings:
         job_manager = JobManager(db_path=clean_db)
 
         # Create a job
-        job_id = job_manager.create_job(
+        job_result = job_manager.create_job(
             config_path="config.json",
             date_range=["2025-10-01"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         # Add warnings
         warnings = ["Rate limit reached", "Skipped 2 dates"]
@@ -457,11 +479,12 @@ class TestStaleJobCleanup:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16", "2025-01-17"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         # Job is pending - simulate container restart
         result = manager.cleanup_stale_jobs()
@@ -478,11 +501,12 @@ class TestStaleJobCleanup:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16", "2025-01-17"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         # Mark job as running and complete one model-day
         manager.update_job_status(job_id, "running")
@@ -502,11 +526,12 @@ class TestStaleJobCleanup:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         # Mark as downloading data
         manager.update_job_status(job_id, "downloading_data")
@@ -524,11 +549,12 @@ class TestStaleJobCleanup:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16", "2025-01-17"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         # Mark job as running, one detail running, one pending
         manager.update_job_status(job_id, "running")
@@ -552,11 +578,12 @@ class TestStaleJobCleanup:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         # Complete the job
         manager.update_job_detail_status(job_id, "2025-01-16", "gpt-5", "completed")
@@ -575,28 +602,31 @@ class TestStaleJobCleanup:
         manager = JobManager(db_path=clean_db)
 
         # Create first job
-        job1_id = manager.create_job(
+        job1_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16"],
             models=["gpt-5"]
         )
+        job1_id = job1_result["job_id"]
         manager.update_job_status(job1_id, "running")
         manager.update_job_status(job1_id, "completed")
 
         # Create second job (pending)
-        job2_id = manager.create_job(
+        job2_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-17"],
             models=["gpt-5"]
         )
+        job2_id = job2_result["job_id"]
 
         # Create third job (running)
         manager.update_job_status(job2_id, "completed")
-        job3_id = manager.create_job(
+        job3_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-18"],
             models=["gpt-5"]
         )
+        job3_id = job3_result["job_id"]
         manager.update_job_status(job3_id, "running")
 
         # Simulate container restart

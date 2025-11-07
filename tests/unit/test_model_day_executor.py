@@ -112,11 +112,12 @@ class TestModelDayExecutorExecution:
 
         # Create job and job_detail
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path=str(config_path),
             date_range=["2025-01-16"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         # Mock agent execution
         mock_agent = create_mock_agent(
@@ -156,11 +157,12 @@ class TestModelDayExecutorExecution:
 
         # Create job
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         # Mock agent to raise error
         with patch("api.model_day_executor.RuntimeConfigManager") as mock_runtime:
@@ -212,11 +214,12 @@ class TestModelDayExecutorDataPersistence:
 
         # Create job
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path=str(config_path),
             date_range=["2025-01-16"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         # Mock successful execution (no trades)
         mock_agent = create_mock_agent(
@@ -269,11 +272,12 @@ class TestModelDayExecutorDataPersistence:
 
         # Create job
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         # Mock execution with reasoning
         mock_agent = create_mock_agent(
@@ -320,11 +324,12 @@ class TestModelDayExecutorCleanup:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         mock_agent = create_mock_agent(
             session_result={"success": True}
@@ -355,11 +360,12 @@ class TestModelDayExecutorCleanup:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         with patch("api.model_day_executor.RuntimeConfigManager") as mock_runtime:
             mock_instance = Mock()

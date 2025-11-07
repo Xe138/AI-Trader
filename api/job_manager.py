@@ -56,7 +56,7 @@ class JobManager:
         date_range: List[str],
         models: List[str],
         model_day_filter: Optional[List[tuple]] = None
-    ) -> str:
+    ) -> Dict[str, Any]:
         """
         Create new simulation job.
 
@@ -68,10 +68,12 @@ class JobManager:
                              If None, creates job_details for all model-date combinations.
 
         Returns:
-            job_id: UUID of created job
+            Dict with:
+              - job_id: UUID of created job
+              - warnings: List of warning messages for skipped simulations
 
         Raises:
-            ValueError: If another job is already running/pending
+            ValueError: If another job is already running/pending or if all simulations are already completed
         """
         if not self.can_start_new_job():
             raise ValueError("Another simulation job is already running or pending")
@@ -83,6 +85,43 @@ class JobManager:
         cursor = conn.cursor()
 
         try:
+            # Determine which model-day pairs to check
+            if model_day_filter is not None:
+                pairs_to_check = model_day_filter
+            else:
+                pairs_to_check = [(model, date) for date in date_range for model in models]
+
+            # Check for already-completed simulations
+            skipped_pairs = []
+            pending_pairs = []
+
+            for model, date in pairs_to_check:
+                cursor.execute("""
+                    SELECT COUNT(*)
+                    FROM job_details
+                    WHERE model = ? AND date = ? AND status = 'completed'
+                """, (model, date))
+
+                count = cursor.fetchone()[0]
+
+                if count > 0:
+                    skipped_pairs.append((model, date))
+                    logger.info(f"Skipping {model}/{date} - already completed in previous job")
+                else:
+                    pending_pairs.append((model, date))
+
+            # If all simulations are already completed, raise error
+            if len(pending_pairs) == 0:
+                warnings = [
+                    f"Skipped {model}/{date} - already completed"
+                    for model, date in skipped_pairs
+                ]
+                raise ValueError(
+                    f"All requested simulations are already completed. "
+                    f"Skipped {len(skipped_pairs)} model-day pair(s). "
+                    f"Details: {warnings}"
+                )
+
             # Insert job
             cursor.execute("""
                 INSERT INTO jobs (
@@ -98,34 +137,32 @@ class JobManager:
                 created_at
             ))
 
-            # Create job_details based on filter
-            if model_day_filter is not None:
-                # Only create job_details for specified model-day pairs
-                for model, date in model_day_filter:
-                    cursor.execute("""
-                        INSERT INTO job_details (
-                            job_id, date, model, status
-                        )
-                        VALUES (?, ?, ?, ?)
-                    """, (job_id, date, model, "pending"))
+            # Create job_details only for pending pairs
+            for model, date in pending_pairs:
+                cursor.execute("""
+                    INSERT INTO job_details (
+                        job_id, date, model, status
+                    )
+                    VALUES (?, ?, ?, ?)
+                """, (job_id, date, model, "pending"))
 
-                logger.info(f"Created job {job_id} with {len(model_day_filter)} model-day tasks (filtered)")
-            else:
-                # Create job_details for all model-day combinations
-                for date in date_range:
-                    for model in models:
-                        cursor.execute("""
-                            INSERT INTO job_details (
-                                job_id, date, model, status
-                            )
-                            VALUES (?, ?, ?, ?)
-                        """, (job_id, date, model, "pending"))
+            logger.info(f"Created job {job_id} with {len(pending_pairs)} model-day tasks")
 
-                logger.info(f"Created job {job_id} with {len(date_range)} dates and {len(models)} models")
+            if skipped_pairs:
+                logger.info(f"Skipped {len(skipped_pairs)} already-completed simulations")
 
             conn.commit()
 
-            return job_id
+            # Prepare warnings
+            warnings = [
+                f"Skipped {model}/{date} - already completed"
+                for model, date in skipped_pairs
+            ]
+
+            return {
+                "job_id": job_id,
+                "warnings": warnings
+            }
 
         finally:
             conn.close()

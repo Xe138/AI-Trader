@@ -41,11 +41,12 @@ class TestSkipStatusDatabase:
     def test_skipped_status_allowed_in_job_details(self, job_manager):
         """Test job_details accepts 'skipped' status without constraint violation."""
         # Create job
-        job_id = job_manager.create_job(
+        job_result = job_manager.create_job(
             config_path="test_config.json",
             date_range=["2025-10-01", "2025-10-02"],
             models=["test-model"]
         )
+        job_id = job_result["job_id"]
 
         # Mark a detail as skipped - should not raise constraint violation
         job_manager.update_job_detail_status(
@@ -70,11 +71,12 @@ class TestJobCompletionWithSkipped:
     def test_job_completes_with_all_dates_skipped(self, job_manager):
         """Test job transitions to completed when all dates are skipped."""
         # Create job with 3 dates
-        job_id = job_manager.create_job(
+        job_result = job_manager.create_job(
             config_path="test_config.json",
             date_range=["2025-10-01", "2025-10-02", "2025-10-03"],
             models=["test-model"]
         )
+        job_id = job_result["job_id"]
 
         # Mark all as skipped
         for date in ["2025-10-01", "2025-10-02", "2025-10-03"]:
@@ -93,11 +95,12 @@ class TestJobCompletionWithSkipped:
 
     def test_job_completes_with_mixed_completed_and_skipped(self, job_manager):
         """Test job completes when some dates completed, some skipped."""
-        job_id = job_manager.create_job(
+        job_result = job_manager.create_job(
             config_path="test_config.json",
             date_range=["2025-10-01", "2025-10-02", "2025-10-03"],
             models=["test-model"]
         )
+        job_id = job_result["job_id"]
 
         # Mark some completed, some skipped
         job_manager.update_job_detail_status(
@@ -119,11 +122,12 @@ class TestJobCompletionWithSkipped:
 
     def test_job_partial_with_mixed_completed_failed_skipped(self, job_manager):
         """Test job status 'partial' when some failed, some completed, some skipped."""
-        job_id = job_manager.create_job(
+        job_result = job_manager.create_job(
             config_path="test_config.json",
             date_range=["2025-10-01", "2025-10-02", "2025-10-03"],
             models=["test-model"]
         )
+        job_id = job_result["job_id"]
 
         # Mix of statuses
         job_manager.update_job_detail_status(
@@ -145,11 +149,12 @@ class TestJobCompletionWithSkipped:
 
     def test_job_remains_running_with_pending_dates(self, job_manager):
         """Test job stays running when some dates are still pending."""
-        job_id = job_manager.create_job(
+        job_result = job_manager.create_job(
             config_path="test_config.json",
             date_range=["2025-10-01", "2025-10-02", "2025-10-03"],
             models=["test-model"]
         )
+        job_id = job_result["job_id"]
 
         # Only mark some as terminal states
         job_manager.update_job_detail_status(
@@ -173,11 +178,12 @@ class TestProgressTrackingWithSkipped:
 
     def test_progress_includes_skipped_count(self, job_manager):
         """Test get_job_progress returns skipped count."""
-        job_id = job_manager.create_job(
+        job_result = job_manager.create_job(
             config_path="test_config.json",
             date_range=["2025-10-01", "2025-10-02", "2025-10-03", "2025-10-04"],
             models=["test-model"]
         )
+        job_id = job_result["job_id"]
 
         # Set various statuses
         job_manager.update_job_detail_status(
@@ -205,11 +211,12 @@ class TestProgressTrackingWithSkipped:
 
     def test_progress_all_skipped(self, job_manager):
         """Test progress when all dates are skipped."""
-        job_id = job_manager.create_job(
+        job_result = job_manager.create_job(
             config_path="test_config.json",
             date_range=["2025-10-01", "2025-10-02"],
             models=["test-model"]
         )
+        job_id = job_result["job_id"]
 
         # Mark all as skipped
         for date in ["2025-10-01", "2025-10-02"]:
@@ -231,11 +238,12 @@ class TestMultiModelSkipHandling:
 
     def test_different_models_different_skip_states(self, job_manager):
         """Test that different models can have different skip states for same date."""
-        job_id = job_manager.create_job(
+        job_result = job_manager.create_job(
             config_path="test_config.json",
             date_range=["2025-10-01", "2025-10-02"],
             models=["model-a", "model-b"]
         )
+        job_id = job_result["job_id"]
 
         # Model A: 10/1 skipped (already completed), 10/2 completed
         job_manager.update_job_detail_status(
@@ -276,11 +284,12 @@ class TestMultiModelSkipHandling:
 
     def test_job_completes_with_per_model_skips(self, job_manager):
         """Test job completes when different models have different skip patterns."""
-        job_id = job_manager.create_job(
+        job_result = job_manager.create_job(
             config_path="test_config.json",
             date_range=["2025-10-01", "2025-10-02"],
             models=["model-a", "model-b"]
         )
+        job_id = job_result["job_id"]
 
         # Model A: one skipped, one completed
         job_manager.update_job_detail_status(
@@ -318,11 +327,12 @@ class TestSkipReasons:
 
     def test_skip_reason_already_completed(self, job_manager):
         """Test 'Already completed' skip reason is stored."""
-        job_id = job_manager.create_job(
+        job_result = job_manager.create_job(
             config_path="test_config.json",
             date_range=["2025-10-01"],
             models=["test-model"]
         )
+        job_id = job_result["job_id"]
 
         job_manager.update_job_detail_status(
             job_id=job_id, date="2025-10-01", model="test-model",
@@ -334,11 +344,12 @@ class TestSkipReasons:
 
     def test_skip_reason_incomplete_price_data(self, job_manager):
         """Test 'Incomplete price data' skip reason is stored."""
-        job_id = job_manager.create_job(
+        job_result = job_manager.create_job(
             config_path="test_config.json",
             date_range=["2025-10-04"],
             models=["test-model"]
         )
+        job_id = job_result["job_id"]
 
         job_manager.update_job_detail_status(
             job_id=job_id, date="2025-10-04", model="test-model",

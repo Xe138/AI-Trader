@@ -405,11 +405,12 @@ class TestAsyncDownload:
         db_path = api_client.db_path
         job_manager = JobManager(db_path=db_path)
 
-        job_id = job_manager.create_job(
+        job_result = job_manager.create_job(
             config_path="config.json",
             date_range=["2025-10-01"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         # Add warnings
         warnings = ["Rate limited", "Skipped 1 date"]

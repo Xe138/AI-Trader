@@ -12,11 +12,12 @@ def test_worker_prepares_data_before_execution(tmp_path):
     job_manager = JobManager(db_path=db_path)
 
     # Create job
-    job_id = job_manager.create_job(
+    job_result = job_manager.create_job(
         config_path="configs/default_config.json",
         date_range=["2025-10-01"],
         models=["gpt-5"]
     )
+    job_id = job_result["job_id"]
 
     worker = SimulationWorker(job_id=job_id, db_path=db_path)
 
@@ -46,11 +47,12 @@ def test_worker_handles_no_available_dates(tmp_path):
     initialize_database(db_path)
     job_manager = JobManager(db_path=db_path)
 
-    job_id = job_manager.create_job(
+    job_result = job_manager.create_job(
         config_path="configs/default_config.json",
         date_range=["2025-10-01"],
         models=["gpt-5"]
     )
+    job_id = job_result["job_id"]
 
     worker = SimulationWorker(job_id=job_id, db_path=db_path)
 
@@ -74,11 +76,12 @@ def test_worker_stores_warnings(tmp_path):
     initialize_database(db_path)
     job_manager = JobManager(db_path=db_path)
 
-    job_id = job_manager.create_job(
+    job_result = job_manager.create_job(
         config_path="configs/default_config.json",
         date_range=["2025-10-01"],
         models=["gpt-5"]
     )
+    job_id = job_result["job_id"]
 
     worker = SimulationWorker(job_id=job_id, db_path=db_path)
 

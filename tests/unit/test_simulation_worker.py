@@ -41,11 +41,12 @@ class TestSimulationWorkerExecution:
 
         # Create job with 2 dates and 2 models = 4 model-days
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16", "2025-01-17"],
             models=["gpt-5", "claude-3.7-sonnet"]
         )
+        job_id = job_result["job_id"]
 
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
@@ -73,11 +74,12 @@ class TestSimulationWorkerExecution:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16", "2025-01-17"],
             models=["gpt-5", "claude-3.7-sonnet"]
         )
+        job_id = job_result["job_id"]
 
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
@@ -118,11 +120,12 @@ class TestSimulationWorkerExecution:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
@@ -159,11 +162,12 @@ class TestSimulationWorkerExecution:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16"],
             models=["gpt-5", "claude-3.7-sonnet"]
         )
+        job_id = job_result["job_id"]
 
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
@@ -214,11 +218,12 @@ class TestSimulationWorkerErrorHandling:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16"],
             models=["gpt-5", "claude-3.7-sonnet", "gemini"]
         )
+        job_id = job_result["job_id"]
 
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
@@ -259,11 +264,12 @@ class TestSimulationWorkerErrorHandling:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
@@ -289,11 +295,12 @@ class TestSimulationWorkerConcurrency:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16"],
             models=["gpt-5", "claude-3.7-sonnet"]
         )
+        job_id = job_result["job_id"]
 
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
 
@@ -335,11 +342,12 @@ class TestSimulationWorkerJobRetrieval:
         from api.job_manager import JobManager
 
         manager = JobManager(db_path=clean_db)
-        job_id = manager.create_job(
+        job_result = manager.create_job(
             config_path="configs/test.json",
             date_range=["2025-01-16", "2025-01-17"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         worker = SimulationWorker(job_id=job_id, db_path=clean_db)
         job_info = worker.get_job_info()
@@ -469,11 +477,12 @@ class TestSimulationWorkerHelperMethods:
         job_manager = JobManager(db_path=db_path)
 
         # Create job
-        job_id = job_manager.create_job(
+        job_result = job_manager.create_job(
             config_path="config.json",
             date_range=["2025-10-01"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         worker = SimulationWorker(job_id=job_id, db_path=db_path)
 
@@ -498,11 +507,12 @@ class TestSimulationWorkerHelperMethods:
         job_manager = JobManager(db_path=db_path)
 
         # Create job
-        job_id = job_manager.create_job(
+        job_result = job_manager.create_job(
             config_path="config.json",
             date_range=["2025-10-01"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         worker = SimulationWorker(job_id=job_id, db_path=db_path)
 
@@ -545,11 +555,12 @@ class TestSimulationWorkerHelperMethods:
         initialize_database(db_path)
         job_manager = JobManager(db_path=db_path)
 
-        job_id = job_manager.create_job(
+        job_result = job_manager.create_job(
             config_path="config.json",
             date_range=["2025-10-01"],
             models=["gpt-5"]
         )
+        job_id = job_result["job_id"]
 
         worker = SimulationWorker(job_id=job_id, db_path=db_path)
 

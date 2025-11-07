@@ -280,12 +280,18 @@ def create_app(
 
             # Create job immediately with all requested dates
             # Worker will handle data download and filtering
-            job_id = job_manager.create_job(
+            result = job_manager.create_job(
                 config_path=config_path,
                 date_range=all_dates,
                 models=models_to_run,
                 model_day_filter=None  # Worker will filter based on available data
             )
+            job_id = result["job_id"]
+            warnings = result.get("warnings", [])
+
+            # Log warnings if any simulations were skipped
+            if warnings:
+                logger.warning(f"Job {job_id} created with {len(warnings)} skipped simulations: {warnings}")
 
             # Start worker in background thread (only if not in test mode)
             if not getattr(app.state, "test_mode", False):
