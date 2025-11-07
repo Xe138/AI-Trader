@@ -202,6 +202,34 @@ bash main.sh
 - Search results: News filtered by publication date
 - All tools enforce temporal boundaries via `TODAY_DATE` from `runtime_env.json`
 
+### Duplicate Simulation Prevention
+
+**Automatic Skip Logic:**
+- `JobManager.create_job()` checks database for already-completed model-day pairs
+- Skips completed simulations automatically
+- Returns warnings list with skipped pairs
+- Raises `ValueError` if all requested simulations are already completed
+
+**Example:**
+```python
+result = job_manager.create_job(
+    config_path="config.json",
+    date_range=["2025-10-15", "2025-10-16"],
+    models=["model-a"],
+    model_day_filter=[("model-a", "2025-10-15")]  # Already completed
+)
+
+# result = {
+#     "job_id": "new-job-uuid",
+#     "warnings": ["Skipped model-a/2025-10-15 - already completed"]
+# }
+```
+
+**Cross-Job Portfolio Continuity:**
+- `get_current_position_from_db()` queries across ALL jobs for a given model
+- Enables portfolio continuity even when new jobs are created with overlapping dates
+- Starting position = most recent trading_day.ending_cash + holdings where date < current_date
+
 ## Configuration File Format
 
 ```json

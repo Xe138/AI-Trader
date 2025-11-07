@@ -66,3 +66,28 @@ See README.md for architecture diagram.
 - Search results filtered by publication date
 
 See [CLAUDE.md](../../CLAUDE.md) for implementation details.
+
+---
+
+## Position Tracking Across Jobs
+
+**Design:** Portfolio state is tracked per-model across all jobs, not per-job.
+
+**Query Logic:**
+```python
+# Get starting position for current trading day
+SELECT id, ending_cash FROM trading_days
+WHERE model = ? AND date < ?  # No job_id filter
+ORDER BY date DESC
+LIMIT 1
+```
+
+**Benefits:**
+- Portfolio continuity when creating new jobs with overlapping dates
+- Prevents accidental portfolio resets
+- Enables flexible job scheduling (resume, rerun, backfill)
+
+**Example:**
+- Job 1: Runs 2025-10-13 to 2025-10-15 for model-a
+- Job 2: Runs 2025-10-16 to 2025-10-20 for model-a
+- Job 2 starts with Job 1's ending position from 2025-10-15
