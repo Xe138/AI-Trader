@@ -318,6 +318,7 @@ def create_app(
                 status="pending",
                 total_model_days=len(all_dates) * len(models_to_run),
                 message=message,
+                warnings=warnings if warnings else None,
                 **deployment_info
             )
 

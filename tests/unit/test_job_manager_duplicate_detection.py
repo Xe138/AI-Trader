@@ -179,3 +179,35 @@ def test_create_job_returns_warnings_for_skipped_simulations(temp_db):
     details = manager.get_job_details(result["job_id"])
     assert len(details) == 1
     assert details[0]["date"] == "2025-10-16"
+
+
+def test_create_job_raises_error_when_all_simulations_completed(temp_db):
+    """Test that ValueError is raised when ALL requested simulations are already completed."""
+    manager = JobManager(db_path=temp_db)
+
+    # Create and complete first simulation
+    result_1 = manager.create_job(
+        config_path="test_config.json",
+        date_range=["2025-10-15", "2025-10-16"],
+        models=["model-a", "model-b"]
+    )
+    job_id_1 = result_1["job_id"]
+
+    # Mark all model-days as completed
+    manager.update_job_detail_status(job_id_1, "2025-10-15", "model-a", "completed")
+    manager.update_job_detail_status(job_id_1, "2025-10-15", "model-b", "completed")
+    manager.update_job_detail_status(job_id_1, "2025-10-16", "model-a", "completed")
+    manager.update_job_detail_status(job_id_1, "2025-10-16", "model-b", "completed")
+
+    # Try to create job with same date range and models (all already completed)
+    with pytest.raises(ValueError) as exc_info:
+        manager.create_job(
+            config_path="test_config.json",
+            date_range=["2025-10-15", "2025-10-16"],
+            models=["model-a", "model-b"]
+        )
+
+    # Verify error message contains expected text
+    error_message = str(exc_info.value)
+    assert "All requested simulations are already completed" in error_message
+    assert "Skipped 4 model-day pair(s)" in error_message
