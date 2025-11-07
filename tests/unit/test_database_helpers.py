@@ -130,6 +130,44 @@ class TestDatabaseHelpers:
         assert previous is not None
         assert previous["date"] == "2025-01-17"
 
+    def test_get_previous_trading_day_across_jobs(self, db):
+        """Test retrieving previous trading day from different job (cross-job continuity)."""
+        # Setup: Create two jobs
+        db.connection.execute(
+            "INSERT INTO jobs (job_id, status, config_path, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("job-1", "completed", "config.json", "2025-10-07,2025-10-07", "deepseek-chat-v3.1", "2025-11-07T00:00:00Z")
+        )
+        db.connection.execute(
+            "INSERT INTO jobs (job_id, status, config_path, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("job-2", "running", "config.json", "2025-10-08,2025-10-08", "deepseek-chat-v3.1", "2025-11-07T01:00:00Z")
+        )
+
+        # Day 1 in job-1
+        db.create_trading_day(
+            job_id="job-1",
+            model="deepseek-chat-v3.1",
+            date="2025-10-07",
+            starting_cash=10000.0,
+            starting_portfolio_value=10000.0,
+            daily_profit=214.58,
+            daily_return_pct=2.15,
+            ending_cash=123.59,
+            ending_portfolio_value=10214.58
+        )
+
+        # Test: Get previous day from job-2 on next date
+        # Should find job-1's record (cross-job continuity)
+        previous = db.get_previous_trading_day(
+            job_id="job-2",
+            model="deepseek-chat-v3.1",
+            current_date="2025-10-08"
+        )
+
+        assert previous is not None
+        assert previous["date"] == "2025-10-07"
+        assert previous["ending_cash"] == 123.59
+        assert previous["ending_portfolio_value"] == 10214.58
+
     def test_get_ending_holdings(self, db):
         """Test retrieving ending holdings for a trading day."""
         db.connection.execute(

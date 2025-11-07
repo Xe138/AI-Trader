@@ -611,6 +611,10 @@ class Database:
 
         Handles weekends/holidays by finding actual previous trading day.
 
+        NOTE: Queries across ALL jobs for the given model to enable portfolio
+        continuity even when new jobs are created with overlapping date ranges.
+        The job_id parameter is kept for API compatibility but not used in the query.
+
         Returns:
             dict with keys: id, date, ending_cash, ending_portfolio_value
             or None if no previous day exists
@@ -619,11 +623,11 @@ class Database:
             """
             SELECT id, date, ending_cash, ending_portfolio_value
             FROM trading_days
-            WHERE job_id = ? AND model = ? AND date < ?
+            WHERE model = ? AND date < ?
             ORDER BY date DESC
             LIMIT 1
             """,
-            (job_id, model, current_date)
+            (model, current_date)
         )
 
         row = cursor.fetchone()
