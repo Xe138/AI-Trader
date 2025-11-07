@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2025-11-07
+
+### Fixed
+- **Critical:** Fixed negative cash position bug where trades calculated from initial capital instead of accumulating
+  - Root cause: MCP tools return `CallToolResult` objects with position data in `structuredContent` field, but `ContextInjector` was checking `isinstance(result, dict)` which always failed
+  - Impact: Each trade checked cash against initial $10,000 instead of cumulative position, allowing over-spending and resulting in negative cash balances (e.g., -$8,768.68 after 11 trades totaling $18,768.68)
+  - Solution: Updated `ContextInjector` to extract position dict from `CallToolResult.structuredContent` before validation
+  - Fix ensures proper intra-day position tracking with cumulative cash checks preventing over-trading
+  - Updated unit tests to mock `CallToolResult` objects matching production MCP behavior
+  - Locations: `agent/context_injector.py:95-109`, `tests/unit/test_context_injector.py:26-53`
+- Enabled MCP service logging by redirecting stdout/stderr from `/dev/null` to main process for better debugging
+  - Previously, all MCP tool debug output was silently discarded
+  - Now visible in docker logs for diagnosing parameter injection and trade execution issues
+  - Location: `agent_tools/start_mcp_services.py:81-88`
+
 ### Fixed
 - **Critical:** Fixed stale jobs blocking new jobs after Docker container restart
   - Root cause: Jobs with status 'pending', 'downloading_data', or 'running' remained in database after container shutdown, preventing new job creation

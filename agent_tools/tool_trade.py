@@ -132,14 +132,11 @@ def _buy_impl(symbol: str, amount: int, signature: str = None, today_date: str =
         # Step 1: Get current position
         # Use injected position if available (for intra-day tracking),
         # otherwise query database for starting position
-        print(f"[DEBUG buy] _current_position received: {_current_position}")
         if _current_position is not None:
             current_position = _current_position
             next_action_id = 0  # Not used in new schema
-            print(f"[DEBUG buy] Using injected position: {current_position}")
         else:
             current_position, next_action_id = get_current_position_from_db(job_id, signature, today_date)
-            print(f"[DEBUG buy] Queried position from DB: {current_position}")
 
         # Step 2: Get stock price
         try:
@@ -192,8 +189,6 @@ def _buy_impl(symbol: str, amount: int, signature: str = None, today_date: str =
 
         conn.commit()
         print(f"[buy] {signature} bought {amount} shares of {symbol} at ${this_symbol_price}")
-        print(f"[DEBUG buy] Returning new_position: {new_position}")
-        print(f"[DEBUG buy] new_position keys: {list(new_position.keys())}")
         return new_position
 
     except Exception as e:
