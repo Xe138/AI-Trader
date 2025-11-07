@@ -284,7 +284,8 @@ def create_app(
                 config_path=config_path,
                 date_range=all_dates,
                 models=models_to_run,
-                model_day_filter=None  # Worker will filter based on available data
+                model_day_filter=None,  # Worker will filter based on available data
+                skip_completed=(not request.replace_existing)  # Skip if replace_existing=False
             )
             job_id = result["job_id"]
             warnings = result.get("warnings", [])

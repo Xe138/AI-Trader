@@ -211,3 +211,46 @@ def test_create_job_raises_error_when_all_simulations_completed(temp_db):
     error_message = str(exc_info.value)
     assert "All requested simulations are already completed" in error_message
     assert "Skipped 4 model-day pair(s)" in error_message
+
+
+def test_create_job_with_skip_completed_false_includes_all_simulations(temp_db):
+    """Test that skip_completed=False includes ALL simulations, even already-completed ones."""
+    manager = JobManager(db_path=temp_db)
+
+    # Create first job and complete some model-days
+    result_1 = manager.create_job(
+        config_path="test_config.json",
+        date_range=["2025-10-15", "2025-10-16"],
+        models=["model-a", "model-b"]
+    )
+    job_id_1 = result_1["job_id"]
+
+    # Mark all model-days as completed
+    manager.update_job_detail_status(job_id_1, "2025-10-15", "model-a", "completed")
+    manager.update_job_detail_status(job_id_1, "2025-10-15", "model-b", "completed")
+    manager.update_job_detail_status(job_id_1, "2025-10-16", "model-a", "completed")
+    manager.update_job_detail_status(job_id_1, "2025-10-16", "model-b", "completed")
+
+    # Create second job with skip_completed=False
+    result_2 = manager.create_job(
+        config_path="test_config.json",
+        date_range=["2025-10-15", "2025-10-16"],
+        models=["model-a", "model-b"],
+        skip_completed=False
+    )
+    job_id_2 = result_2["job_id"]
+
+    # Get job details for second job
+    details = manager.get_job_details(job_id_2)
+
+    # Should have ALL 4 model-day pairs (no skipping)
+    assert len(details) == 4
+
+    dates_models = [(d["date"], d["model"]) for d in details]
+    assert ("2025-10-15", "model-a") in dates_models
+    assert ("2025-10-15", "model-b") in dates_models
+    assert ("2025-10-16", "model-a") in dates_models
+    assert ("2025-10-16", "model-b") in dates_models
+
+    # Verify no warnings were returned
+    assert result_2.get("warnings") == []
