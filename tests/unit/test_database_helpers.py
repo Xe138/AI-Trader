@@ -262,6 +262,59 @@ class TestDatabaseHelpers:
         assert holdings[0]["symbol"] == "AAPL"
         assert holdings[0]["quantity"] == 10
 
+    def test_get_starting_holdings_across_jobs(self, db):
+        """Test starting holdings retrieval across different jobs (cross-job continuity)."""
+        # Setup: Create two jobs
+        db.connection.execute(
+            "INSERT INTO jobs (job_id, status, config_path, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("job-1", "completed", "config.json", "2025-10-07,2025-10-07", "deepseek-chat-v3.1", "2025-11-07T00:00:00Z")
+        )
+        db.connection.execute(
+            "INSERT INTO jobs (job_id, status, config_path, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("job-2", "running", "config.json", "2025-10-08,2025-10-08", "deepseek-chat-v3.1", "2025-11-07T01:00:00Z")
+        )
+
+        # Day 1 in job-1 with holdings
+        day1_id = db.create_trading_day(
+            job_id="job-1",
+            model="deepseek-chat-v3.1",
+            date="2025-10-07",
+            starting_cash=10000.0,
+            starting_portfolio_value=10000.0,
+            daily_profit=214.58,
+            daily_return_pct=2.15,
+            ending_cash=329.825,
+            ending_portfolio_value=10666.135
+        )
+        db.create_holding(day1_id, "AAPL", 10)
+        db.create_holding(day1_id, "AMD", 4)
+        db.create_holding(day1_id, "MSFT", 8)
+        db.create_holding(day1_id, "NVDA", 12)
+        db.create_holding(day1_id, "TSLA", 1)
+
+        # Day 2 in job-2 (different job)
+        day2_id = db.create_trading_day(
+            job_id="job-2",
+            model="deepseek-chat-v3.1",
+            date="2025-10-08",
+            starting_cash=329.825,
+            starting_portfolio_value=10609.475,
+            daily_profit=-56.66,
+            daily_return_pct=-0.53,
+            ending_cash=33.62,
+            ending_portfolio_value=329.825
+        )
+
+        # Test: Day 2 should get Day 1's holdings from different job
+        holdings = db.get_starting_holdings(day2_id)
+
+        assert len(holdings) == 5
+        assert {"symbol": "AAPL", "quantity": 10} in holdings
+        assert {"symbol": "AMD", "quantity": 4} in holdings
+        assert {"symbol": "MSFT", "quantity": 8} in holdings
+        assert {"symbol": "NVDA", "quantity": 12} in holdings
+        assert {"symbol": "TSLA", "quantity": 1} in holdings
+
     def test_create_action(self, db):
         """Test creating an action record."""
         db.connection.execute(

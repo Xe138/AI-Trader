@@ -661,6 +661,9 @@ class Database:
     def get_starting_holdings(self, trading_day_id: int) -> list:
         """Get starting holdings from previous day's ending holdings.
 
+        NOTE: Queries across ALL jobs for the given model to enable portfolio
+        continuity even when new jobs are created with overlapping date ranges.
+
         Returns:
             List of dicts with keys: symbol, quantity
             Empty list if first trading day
@@ -671,7 +674,6 @@ class Database:
             SELECT td_prev.id
             FROM trading_days td_current
             JOIN trading_days td_prev ON
-                td_prev.job_id = td_current.job_id AND
                 td_prev.model = td_current.model AND
                 td_prev.date < td_current.date
             WHERE td_current.id = ?
