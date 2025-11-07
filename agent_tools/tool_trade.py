@@ -34,8 +34,11 @@ def get_current_position_from_db(
     Returns ending holdings and cash from that previous day, which becomes the
     starting position for the current day.
 
+    NOTE: Searches across ALL jobs for the given model, enabling portfolio continuity
+    even when new jobs are created with overlapping date ranges.
+
     Args:
-        job_id: Job UUID
+        job_id: Job UUID (kept for compatibility but not used in query)
         model: Model signature
         date: Current trading date (will query for date < this)
         initial_cash: Initial cash if no prior data (first trading day)
@@ -51,13 +54,14 @@ def get_current_position_from_db(
 
     try:
         # Query most recent trading_day BEFORE current date (previous day's ending position)
+        # NOTE: Removed job_id filter to enable cross-job continuity
         cursor.execute("""
             SELECT id, ending_cash
             FROM trading_days
-            WHERE job_id = ? AND model = ? AND date < ?
+            WHERE model = ? AND date < ?
             ORDER BY date DESC
             LIMIT 1
-        """, (job_id, model, date))
+        """, (model, date))
 
         row = cursor.fetchone()
 
