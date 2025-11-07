@@ -9,10 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed Pydantic validation errors when using DeepSeek models via OpenRouter
-- Root cause: DeepSeek returns tool_calls in non-standard format with `args` field directly, bypassing LangChain's `parse_tool_call()`
-- Solution: Added `ToolCallArgsParsingWrapper` that normalizes non-standard tool_call format to OpenAI standard before LangChain processing
-- Wrapper converts `{name, args, id}` → `{function: {name, arguments}, id}` format
-- Includes diagnostic logging to identify format inconsistencies across providers
+- Root cause: LangChain's `parse_tool_call()` has a bug where it sometimes returns `args` as JSON string instead of parsed dict object
+- Solution: Added `ToolCallArgsParsingWrapper` that:
+  1. Patches `parse_tool_call()` to detect and fix string args by parsing them to dict
+  2. Normalizes non-standard tool_call formats (e.g., `{name, args, id}` → `{function: {name, arguments}, id}`)
+- The wrapper is defensive and only acts when needed, ensuring compatibility with all AI providers
+- Fixes validation error: `tool_calls.0.args: Input should be a valid dictionary [type=dict_type, input_value='...', input_type=str]`
 
 ## [0.4.1] - 2025-11-06
 
