@@ -88,9 +88,18 @@ class ContextInjector:
 
         # Update position state after successful trade
         if request.name in ["buy", "sell"]:
+            # Debug: Log result type and structure
+            print(f"[DEBUG ContextInjector] Trade result type: {type(result)}")
+            print(f"[DEBUG ContextInjector] Trade result: {result}")
+            print(f"[DEBUG ContextInjector] isinstance(result, dict): {isinstance(result, dict)}")
+
             # Check if result is a valid position dict (not an error)
             if isinstance(result, dict) and "error" not in result and "CASH" in result:
                 # Update our tracked position with the new state
                 self._current_position = result.copy()
+                print(f"[DEBUG ContextInjector] Updated _current_position: {self._current_position}")
+            else:
+                print(f"[DEBUG ContextInjector] Did NOT update _current_position - check failed")
+                print(f"[DEBUG ContextInjector] _current_position remains: {self._current_position}")
 
         return result
