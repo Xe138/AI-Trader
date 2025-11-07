@@ -699,6 +699,85 @@ class JobManager:
         finally:
             conn.close()
 
+    def cleanup_stale_jobs(self) -> Dict[str, int]:
+        """
+        Clean up stale jobs from container restarts.
+
+        Marks jobs with status 'pending', 'downloading_data', or 'running' as
+        'failed' or 'partial' based on completion percentage.
+
+        Called on application startup to reset interrupted jobs.
+
+        Returns:
+            Dict with jobs_cleaned count and details
+        """
+        conn = get_db_connection(self.db_path)
+        cursor = conn.cursor()
+
+        try:
+            # Find all stale jobs
+            cursor.execute("""
+                SELECT job_id, status
+                FROM jobs
+                WHERE status IN ('pending', 'downloading_data', 'running')
+            """)
+
+            stale_jobs = cursor.fetchall()
+            cleaned_count = 0
+
+            for job_id, original_status in stale_jobs:
+                # Get progress to determine if partially completed
+                cursor.execute("""
+                    SELECT
+                        COUNT(*) as total,
+                        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+                        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
+                    FROM job_details
+                    WHERE job_id = ?
+                """, (job_id,))
+
+                total, completed, failed = cursor.fetchone()
+                completed = completed or 0
+                failed = failed or 0
+
+                # Determine final status based on completion
+                if completed > 0:
+                    new_status = "partial"
+                    error_msg = f"Job interrupted by container restart (was {original_status}, {completed}/{total} model-days completed)"
+                else:
+                    new_status = "failed"
+                    error_msg = f"Job interrupted by container restart (was {original_status}, no progress made)"
+
+                # Mark incomplete job_details as failed
+                cursor.execute("""
+                    UPDATE job_details
+                    SET status = 'failed', error = 'Container restarted before completion'
+                    WHERE job_id = ? AND status IN ('pending', 'running')
+                """, (job_id,))
+
+                # Update job status
+                updated_at = datetime.utcnow().isoformat() + "Z"
+                cursor.execute("""
+                    UPDATE jobs
+                    SET status = ?, error = ?, completed_at = ?, updated_at = ?
+                    WHERE job_id = ?
+                """, (new_status, error_msg, updated_at, updated_at, job_id))
+
+                logger.warning(f"Cleaned up stale job {job_id}: {original_status} → {new_status} ({completed}/{total} completed)")
+                cleaned_count += 1
+
+            conn.commit()
+
+            if cleaned_count > 0:
+                logger.warning(f"⚠️  Cleaned up {cleaned_count} stale job(s) from previous container session")
+            else:
+                logger.info("✅ No stale jobs found")
+
+            return {"jobs_cleaned": cleaned_count}
+
+        finally:
+            conn.close()
+
     def cleanup_old_jobs(self, days: int = 30) -> Dict[str, int]:
         """
         Delete jobs older than threshold.

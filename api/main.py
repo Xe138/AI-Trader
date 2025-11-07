@@ -134,12 +134,14 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         """Initialize database on startup, cleanup on shutdown if needed"""
-        from tools.deployment_config import is_dev_mode, get_db_path
+        from tools.deployment_config import is_dev_mode, get_db_path, should_preserve_dev_data
         from api.database import initialize_dev_database, initialize_database
 
         # Startup - use closure to access db_path from create_app scope
         logger.info("🚀 FastAPI application starting...")
         logger.info("📊 Initializing database...")
+
+        should_cleanup_stale_jobs = False
 
         if is_dev_mode():
             # Initialize dev database (reset unless PRESERVE_DEV_DATA=true)
@@ -147,12 +149,24 @@ def create_app(
             dev_db_path = get_db_path(db_path)
             initialize_dev_database(dev_db_path)
             log_dev_mode_startup_warning()
+
+            # Only cleanup stale jobs if preserving dev data (otherwise DB is fresh)
+            if should_preserve_dev_data():
+                should_cleanup_stale_jobs = True
         else:
             # Ensure production database schema exists
             logger.info("  🏭 PROD mode - ensuring database schema exists")
             initialize_database(db_path)
+            should_cleanup_stale_jobs = True
 
         logger.info("✅ Database initialized")
+
+        # Clean up stale jobs from previous container session
+        if should_cleanup_stale_jobs:
+            logger.info("🧹 Checking for stale jobs from previous session...")
+            job_manager = JobManager(get_db_path(db_path) if is_dev_mode() else db_path)
+            job_manager.cleanup_stale_jobs()
+
         logger.info("🌐 API server ready to accept requests")
 
         yield

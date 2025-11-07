@@ -8,13 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Critical:** Fixed stale jobs blocking new jobs after Docker container restart
+  - Root cause: Jobs with status 'pending', 'downloading_data', or 'running' remained in database after container shutdown, preventing new job creation
+  - Solution: Added `cleanup_stale_jobs()` method that runs on FastAPI startup to mark interrupted jobs as 'failed' or 'partial' based on completion percentage
+  - Intelligent status determination: Uses existing progress tracking (completed/total model-days) to distinguish between failed (0% complete) and partial (>0% complete)
+  - Detailed error messages include original status and completion counts (e.g., "Job interrupted by container restart (was running, 3/10 model-days completed)")
+  - Incomplete job_details automatically marked as 'failed' with clear error messages
+  - Deployment-aware: Skips cleanup in DEV mode when database is reset, always runs in PROD mode
+  - Comprehensive test coverage: 6 new unit tests covering all cleanup scenarios
+  - Locations: `api/job_manager.py:702-779`, `api/main.py:164-168`, `tests/unit/test_job_manager.py:451-609`
 - Fixed Pydantic validation errors when using DeepSeek models via OpenRouter
-- Root cause: LangChain's `parse_tool_call()` has a bug where it sometimes returns `args` as JSON string instead of parsed dict object
-- Solution: Added `ToolCallArgsParsingWrapper` that:
-  1. Patches `parse_tool_call()` to detect and fix string args by parsing them to dict
-  2. Normalizes non-standard tool_call formats (e.g., `{name, args, id}` → `{function: {name, arguments}, id}`)
-- The wrapper is defensive and only acts when needed, ensuring compatibility with all AI providers
-- Fixes validation error: `tool_calls.0.args: Input should be a valid dictionary [type=dict_type, input_value='...', input_type=str]`
+  - Root cause: LangChain's `parse_tool_call()` has a bug where it sometimes returns `args` as JSON string instead of parsed dict object
+  - Solution: Added `ToolCallArgsParsingWrapper` that:
+    1. Patches `parse_tool_call()` to detect and fix string args by parsing them to dict
+    2. Normalizes non-standard tool_call formats (e.g., `{name, args, id}` → `{function: {name, arguments}, id}`)
+  - The wrapper is defensive and only acts when needed, ensuring compatibility with all AI providers
+  - Fixes validation error: `tool_calls.0.args: Input should be a valid dictionary [type=dict_type, input_value='...', input_type=str]`
 
 ## [0.4.1] - 2025-11-06
 

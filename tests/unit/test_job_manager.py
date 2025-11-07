@@ -448,4 +448,164 @@ class TestJobWarnings:
         assert stored_warnings == warnings
 
 
+@pytest.mark.unit
+class TestStaleJobCleanup:
+    """Test cleanup of stale jobs from container restarts."""
+
+    def test_cleanup_stale_pending_job(self, clean_db):
+        """Should mark pending job as failed with no progress."""
+        from api.job_manager import JobManager
+
+        manager = JobManager(db_path=clean_db)
+        job_id = manager.create_job(
+            config_path="configs/test.json",
+            date_range=["2025-01-16", "2025-01-17"],
+            models=["gpt-5"]
+        )
+
+        # Job is pending - simulate container restart
+        result = manager.cleanup_stale_jobs()
+
+        assert result["jobs_cleaned"] == 1
+        job = manager.get_job(job_id)
+        assert job["status"] == "failed"
+        assert "container restart" in job["error"].lower()
+        assert "pending" in job["error"]
+        assert "no progress" in job["error"]
+
+    def test_cleanup_stale_running_job_with_partial_progress(self, clean_db):
+        """Should mark running job as partial if some model-days completed."""
+        from api.job_manager import JobManager
+
+        manager = JobManager(db_path=clean_db)
+        job_id = manager.create_job(
+            config_path="configs/test.json",
+            date_range=["2025-01-16", "2025-01-17"],
+            models=["gpt-5"]
+        )
+
+        # Mark job as running and complete one model-day
+        manager.update_job_status(job_id, "running")
+        manager.update_job_detail_status(job_id, "2025-01-16", "gpt-5", "completed")
+
+        # Simulate container restart
+        result = manager.cleanup_stale_jobs()
+
+        assert result["jobs_cleaned"] == 1
+        job = manager.get_job(job_id)
+        assert job["status"] == "partial"
+        assert "container restart" in job["error"].lower()
+        assert "1/2" in job["error"]  # 1 out of 2 model-days completed
+
+    def test_cleanup_stale_downloading_data_job(self, clean_db):
+        """Should mark downloading_data job as failed."""
+        from api.job_manager import JobManager
+
+        manager = JobManager(db_path=clean_db)
+        job_id = manager.create_job(
+            config_path="configs/test.json",
+            date_range=["2025-01-16"],
+            models=["gpt-5"]
+        )
+
+        # Mark as downloading data
+        manager.update_job_status(job_id, "downloading_data")
+
+        # Simulate container restart
+        result = manager.cleanup_stale_jobs()
+
+        assert result["jobs_cleaned"] == 1
+        job = manager.get_job(job_id)
+        assert job["status"] == "failed"
+        assert "downloading_data" in job["error"]
+
+    def test_cleanup_marks_incomplete_job_details_as_failed(self, clean_db):
+        """Should mark incomplete job_details as failed."""
+        from api.job_manager import JobManager
+
+        manager = JobManager(db_path=clean_db)
+        job_id = manager.create_job(
+            config_path="configs/test.json",
+            date_range=["2025-01-16", "2025-01-17"],
+            models=["gpt-5"]
+        )
+
+        # Mark job as running, one detail running, one pending
+        manager.update_job_status(job_id, "running")
+        manager.update_job_detail_status(job_id, "2025-01-16", "gpt-5", "running")
+
+        # Simulate container restart
+        manager.cleanup_stale_jobs()
+
+        # Check job_details were marked as failed
+        progress = manager.get_job_progress(job_id)
+        assert progress["failed"] == 2  # Both model-days marked failed
+        assert progress["pending"] == 0
+
+        details = manager.get_job_details(job_id)
+        for detail in details:
+            assert detail["status"] == "failed"
+            assert "container restarted" in detail["error"].lower()
+
+    def test_cleanup_no_stale_jobs(self, clean_db):
+        """Should report 0 cleaned jobs when none are stale."""
+        from api.job_manager import JobManager
+
+        manager = JobManager(db_path=clean_db)
+        job_id = manager.create_job(
+            config_path="configs/test.json",
+            date_range=["2025-01-16"],
+            models=["gpt-5"]
+        )
+
+        # Complete the job
+        manager.update_job_detail_status(job_id, "2025-01-16", "gpt-5", "completed")
+
+        # Simulate container restart
+        result = manager.cleanup_stale_jobs()
+
+        assert result["jobs_cleaned"] == 0
+        job = manager.get_job(job_id)
+        assert job["status"] == "completed"
+
+    def test_cleanup_multiple_stale_jobs(self, clean_db):
+        """Should clean up multiple stale jobs."""
+        from api.job_manager import JobManager
+
+        manager = JobManager(db_path=clean_db)
+
+        # Create first job
+        job1_id = manager.create_job(
+            config_path="configs/test.json",
+            date_range=["2025-01-16"],
+            models=["gpt-5"]
+        )
+        manager.update_job_status(job1_id, "running")
+        manager.update_job_status(job1_id, "completed")
+
+        # Create second job (pending)
+        job2_id = manager.create_job(
+            config_path="configs/test.json",
+            date_range=["2025-01-17"],
+            models=["gpt-5"]
+        )
+
+        # Create third job (running)
+        manager.update_job_status(job2_id, "completed")
+        job3_id = manager.create_job(
+            config_path="configs/test.json",
+            date_range=["2025-01-18"],
+            models=["gpt-5"]
+        )
+        manager.update_job_status(job3_id, "running")
+
+        # Simulate container restart
+        result = manager.cleanup_stale_jobs()
+
+        assert result["jobs_cleaned"] == 1  # Only job3 is running
+        assert manager.get_job(job1_id)["status"] == "completed"
+        assert manager.get_job(job2_id)["status"] == "completed"
+        assert manager.get_job(job3_id)["status"] == "failed"
+
+
 # Coverage target: 95%+ for api/job_manager.py
