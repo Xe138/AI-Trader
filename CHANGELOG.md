@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2025-11-07
+
+### Fixed
+- **Critical:** Fixed cross-job portfolio continuity bug where subsequent jobs reset to initial position
+  - Root cause: Two database query functions (`get_previous_trading_day()` and `get_starting_holdings()`) filtered by `job_id`, preventing them from finding previous day's position when queried from a different job
+  - Impact: New jobs on consecutive dates would start with $10,000 cash and empty holdings instead of continuing from previous job's ending position (e.g., Job 2 on 2025-10-08 started with $10,000 instead of $329.825 cash and lost all stock holdings from Job 1 on 2025-10-07)
+  - Solution: Removed `job_id` filters from SQL queries to enable cross-job position lookups, matching the existing design in `get_current_position_from_db()` which already supported cross-job continuity
+  - Fix ensures complete portfolio continuity (both cash and holdings) across jobs for the same model
+  - Added comprehensive test coverage with `test_get_previous_trading_day_across_jobs` and `test_get_starting_holdings_across_jobs`
+  - Locations: `api/database.py:622-630` (get_previous_trading_day), `api/database.py:674-681` (get_starting_holdings), `tests/unit/test_database_helpers.py:133-169,265-316`
+
 ## [0.4.2] - 2025-11-07
 
 ### Fixed
