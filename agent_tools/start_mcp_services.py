@@ -78,10 +78,11 @@ class MCPServiceManager:
             env['PYTHONPATH'] = str(Path.cwd())
 
             # Start service process (output goes to Docker logs)
+            # Enable stdout/stderr for debugging (previously sent to DEVNULL)
             process = subprocess.Popen(
                 [sys.executable, str(script_path)],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=sys.stdout,  # Redirect to main process stdout
+                stderr=sys.stderr,  # Redirect to main process stderr
                 cwd=Path.cwd(),  # Use current working directory (/app)
                 env=env  # Pass environment with PYTHONPATH
             )
