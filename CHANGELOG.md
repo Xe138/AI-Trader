@@ -7,7 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-11-07
+
 ### Added
+- **Comprehensive Test Coverage Improvements** - Increased coverage from 61% to 84.81% (+23.81 percentage points)
+  - 406 passing tests (up from 364 with 42 failures)
+  - Added 57 new tests across 7 modules
+  - New test suites:
+    - `tools/general_tools.py`: 26 tests (97% coverage) - config management, conversation extraction
+    - `tools/price_tools.py`: 11 tests - NASDAQ symbol validation, weekend date handling
+    - `api/price_data_manager.py`: 12 tests (85% coverage) - date expansion, prioritization, progress callbacks
+    - `api/routes/results_v2.py`: 3 tests (98% coverage) - validation, deprecated parameters
+    - `agent/reasoning_summarizer.py`: 2 tests (87% coverage) - trade formatting, error handling
+    - `api/routes/period_metrics.py`: 2 tests (100% coverage) - edge cases
+    - `agent/mock_provider`: 1 test (100% coverage) - string representation
+- **Database Connection Management** - Context manager pattern to prevent connection leaks
+  - New `db_connection()` context manager for guaranteed cleanup
+  - Updated 16+ test files to use context managers
+  - Fixes 42 test failures caused by SQLite database locking
 - **Date Range Support in /results Endpoint** - Query multiple dates in single request with period performance metrics
   - `start_date` and `end_date` parameters replace deprecated `date` parameter
   - Returns lightweight format with daily portfolio values and period metrics for date ranges
@@ -22,6 +39,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Single date: `?start_date=2025-01-16` or `?end_date=2025-01-16`
   - Date range: `?start_date=2025-01-16&end_date=2025-01-20`
   - Old `?date=2025-01-16` now returns 422 error with migration instructions
+- Database schema improvements:
+  - Added CHECK constraint for `action_type` field (must be 'buy', 'sell', or 'hold')
+  - Added ON DELETE CASCADE to trading_days foreign key
+  - Updated `drop_all_tables()` to match new schema (trading_days, actions vs old positions, trading_sessions)
+
+### Fixed
+- **Critical:** Database connection leaks causing 42 test failures
+  - Root cause: Tests opened SQLite connections but didn't close them on failures
+  - Solution: Created `db_connection()` context manager with guaranteed cleanup in finally block
+  - All test files updated to use context managers
+- Test suite SQL statement errors:
+  - Updated INSERT statements with all required fields (config_path, date_range, models, created_at)
+  - Fixed SQL binding mismatches in test fixtures
+- API integration test failures:
+  - Fixed date parameter handling for new results endpoint
+  - Updated test assertions for API field name changes
 
 ### Migration Guide
 
