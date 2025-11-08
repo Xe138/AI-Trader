@@ -3,6 +3,8 @@
 from fastapi import APIRouter, Query, Depends
 from typing import Optional, Literal
 import json
+import os
+from datetime import datetime, timedelta
 
 from api.database import Database
 
@@ -12,6 +14,65 @@ router = APIRouter()
 def get_database() -> Database:
     """Dependency for database instance."""
     return Database()
+
+
+def validate_and_resolve_dates(
+    start_date: Optional[str],
+    end_date: Optional[str]
+) -> tuple[str, str]:
+    """Validate and resolve date parameters.
+
+    Args:
+        start_date: Start date (YYYY-MM-DD) or None
+        end_date: End date (YYYY-MM-DD) or None
+
+    Returns:
+        Tuple of (resolved_start_date, resolved_end_date)
+
+    Raises:
+        ValueError: If dates are invalid
+    """
+    # Default lookback days
+    default_lookback = int(os.getenv("DEFAULT_RESULTS_LOOKBACK_DAYS", "30"))
+
+    # Handle None cases
+    if start_date is None and end_date is None:
+        # Default to last N days
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=default_lookback)
+        return start_dt.strftime("%Y-%m-%d"), end_dt.strftime("%Y-%m-%d")
+
+    if start_date is None:
+        # Only end_date provided -> single date
+        start_date = end_date
+
+    if end_date is None:
+        # Only start_date provided -> single date
+        end_date = start_date
+
+    # Validate date formats
+    try:
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+
+        # Ensure strict YYYY-MM-DD format (e.g., reject "2025-1-16")
+        if start_date != start_dt.strftime("%Y-%m-%d"):
+            raise ValueError(f"Invalid date format. Expected YYYY-MM-DD")
+        if end_date != end_dt.strftime("%Y-%m-%d"):
+            raise ValueError(f"Invalid date format. Expected YYYY-MM-DD")
+    except ValueError:
+        raise ValueError(f"Invalid date format. Expected YYYY-MM-DD")
+
+    # Validate order
+    if start_dt > end_dt:
+        raise ValueError("start_date must be <= end_date")
+
+    # Validate not future
+    now = datetime.now()
+    if start_dt.date() > now.date() or end_dt.date() > now.date():
+        raise ValueError("Cannot query future dates")
+
+    return start_date, end_date
 
 
 @router.get("/results")
