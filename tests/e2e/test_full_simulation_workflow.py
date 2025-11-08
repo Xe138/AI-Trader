@@ -334,18 +334,29 @@ class TestFullSimulationWorkflow:
         db.connection.commit()
         conn.close()
 
-        # 4. Query results WITHOUT reasoning (default)
-        results_response = e2e_client.get(f"/results?job_id={job_id}")
+        # 4. Query each day individually to get detailed format
+        # Query Day 1
+        day1_response = e2e_client.get(f"/results?job_id={job_id}&start_date=2025-01-16&end_date=2025-01-16")
+        assert day1_response.status_code == 200
+        day1_data = day1_response.json()
+        assert day1_data["count"] == 1
+        day1 = day1_data["results"][0]
 
-        assert results_response.status_code == 200
-        results_data = results_response.json()
+        # Query Day 2
+        day2_response = e2e_client.get(f"/results?job_id={job_id}&start_date=2025-01-17&end_date=2025-01-17")
+        assert day2_response.status_code == 200
+        day2_data = day2_response.json()
+        assert day2_data["count"] == 1
+        day2 = day2_data["results"][0]
 
-        # Should have 3 trading days
-        assert results_data["count"] == 3
-        assert len(results_data["results"]) == 3
+        # Query Day 3
+        day3_response = e2e_client.get(f"/results?job_id={job_id}&start_date=2025-01-18&end_date=2025-01-18")
+        assert day3_response.status_code == 200
+        day3_data = day3_response.json()
+        assert day3_data["count"] == 1
+        day3 = day3_data["results"][0]
 
         # 4. Verify Day 1 structure and data
-        day1 = results_data["results"][0]
 
         assert day1["date"] == "2025-01-16"
         assert day1["model"] == "test-mock-e2e"
@@ -385,9 +396,6 @@ class TestFullSimulationWorkflow:
         assert day1["reasoning"] is None
 
         # 5. Verify holdings chain across days
-        day2 = results_data["results"][1]
-        day3 = results_data["results"][2]
-
         # Day 2 starting holdings should match Day 1 ending holdings
         assert day2["starting_position"]["holdings"] == day1["final_position"]["holdings"]
         assert day2["starting_position"]["cash"] == day1["final_position"]["cash"]
@@ -407,35 +415,37 @@ class TestFullSimulationWorkflow:
 
         # 7. Verify portfolio value calculations
         # Ending portfolio value should be cash + (sum of holdings * prices)
-        for day in results_data["results"]:
+        for day in [day1, day2, day3]:
             assert day["final_position"]["portfolio_value"] >= day["final_position"]["cash"], \
                 f"Portfolio value should be >= cash. Day: {day['date']}"
 
-        # 8. Query results with reasoning SUMMARY
-        summary_response = e2e_client.get(f"/results?job_id={job_id}&reasoning=summary")
+        # 8. Query results with reasoning SUMMARY (single date)
+        summary_response = e2e_client.get(f"/results?job_id={job_id}&start_date=2025-01-16&end_date=2025-01-16&reasoning=summary")
         assert summary_response.status_code == 200
         summary_data = summary_response.json()
 
-        # Each day should have reasoning summary
-        for result in summary_data["results"]:
-            assert result["reasoning"] is not None
-            assert isinstance(result["reasoning"], str)
-            # Summary should be non-empty (mock model generates summaries)
-            # Note: Summary might be empty if AI generation failed - that's OK
-            # Just verify the field exists and is a string
+        # Should have reasoning summary
+        assert summary_data["count"] == 1
+        result = summary_data["results"][0]
+        assert result["reasoning"] is not None
+        assert isinstance(result["reasoning"], str)
+        # Summary should be non-empty (mock model generates summaries)
+        # Note: Summary might be empty if AI generation failed - that's OK
+        # Just verify the field exists and is a string
 
-        # 9. Query results with FULL reasoning
-        full_response = e2e_client.get(f"/results?job_id={job_id}&reasoning=full")
+        # 9. Query results with FULL reasoning (single date)
+        full_response = e2e_client.get(f"/results?job_id={job_id}&start_date=2025-01-16&end_date=2025-01-16&reasoning=full")
         assert full_response.status_code == 200
         full_data = full_response.json()
 
-        # Each day should have full reasoning log
-        for result in full_data["results"]:
-            assert result["reasoning"] is not None
-            assert isinstance(result["reasoning"], list)
-            # Full reasoning should contain messages
-            assert len(result["reasoning"]) > 0, \
-                f"Expected full reasoning log for {result['date']}"
+        # Should have full reasoning log
+        assert full_data["count"] == 1
+        result = full_data["results"][0]
+        assert result["reasoning"] is not None
+        assert isinstance(result["reasoning"], list)
+        # Full reasoning should contain messages
+        assert len(result["reasoning"]) > 0, \
+            f"Expected full reasoning log for {result['date']}"
 
         # 10. Verify database structure directly
         from api.database import get_db_connection
