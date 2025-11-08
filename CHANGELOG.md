@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Date Range Support in /results Endpoint** - Query multiple dates in single request with period performance metrics
+  - `start_date` and `end_date` parameters replace deprecated `date` parameter
+  - Returns lightweight format with daily portfolio values and period metrics for date ranges
+  - Period metrics: period return %, annualized return %, calendar days, trading days
+  - Default to last 30 days when no dates provided (configurable via `DEFAULT_RESULTS_LOOKBACK_DAYS`)
+  - Automatic edge trimming when requested range exceeds available data
+  - Per-model results grouping
+- **Environment Variable:** `DEFAULT_RESULTS_LOOKBACK_DAYS` - Configure default lookback period (default: 30)
+
+### Changed
+- **BREAKING:** `/results` endpoint parameter `date` removed - use `start_date`/`end_date` instead
+  - Single date: `?start_date=2025-01-16` or `?end_date=2025-01-16`
+  - Date range: `?start_date=2025-01-16&end_date=2025-01-20`
+  - Old `?date=2025-01-16` now returns 422 error with migration instructions
+
+### Migration Guide
+
+**Before:**
+```bash
+GET /results?date=2025-01-16&model=gpt-4
+```
+
+**After:**
+```bash
+# Option 1: Use start_date only
+GET /results?start_date=2025-01-16&model=gpt-4
+
+# Option 2: Use both (same result for single date)
+GET /results?start_date=2025-01-16&end_date=2025-01-16&model=gpt-4
+
+# New: Date range queries
+GET /results?start_date=2025-01-16&end_date=2025-01-20&model=gpt-4
+```
+
+**Python Client:**
+```python
+# OLD (will break)
+results = client.get_results(date="2025-01-16")
+
+# NEW
+results = client.get_results(start_date="2025-01-16")
+results = client.get_results(start_date="2025-01-16", end_date="2025-01-20")
+```
+
 ## [0.4.3] - 2025-11-07
 
 ### Fixed
