@@ -232,14 +232,13 @@ class TestSimulateStatusEndpoint:
 class TestResultsEndpoint:
     """Test GET /results endpoint."""
 
-    def test_results_returns_all_results(self, api_client):
-        """Should return all results without filters."""
+    def test_results_returns_404_when_no_data(self, api_client):
+        """Should return 404 when no data exists for default date range."""
         response = api_client.get("/results")
 
-        assert response.status_code == 200
-        data = response.json()
-        assert "results" in data
-        assert isinstance(data["results"], list)
+        # With new endpoint, no data returns 404
+        assert response.status_code == 404
+        assert "No trading data found" in response.json()["detail"]
 
     def test_results_filters_by_job_id(self, api_client):
         """Should filter results by job_id."""
@@ -261,38 +260,32 @@ class TestResultsEndpoint:
 
     def test_results_filters_by_date(self, api_client):
         """Should filter results by date."""
-        response = api_client.get("/results?date=2025-01-16")
+        response = api_client.get("/results?start_date=2025-01-16&end_date=2025-01-16")
 
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data["results"], list)
+        # No data exists, should return 404
+        assert response.status_code == 404
 
     def test_results_filters_by_model(self, api_client):
         """Should filter results by model."""
         response = api_client.get("/results?model=gpt-4")
 
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data["results"], list)
+        # No data exists, should return 404
+        assert response.status_code == 404
 
     def test_results_combines_multiple_filters(self, api_client):
         """Should support multiple filter parameters."""
-        response = api_client.get("/results?date=2025-01-16&model=gpt-4")
+        response = api_client.get("/results?start_date=2025-01-16&end_date=2025-01-16&model=gpt-4")
 
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data["results"], list)
+        # No data exists, should return 404
+        assert response.status_code == 404
 
     def test_results_includes_position_data(self, api_client):
         """Should include position and holdings data."""
         # This test will pass once we have actual data
         response = api_client.get("/results")
 
-        assert response.status_code == 200
-        data = response.json()
-        # Each result should have expected structure
-        for result in data["results"]:
-            assert "job_id" in result or True  # Pass if empty
+        # No data exists, should return 404
+        assert response.status_code == 404
 
 
 @pytest.mark.integration
