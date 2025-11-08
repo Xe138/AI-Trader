@@ -1,7 +1,7 @@
 import os
 import pytest
 from pathlib import Path
-from api.database import initialize_dev_database, cleanup_dev_database
+from api.database import initialize_dev_database, cleanup_dev_database, db_connection
 
 
 @pytest.fixture
@@ -30,18 +30,16 @@ def test_initialize_dev_database_creates_fresh_db(tmp_path, clean_env):
     # Create initial database with some data
     from api.database import get_db_connection, initialize_database
     initialize_database(db_path)
-    conn = get_db_connection(db_path)
-    conn.execute("INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                 ("test-job", "config.json", "completed", "2025-01-01:2025-01-31", '["model1"]', "2025-01-01T00:00:00"))
-    conn.commit()
-    conn.close()
+    with db_connection(db_path) as conn:
+        conn.execute("INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                     ("test-job", "config.json", "completed", "2025-01-01:2025-01-31", '["model1"]', "2025-01-01T00:00:00"))
+        conn.commit()
 
     # Verify data exists
-    conn = get_db_connection(db_path)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM jobs")
-    assert cursor.fetchone()[0] == 1
-    conn.close()
+    with db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM jobs")
+        assert cursor.fetchone()[0] == 1
 
     # Close all connections before reinitializing
     conn.close()
@@ -59,11 +57,10 @@ def test_initialize_dev_database_creates_fresh_db(tmp_path, clean_env):
     initialize_dev_database(db_path)
 
     # Verify data is cleared
-    conn = get_db_connection(db_path)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM jobs")
-    count = cursor.fetchone()[0]
-    conn.close()
+    with db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM jobs")
+        count = cursor.fetchone()[0]
     assert count == 0, f"Expected 0 jobs after reinitialization, found {count}"
 
 
@@ -97,21 +94,19 @@ def test_initialize_dev_respects_preserve_flag(tmp_path, clean_env):
     # Create database with data
     from api.database import get_db_connection, initialize_database
     initialize_database(db_path)
-    conn = get_db_connection(db_path)
-    conn.execute("INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                 ("test-job", "config.json", "completed", "2025-01-01:2025-01-31", '["model1"]', "2025-01-01T00:00:00"))
-    conn.commit()
-    conn.close()
+    with db_connection(db_path) as conn:
+        conn.execute("INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                     ("test-job", "config.json", "completed", "2025-01-01:2025-01-31", '["model1"]', "2025-01-01T00:00:00"))
+        conn.commit()
 
     # Initialize with preserve flag
     initialize_dev_database(db_path)
 
     # Verify data is preserved
-    conn = get_db_connection(db_path)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM jobs")
-    assert cursor.fetchone()[0] == 1
-    conn.close()
+    with db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM jobs")
+        assert cursor.fetchone()[0] == 1
 
 
 def test_get_db_connection_resolves_dev_path():

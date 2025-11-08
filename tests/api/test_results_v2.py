@@ -46,9 +46,15 @@ def test_validate_both_dates():
 
 
 def test_validate_invalid_date_format():
-    """Test error on invalid date format."""
+    """Test error on invalid start_date format."""
     with pytest.raises(ValueError, match="Invalid date format"):
         validate_and_resolve_dates("2025-1-16", "2025-01-20")
+
+
+def test_validate_invalid_end_date_format():
+    """Test error on invalid end_date format."""
+    with pytest.raises(ValueError, match="Invalid date format"):
+        validate_and_resolve_dates("2025-01-16", "2025-1-20")
 
 
 def test_validate_start_after_end():
@@ -220,3 +226,46 @@ def test_get_results_empty_404(test_db):
 
     assert response.status_code == 404
     assert "No trading data found" in response.json()["detail"]
+
+
+def test_deprecated_date_parameter(test_db):
+    """Test that deprecated 'date' parameter returns 422 error."""
+    app = create_app(db_path=test_db.db_path)
+    app.state.test_mode = True
+
+    # Override the database dependency to use our test database
+    from api.routes.results_v2 import get_database
+
+    def override_get_database():
+        return test_db
+
+    app.dependency_overrides[get_database] = override_get_database
+
+    client = TestClient(app)
+
+    response = client.get("/results?date=2024-01-16")
+
+    assert response.status_code == 422
+    assert "removed" in response.json()["detail"]
+    assert "start_date" in response.json()["detail"]
+
+
+def test_invalid_date_returns_400(test_db):
+    """Test that invalid date format returns 400 error via API."""
+    app = create_app(db_path=test_db.db_path)
+    app.state.test_mode = True
+
+    # Override the database dependency to use our test database
+    from api.routes.results_v2 import get_database
+
+    def override_get_database():
+        return test_db
+
+    app.dependency_overrides[get_database] = override_get_database
+
+    client = TestClient(app)
+
+    response = client.get("/results?start_date=2024-1-16&end_date=2024-01-20")
+
+    assert response.status_code == 400
+    assert "Invalid date format" in response.json()["detail"]

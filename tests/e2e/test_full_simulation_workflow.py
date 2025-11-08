@@ -22,7 +22,7 @@ import json
 from fastapi.testclient import TestClient
 from pathlib import Path
 from datetime import datetime
-from api.database import Database
+from api.database import Database, db_connection
 
 
 @pytest.fixture
@@ -140,45 +140,44 @@ def _populate_test_price_data(db_path: str):
         "2025-01-18": 1.02   # Back to 2% increase
     }
 
-    conn = get_db_connection(db_path)
-    cursor = conn.cursor()
+    with db_connection(db_path) as conn:
+        cursor = conn.cursor()
 
-    for symbol in symbols:
-        for date in test_dates:
-            multiplier = price_multipliers[date]
-            base_price = 100.0
+        for symbol in symbols:
+            for date in test_dates:
+                multiplier = price_multipliers[date]
+                base_price = 100.0
 
-            # Insert mock price data with variations
+                # Insert mock price data with variations
+                cursor.execute("""
+                    INSERT OR IGNORE INTO price_data
+                    (symbol, date, open, high, low, close, volume, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    symbol,
+                    date,
+                    base_price * multiplier,  # open
+                    base_price * multiplier * 1.05,  # high
+                    base_price * multiplier * 0.98,  # low
+                    base_price * multiplier * 1.02,  # close
+                    1000000,  # volume
+                    datetime.utcnow().isoformat() + "Z"
+                ))
+
+            # Add coverage record
             cursor.execute("""
-                INSERT OR IGNORE INTO price_data
-                (symbol, date, open, high, low, close, volume, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT OR IGNORE INTO price_data_coverage
+                (symbol, start_date, end_date, downloaded_at, source)
+                VALUES (?, ?, ?, ?, ?)
             """, (
                 symbol,
-                date,
-                base_price * multiplier,  # open
-                base_price * multiplier * 1.05,  # high
-                base_price * multiplier * 0.98,  # low
-                base_price * multiplier * 1.02,  # close
-                1000000,  # volume
-                datetime.utcnow().isoformat() + "Z"
+                "2025-01-16",
+                "2025-01-18",
+                datetime.utcnow().isoformat() + "Z",
+                "test_fixture_e2e"
             ))
 
-        # Add coverage record
-        cursor.execute("""
-            INSERT OR IGNORE INTO price_data_coverage
-            (symbol, start_date, end_date, downloaded_at, source)
-            VALUES (?, ?, ?, ?, ?)
-        """, (
-            symbol,
-            "2025-01-16",
-            "2025-01-18",
-            datetime.utcnow().isoformat() + "Z",
-            "test_fixture_e2e"
-        ))
-
-    conn.commit()
-    conn.close()
+        conn.commit()
 
 
 @pytest.mark.e2e
@@ -220,119 +219,118 @@ class TestFullSimulationWorkflow:
         populates the trading_days table using Database helper methods and verifies
         the Results API works correctly.
         """
-        from api.database import Database, get_db_connection
+        from api.database import Database, db_connection, get_db_connection
 
         # Get database instance
         db = Database(e2e_client.db_path)
 
         # Create a test job
         job_id = "test-job-e2e-123"
-        conn = get_db_connection(e2e_client.db_path)
-        cursor = conn.cursor()
+        with db_connection(e2e_client.db_path) as conn:
+            cursor = conn.cursor()
 
-        cursor.execute("""
-            INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (
-            job_id,
-            "test_config.json",
-            "completed",
-            '["2025-01-16", "2025-01-18"]',
-            '["test-mock-e2e"]',
-            datetime.utcnow().isoformat() + "Z"
-        ))
-        conn.commit()
+            cursor.execute("""
+                INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                job_id,
+                "test_config.json",
+                "completed",
+                '["2025-01-16", "2025-01-18"]',
+                '["test-mock-e2e"]',
+                datetime.utcnow().isoformat() + "Z"
+            ))
+            conn.commit()
 
-        # 1. Create Day 1 trading_day record (first day, zero P&L)
-        day1_id = db.create_trading_day(
-            job_id=job_id,
-            model="test-mock-e2e",
-            date="2025-01-16",
-            starting_cash=10000.0,
-            starting_portfolio_value=10000.0,
-            daily_profit=0.0,
-            daily_return_pct=0.0,
-            ending_cash=8500.0,  # Bought $1500 worth of stock
-            ending_portfolio_value=10000.0,  # 10 shares * $100 + $8500 cash
-            reasoning_summary="Analyzed market conditions. Bought 10 shares of AAPL at $150.",
-            reasoning_full=json.dumps([
-                {"role": "user", "content": "System prompt for trading..."},
-                {"role": "assistant", "content": "I will analyze AAPL..."},
-                {"role": "tool", "name": "get_price", "content": "AAPL price: $150"},
-                {"role": "assistant", "content": "Buying 10 shares of AAPL..."}
-            ]),
-            total_actions=1,
-            session_duration_seconds=45.5,
-            days_since_last_trading=0
-        )
+            # 1. Create Day 1 trading_day record (first day, zero P&L)
+            day1_id = db.create_trading_day(
+                job_id=job_id,
+                model="test-mock-e2e",
+                date="2025-01-16",
+                starting_cash=10000.0,
+                starting_portfolio_value=10000.0,
+                daily_profit=0.0,
+                daily_return_pct=0.0,
+                ending_cash=8500.0,  # Bought $1500 worth of stock
+                ending_portfolio_value=10000.0,  # 10 shares * $100 + $8500 cash
+                reasoning_summary="Analyzed market conditions. Bought 10 shares of AAPL at $150.",
+                reasoning_full=json.dumps([
+                    {"role": "user", "content": "System prompt for trading..."},
+                    {"role": "assistant", "content": "I will analyze AAPL..."},
+                    {"role": "tool", "name": "get_price", "content": "AAPL price: $150"},
+                    {"role": "assistant", "content": "Buying 10 shares of AAPL..."}
+                ]),
+                total_actions=1,
+                session_duration_seconds=45.5,
+                days_since_last_trading=0
+            )
 
-        # Add Day 1 holdings and actions
-        db.create_holding(day1_id, "AAPL", 10)
-        db.create_action(day1_id, "buy", "AAPL", 10, 150.0)
+            # Add Day 1 holdings and actions
+            db.create_holding(day1_id, "AAPL", 10)
+            db.create_action(day1_id, "buy", "AAPL", 10, 150.0)
 
-        # 2. Create Day 2 trading_day record (with P&L from price change)
-        # AAPL went from $100 to $105 (5% gain), so portfolio value increased
-        day2_starting_value = 8500.0 + (10 * 105.0)  # Cash + holdings valued at new price = $9550
-        day2_profit = day2_starting_value - 10000.0  # $9550 - $10000 = -$450 (loss)
-        day2_return_pct = (day2_profit / 10000.0) * 100  # -4.5%
+            # 2. Create Day 2 trading_day record (with P&L from price change)
+            # AAPL went from $100 to $105 (5% gain), so portfolio value increased
+            day2_starting_value = 8500.0 + (10 * 105.0)  # Cash + holdings valued at new price = $9550
+            day2_profit = day2_starting_value - 10000.0  # $9550 - $10000 = -$450 (loss)
+            day2_return_pct = (day2_profit / 10000.0) * 100  # -4.5%
 
-        day2_id = db.create_trading_day(
-            job_id=job_id,
-            model="test-mock-e2e",
-            date="2025-01-17",
-            starting_cash=8500.0,
-            starting_portfolio_value=day2_starting_value,
-            daily_profit=day2_profit,
-            daily_return_pct=day2_return_pct,
-            ending_cash=7000.0,  # Bought more stock
-            ending_portfolio_value=9500.0,
-            reasoning_summary="Continued trading. Added 5 shares of MSFT.",
-            reasoning_full=json.dumps([
-                {"role": "user", "content": "System prompt..."},
-                {"role": "assistant", "content": "I will buy MSFT..."}
-            ]),
-            total_actions=1,
-            session_duration_seconds=38.2,
-            days_since_last_trading=1
-        )
+            day2_id = db.create_trading_day(
+                job_id=job_id,
+                model="test-mock-e2e",
+                date="2025-01-17",
+                starting_cash=8500.0,
+                starting_portfolio_value=day2_starting_value,
+                daily_profit=day2_profit,
+                daily_return_pct=day2_return_pct,
+                ending_cash=7000.0,  # Bought more stock
+                ending_portfolio_value=9500.0,
+                reasoning_summary="Continued trading. Added 5 shares of MSFT.",
+                reasoning_full=json.dumps([
+                    {"role": "user", "content": "System prompt..."},
+                    {"role": "assistant", "content": "I will buy MSFT..."}
+                ]),
+                total_actions=1,
+                session_duration_seconds=38.2,
+                days_since_last_trading=1
+            )
 
-        # Add Day 2 holdings and actions
-        db.create_holding(day2_id, "AAPL", 10)
-        db.create_holding(day2_id, "MSFT", 5)
-        db.create_action(day2_id, "buy", "MSFT", 5, 100.0)
+            # Add Day 2 holdings and actions
+            db.create_holding(day2_id, "AAPL", 10)
+            db.create_holding(day2_id, "MSFT", 5)
+            db.create_action(day2_id, "buy", "MSFT", 5, 100.0)
 
-        # 3. Create Day 3 trading_day record
-        day3_starting_value = 7000.0 + (10 * 102.0) + (5 * 102.0)  # Different prices
-        day3_profit = day3_starting_value - day2_starting_value
-        day3_return_pct = (day3_profit / day2_starting_value) * 100
+            # 3. Create Day 3 trading_day record
+            day3_starting_value = 7000.0 + (10 * 102.0) + (5 * 102.0)  # Different prices
+            day3_profit = day3_starting_value - day2_starting_value
+            day3_return_pct = (day3_profit / day2_starting_value) * 100
 
-        day3_id = db.create_trading_day(
-            job_id=job_id,
-            model="test-mock-e2e",
-            date="2025-01-18",
-            starting_cash=7000.0,
-            starting_portfolio_value=day3_starting_value,
-            daily_profit=day3_profit,
-            daily_return_pct=day3_return_pct,
-            ending_cash=7000.0,  # No trades
-            ending_portfolio_value=day3_starting_value,
-            reasoning_summary="Held positions. No trades executed.",
-            reasoning_full=json.dumps([
-                {"role": "user", "content": "System prompt..."},
-                {"role": "assistant", "content": "Holding positions..."}
-            ]),
-            total_actions=0,
-            session_duration_seconds=12.1,
-            days_since_last_trading=1
-        )
+            day3_id = db.create_trading_day(
+                job_id=job_id,
+                model="test-mock-e2e",
+                date="2025-01-18",
+                starting_cash=7000.0,
+                starting_portfolio_value=day3_starting_value,
+                daily_profit=day3_profit,
+                daily_return_pct=day3_return_pct,
+                ending_cash=7000.0,  # No trades
+                ending_portfolio_value=day3_starting_value,
+                reasoning_summary="Held positions. No trades executed.",
+                reasoning_full=json.dumps([
+                    {"role": "user", "content": "System prompt..."},
+                    {"role": "assistant", "content": "Holding positions..."}
+                ]),
+                total_actions=0,
+                session_duration_seconds=12.1,
+                days_since_last_trading=1
+            )
 
-        # Add Day 3 holdings (no actions, just holding)
-        db.create_holding(day3_id, "AAPL", 10)
-        db.create_holding(day3_id, "MSFT", 5)
+            # Add Day 3 holdings (no actions, just holding)
+            db.create_holding(day3_id, "AAPL", 10)
+            db.create_holding(day3_id, "MSFT", 5)
 
-        # Ensure all data is committed
-        db.connection.commit()
-        conn.close()
+            # Ensure all data is committed
+            db.connection.commit()
 
         # 4. Query each day individually to get detailed format
         # Query Day 1
@@ -450,39 +448,38 @@ class TestFullSimulationWorkflow:
         # 10. Verify database structure directly
         from api.database import get_db_connection
 
-        conn = get_db_connection(e2e_client.db_path)
-        cursor = conn.cursor()
+        with db_connection(e2e_client.db_path) as conn:
+            cursor = conn.cursor()
 
-        # Check trading_days table
-        cursor.execute("""
-            SELECT COUNT(*) FROM trading_days
-            WHERE job_id = ? AND model = ?
-        """, (job_id, "test-mock-e2e"))
+            # Check trading_days table
+            cursor.execute("""
+                SELECT COUNT(*) FROM trading_days
+                WHERE job_id = ? AND model = ?
+            """, (job_id, "test-mock-e2e"))
 
-        count = cursor.fetchone()[0]
-        assert count == 3, f"Expected 3 trading_days records, got {count}"
+            count = cursor.fetchone()[0]
+            assert count == 3, f"Expected 3 trading_days records, got {count}"
 
-        # Check holdings table
-        cursor.execute("""
-            SELECT COUNT(*) FROM holdings h
-            JOIN trading_days td ON h.trading_day_id = td.id
-            WHERE td.job_id = ? AND td.model = ?
-        """, (job_id, "test-mock-e2e"))
+            # Check holdings table
+            cursor.execute("""
+                SELECT COUNT(*) FROM holdings h
+                JOIN trading_days td ON h.trading_day_id = td.id
+                WHERE td.job_id = ? AND td.model = ?
+            """, (job_id, "test-mock-e2e"))
 
-        holdings_count = cursor.fetchone()[0]
-        assert holdings_count > 0, "Expected some holdings records"
+            holdings_count = cursor.fetchone()[0]
+            assert holdings_count > 0, "Expected some holdings records"
 
-        # Check actions table
-        cursor.execute("""
-            SELECT COUNT(*) FROM actions a
-            JOIN trading_days td ON a.trading_day_id = td.id
-            WHERE td.job_id = ? AND td.model = ?
-        """, (job_id, "test-mock-e2e"))
+            # Check actions table
+            cursor.execute("""
+                SELECT COUNT(*) FROM actions a
+                JOIN trading_days td ON a.trading_day_id = td.id
+                WHERE td.job_id = ? AND td.model = ?
+            """, (job_id, "test-mock-e2e"))
 
-        actions_count = cursor.fetchone()[0]
-        assert actions_count > 0, "Expected some action records"
+            actions_count = cursor.fetchone()[0]
+            assert actions_count > 0, "Expected some action records"
 
-        conn.close()
 
         # The main test above verifies:
         # - Results API filtering (by job_id)

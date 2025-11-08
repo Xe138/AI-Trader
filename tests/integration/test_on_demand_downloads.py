@@ -13,7 +13,7 @@ from unittest.mock import patch, Mock
 from datetime import datetime
 
 from api.price_data_manager import PriceDataManager, RateLimitError, DownloadError
-from api.database import initialize_database, get_db_connection
+from api.database import initialize_database, get_db_connection, db_connection
 from api.date_utils import expand_date_range
 
 
@@ -130,12 +130,11 @@ class TestEndToEndDownload:
         assert available_dates == ["2025-01-20", "2025-01-21"]
 
         # Verify coverage tracking
-        conn = get_db_connection(manager.db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM price_data_coverage")
-        coverage_count = cursor.fetchone()[0]
-        assert coverage_count == 5  # One record per symbol
-        conn.close()
+        with db_connection(manager.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM price_data_coverage")
+            coverage_count = cursor.fetchone()[0]
+            assert coverage_count == 5  # One record per symbol
 
     @patch('api.price_data_manager.requests.get')
     def test_download_with_partial_existing_data(self, mock_get, manager, mock_alpha_vantage_response):
@@ -340,15 +339,14 @@ class TestCoverageTracking:
         manager._update_coverage("AAPL", dates[0], dates[1])
 
         # Verify coverage was recorded
-        conn = get_db_connection(manager.db_path)
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT symbol, start_date, end_date, source
-            FROM price_data_coverage
-            WHERE symbol = 'AAPL'
-        """)
-        row = cursor.fetchone()
-        conn.close()
+        with db_connection(manager.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT symbol, start_date, end_date, source
+                FROM price_data_coverage
+                WHERE symbol = 'AAPL'
+            """)
+            row = cursor.fetchone()
 
         assert row is not None
         assert row[0] == "AAPL"
@@ -444,10 +442,9 @@ class TestDataValidation:
         assert set(stored_dates) == requested_dates
 
         # Verify in database
-        conn = get_db_connection(manager.db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT date FROM price_data WHERE symbol = 'AAPL' ORDER BY date")
-        db_dates = [row[0] for row in cursor.fetchall()]
-        conn.close()
+        with db_connection(manager.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT date FROM price_data WHERE symbol = 'AAPL' ORDER BY date")
+            db_dates = [row[0] for row in cursor.fetchall()]
 
         assert db_dates == ["2025-01-20", "2025-01-21"]

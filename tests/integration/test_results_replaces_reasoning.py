@@ -71,8 +71,8 @@ def test_results_with_full_reasoning_replaces_old_endpoint(tmp_path):
 
     client = TestClient(app)
 
-    # Query new endpoint
-    response = client.get("/results?job_id=test-job-123&reasoning=full")
+    # Query new endpoint with explicit date to avoid default lookback filter
+    response = client.get("/results?job_id=test-job-123&start_date=2025-01-15&end_date=2025-01-15&reasoning=full")
 
     assert response.status_code == 200
     data = response.json()

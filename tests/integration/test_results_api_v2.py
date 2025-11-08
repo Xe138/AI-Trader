@@ -40,8 +40,8 @@ class TestResultsAPIV2:
 
         # Insert sample data
         db.connection.execute(
-            "INSERT INTO jobs (job_id, status) VALUES (?, ?)",
-            ("test-job", "completed")
+            "INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("test-job", "config.json", "completed", '["2025-01-15", "2025-01-16"]', '["gpt-4"]', "2025-01-15T00:00:00Z")
         )
 
         # Day 1
@@ -66,7 +66,7 @@ class TestResultsAPIV2:
 
     def test_results_without_reasoning(self, client, db):
         """Test default response excludes reasoning."""
-        response = client.get("/results?job_id=test-job")
+        response = client.get("/results?job_id=test-job&start_date=2025-01-15&end_date=2025-01-15")
 
         assert response.status_code == 200
         data = response.json()
@@ -76,7 +76,7 @@ class TestResultsAPIV2:
 
     def test_results_with_summary(self, client, db):
         """Test including reasoning summary."""
-        response = client.get("/results?job_id=test-job&reasoning=summary")
+        response = client.get("/results?job_id=test-job&start_date=2025-01-15&end_date=2025-01-15&reasoning=summary")
 
         data = response.json()
         result = data["results"][0]
@@ -85,7 +85,7 @@ class TestResultsAPIV2:
 
     def test_results_structure(self, client, db):
         """Test complete response structure."""
-        response = client.get("/results?job_id=test-job")
+        response = client.get("/results?job_id=test-job&start_date=2025-01-15&end_date=2025-01-15")
 
         result = response.json()["results"][0]
 
@@ -124,14 +124,14 @@ class TestResultsAPIV2:
 
     def test_results_filtering_by_date(self, client, db):
         """Test filtering results by date."""
-        response = client.get("/results?date=2025-01-15")
+        response = client.get("/results?start_date=2025-01-15&end_date=2025-01-15")
 
         results = response.json()["results"]
         assert all(r["date"] == "2025-01-15" for r in results)
 
     def test_results_filtering_by_model(self, client, db):
         """Test filtering results by model."""
-        response = client.get("/results?model=gpt-4")
+        response = client.get("/results?model=gpt-4&start_date=2025-01-15&end_date=2025-01-15")
 
         results = response.json()["results"]
         assert all(r["model"] == "gpt-4" for r in results)

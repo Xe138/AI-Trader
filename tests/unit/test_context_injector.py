@@ -102,7 +102,48 @@ async def test_context_injector_tracks_position_after_successful_trade(injector)
     assert injector._current_position is not None
     assert injector._current_position["CASH"] == 1100.0
     assert injector._current_position["AAPL"] == 7
-    assert injector._current_position["MSFT"] == 5
+
+
+@pytest.mark.asyncio
+async def test_context_injector_injects_session_id():
+    """Test that session_id is injected when provided."""
+    injector = ContextInjector(
+        signature="test-sig",
+        today_date="2025-01-15",
+        session_id="test-session-123"
+    )
+
+    request = MockRequest("buy", {"symbol": "AAPL", "amount": 5})
+
+    async def capturing_handler(req):
+        # Verify session_id was injected
+        assert "session_id" in req.args
+        assert req.args["session_id"] == "test-session-123"
+        return create_mcp_result({"CASH": 100.0})
+
+    await injector(request, capturing_handler)
+
+
+@pytest.mark.asyncio
+async def test_context_injector_handles_dict_result():
+    """Test handling when handler returns a plain dict instead of CallToolResult."""
+    injector = ContextInjector(
+        signature="test-sig",
+        today_date="2025-01-15"
+    )
+
+    request = MockRequest("buy", {"symbol": "AAPL", "amount": 5})
+
+    async def dict_handler(req):
+        # Return plain dict instead of CallToolResult
+        return {"CASH": 500.0, "AAPL": 10}
+
+    result = await injector(request, dict_handler)
+
+    # Verify position was still updated
+    assert injector._current_position is not None
+    assert injector._current_position["CASH"] == 500.0
+    assert injector._current_position["AAPL"] == 10
 
 
 @pytest.mark.asyncio

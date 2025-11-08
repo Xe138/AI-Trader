@@ -52,3 +52,32 @@ def test_calculate_period_metrics_negative_return():
     assert metrics["calendar_days"] == 8
     # Negative annualized return
     assert metrics["annualized_return_pct"] < 0
+
+
+def test_calculate_period_metrics_zero_starting_value():
+    """Test period metrics when starting value is zero (edge case)."""
+    metrics = calculate_period_metrics(
+        starting_value=0.0,
+        ending_value=1000.0,
+        start_date="2025-01-16",
+        end_date="2025-01-20",
+        trading_days=3
+    )
+
+    # Should handle division by zero gracefully
+    assert metrics["period_return_pct"] == 0.0
+    assert metrics["annualized_return_pct"] == 0.0
+
+
+def test_calculate_period_metrics_negative_ending_value():
+    """Test period metrics when ending value is negative (edge case)."""
+    metrics = calculate_period_metrics(
+        starting_value=10000.0,
+        ending_value=-100.0,
+        start_date="2025-01-16",
+        end_date="2025-01-20",
+        trading_days=3
+    )
+
+    # Should handle negative ending value gracefully
+    assert metrics["annualized_return_pct"] == 0.0

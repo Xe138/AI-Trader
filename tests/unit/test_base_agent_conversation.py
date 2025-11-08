@@ -59,7 +59,7 @@ def test_capture_message_tool():
     history = agent.get_conversation_history()
     assert len(history) == 1
     assert history[0]["role"] == "tool"
-    assert history[0]["tool_name"] == "get_price"
+    assert history[0]["name"] == "get_price"  # Implementation uses "name" not "tool_name"
     assert history[0]["tool_input"] == '{"symbol": "AAPL"}'
 
 

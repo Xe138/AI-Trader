@@ -1,5 +1,6 @@
 """Test duplicate detection in job creation."""
 import pytest
+from api.database import db_connection
 import tempfile
 import os
 from pathlib import Path
@@ -14,46 +15,45 @@ def temp_db():
 
     # Initialize schema
     from api.database import get_db_connection
-    conn = get_db_connection(path)
-    cursor = conn.cursor()
+    with db_connection(path) as conn:
+        cursor = conn.cursor()
 
-    # Create jobs table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS jobs (
-            job_id TEXT PRIMARY KEY,
-            config_path TEXT NOT NULL,
-            status TEXT NOT NULL,
-            date_range TEXT NOT NULL,
-            models TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            started_at TEXT,
-            updated_at TEXT,
-            completed_at TEXT,
-            total_duration_seconds REAL,
-            error TEXT,
-            warnings TEXT
-        )
-    """)
+        # Create jobs table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS jobs (
+                job_id TEXT PRIMARY KEY,
+                config_path TEXT NOT NULL,
+                status TEXT NOT NULL,
+                date_range TEXT NOT NULL,
+                models TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                started_at TEXT,
+                updated_at TEXT,
+                completed_at TEXT,
+                total_duration_seconds REAL,
+                error TEXT,
+                warnings TEXT
+            )
+        """)
 
-    # Create job_details table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS job_details (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id TEXT NOT NULL,
-            date TEXT NOT NULL,
-            model TEXT NOT NULL,
-            status TEXT NOT NULL,
-            started_at TEXT,
-            completed_at TEXT,
-            duration_seconds REAL,
-            error TEXT,
-            FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE,
-            UNIQUE(job_id, date, model)
-        )
-    """)
+        # Create job_details table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS job_details (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_id TEXT NOT NULL,
+                date TEXT NOT NULL,
+                model TEXT NOT NULL,
+                status TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT,
+                duration_seconds REAL,
+                error TEXT,
+                FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE,
+                UNIQUE(job_id, date, model)
+            )
+        """)
 
-    conn.commit()
-    conn.close()
+        conn.commit()
 
     yield path
 

@@ -129,20 +129,19 @@ def test_dev_database_isolation(dev_mode_env, tmp_path):
     - initialize_dev_database() creates a fresh, empty dev database
     - Both databases can coexist without interference
     """
-    from api.database import get_db_connection, initialize_database
+    from api.database import get_db_connection, initialize_database, db_connection
 
     # Initialize prod database with some data
     prod_db = str(tmp_path / "test_prod.db")
     initialize_database(prod_db)
 
-    conn = get_db_connection(prod_db)
-    conn.execute(
-        "INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        ("prod-job", "config.json", "running", "2025-01-01:2025-01-31", '["model1"]', "2025-01-01T00:00:00")
-    )
-    conn.commit()
-    conn.close()
+    with db_connection(prod_db) as conn:
+        conn.execute(
+            "INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            ("prod-job", "config.json", "running", "2025-01-01:2025-01-31", '["model1"]', "2025-01-01T00:00:00")
+        )
+        conn.commit()
 
     # Initialize dev database (different path)
     dev_db = str(tmp_path / "test_dev.db")
@@ -150,18 +149,16 @@ def test_dev_database_isolation(dev_mode_env, tmp_path):
     initialize_dev_database(dev_db)
 
     # Verify prod data still exists (unchanged by dev database creation)
-    conn = get_db_connection(prod_db)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM jobs WHERE job_id = 'prod-job'")
-    assert cursor.fetchone()[0] == 1
-    conn.close()
+    with db_connection(prod_db) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM jobs WHERE job_id = 'prod-job'")
+        assert cursor.fetchone()[0] == 1
 
     # Verify dev database is empty (fresh initialization)
-    conn = get_db_connection(dev_db)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM jobs")
-    assert cursor.fetchone()[0] == 0
-    conn.close()
+    with db_connection(dev_db) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM jobs")
+        assert cursor.fetchone()[0] == 0
 
 
 def test_preserve_dev_data_flag(dev_mode_env, tmp_path):
@@ -175,29 +172,27 @@ def test_preserve_dev_data_flag(dev_mode_env, tmp_path):
     """
     os.environ["PRESERVE_DEV_DATA"] = "true"
 
-    from api.database import initialize_dev_database, get_db_connection, initialize_database
+    from api.database import initialize_dev_database, get_db_connection, initialize_database, db_connection
 
     dev_db = str(tmp_path / "test_dev_preserve.db")
 
     # Create database with initial data
     initialize_database(dev_db)
-    conn = get_db_connection(dev_db)
-    conn.execute(
-        "INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        ("dev-job-1", "config.json", "completed", "2025-01-01:2025-01-31", '["model1"]', "2025-01-01T00:00:00")
-    )
-    conn.commit()
-    conn.close()
+    with db_connection(dev_db) as conn:
+        conn.execute(
+            "INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            ("dev-job-1", "config.json", "completed", "2025-01-01:2025-01-31", '["model1"]', "2025-01-01T00:00:00")
+        )
+        conn.commit()
 
     # Initialize again with PRESERVE_DEV_DATA=true (should NOT delete data)
     initialize_dev_database(dev_db)
 
     # Verify data is preserved
-    conn = get_db_connection(dev_db)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM jobs WHERE job_id = 'dev-job-1'")
-    count = cursor.fetchone()[0]
-    conn.close()
+    with db_connection(dev_db) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM jobs WHERE job_id = 'dev-job-1'")
+        count = cursor.fetchone()[0]
 
     assert count == 1, "Data should be preserved when PRESERVE_DEV_DATA=true"

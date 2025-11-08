@@ -66,7 +66,7 @@ def create_trading_days_schema(db: "Database") -> None:
             completed_at TIMESTAMP,
 
             UNIQUE(job_id, model, date),
-            FOREIGN KEY (job_id) REFERENCES jobs(job_id)
+            FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE
         )
     """)
 
@@ -101,7 +101,7 @@ def create_trading_days_schema(db: "Database") -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             trading_day_id INTEGER NOT NULL,
 
-            action_type TEXT NOT NULL,
+            action_type TEXT NOT NULL CHECK(action_type IN ('buy', 'sell', 'hold')),
             symbol TEXT,
             quantity INTEGER,
             price REAL,

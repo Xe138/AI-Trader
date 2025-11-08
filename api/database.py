@@ -10,6 +10,7 @@ This module provides:
 import sqlite3
 from pathlib import Path
 import os
+from contextlib import contextmanager
 from tools.deployment_config import get_db_path
 
 
@@ -42,6 +43,37 @@ def get_db_connection(db_path: str = "data/jobs.db") -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
 
     return conn
+
+
+@contextmanager
+def db_connection(db_path: str = "data/jobs.db"):
+    """
+    Context manager for database connections with guaranteed cleanup.
+
+    Ensures connections are properly closed even when exceptions occur.
+    Recommended for all test code to prevent connection leaks.
+
+    Usage:
+        with db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM jobs")
+            conn.commit()
+
+    Args:
+        db_path: Path to SQLite database file
+
+    Yields:
+        sqlite3.Connection: Configured database connection
+
+    Note:
+        Connection is automatically closed in finally block.
+        Uncommitted transactions are rolled back on exception.
+    """
+    conn = get_db_connection(db_path)
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def resolve_db_path(db_path: str) -> str:
@@ -431,10 +463,9 @@ def drop_all_tables(db_path: str = "data/jobs.db") -> None:
 
     tables = [
         'tool_usage',
-        'reasoning_logs',
-        'trading_sessions',
+        'actions',
         'holdings',
-        'positions',
+        'trading_days',
         'simulation_runs',
         'job_details',
         'jobs',
@@ -494,7 +525,7 @@ def get_database_stats(db_path: str = "data/jobs.db") -> dict:
         stats["database_size_mb"] = 0
 
     # Get row counts for each table
-    tables = ['jobs', 'job_details', 'positions', 'holdings', 'trading_sessions', 'reasoning_logs',
+    tables = ['jobs', 'job_details', 'trading_days', 'holdings', 'actions',
               'tool_usage', 'price_data', 'price_data_coverage', 'simulation_runs']
 
     for table in tables:

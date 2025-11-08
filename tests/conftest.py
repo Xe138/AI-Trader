@@ -11,7 +11,7 @@ import pytest
 import tempfile
 import os
 from pathlib import Path
-from api.database import initialize_database, get_db_connection
+from api.database import initialize_database, get_db_connection, db_connection
 
 
 @pytest.fixture(scope="session")
@@ -52,39 +52,38 @@ def clean_db(test_db_path):
     db = Database(test_db_path)
     db.connection.close()
 
-    # Clear all tables
-    conn = get_db_connection(test_db_path)
-    cursor = conn.cursor()
+    # Clear all tables using context manager for guaranteed cleanup
+    with db_connection(test_db_path) as conn:
+        cursor = conn.cursor()
 
-    # Get list of tables that exist
-    cursor.execute("""
-        SELECT name FROM sqlite_master
-        WHERE type='table' AND name NOT LIKE 'sqlite_%'
-    """)
-    tables = [row[0] for row in cursor.fetchall()]
+        # Get list of tables that exist
+        cursor.execute("""
+            SELECT name FROM sqlite_master
+            WHERE type='table' AND name NOT LIKE 'sqlite_%'
+        """)
+        tables = [row[0] for row in cursor.fetchall()]
 
-    # Delete in correct order (respecting foreign keys), only if table exists
-    if 'tool_usage' in tables:
-        cursor.execute("DELETE FROM tool_usage")
-    if 'actions' in tables:
-        cursor.execute("DELETE FROM actions")
-    if 'holdings' in tables:
-        cursor.execute("DELETE FROM holdings")
-    if 'trading_days' in tables:
-        cursor.execute("DELETE FROM trading_days")
-    if 'simulation_runs' in tables:
-        cursor.execute("DELETE FROM simulation_runs")
-    if 'job_details' in tables:
-        cursor.execute("DELETE FROM job_details")
-    if 'jobs' in tables:
-        cursor.execute("DELETE FROM jobs")
-    if 'price_data_coverage' in tables:
-        cursor.execute("DELETE FROM price_data_coverage")
-    if 'price_data' in tables:
-        cursor.execute("DELETE FROM price_data")
+        # Delete in correct order (respecting foreign keys), only if table exists
+        if 'tool_usage' in tables:
+            cursor.execute("DELETE FROM tool_usage")
+        if 'actions' in tables:
+            cursor.execute("DELETE FROM actions")
+        if 'holdings' in tables:
+            cursor.execute("DELETE FROM holdings")
+        if 'trading_days' in tables:
+            cursor.execute("DELETE FROM trading_days")
+        if 'simulation_runs' in tables:
+            cursor.execute("DELETE FROM simulation_runs")
+        if 'job_details' in tables:
+            cursor.execute("DELETE FROM job_details")
+        if 'jobs' in tables:
+            cursor.execute("DELETE FROM jobs")
+        if 'price_data_coverage' in tables:
+            cursor.execute("DELETE FROM price_data_coverage")
+        if 'price_data' in tables:
+            cursor.execute("DELETE FROM price_data")
 
-    conn.commit()
-    conn.close()
+        conn.commit()
 
     return test_db_path
 

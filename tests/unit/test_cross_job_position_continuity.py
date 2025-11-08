@@ -1,5 +1,6 @@
 """Test portfolio continuity across multiple jobs."""
 import pytest
+from api.database import db_connection
 import tempfile
 import os
 from agent_tools.tool_trade import get_current_position_from_db
@@ -12,42 +13,41 @@ def temp_db():
     fd, path = tempfile.mkstemp(suffix='.db')
     os.close(fd)
 
-    conn = get_db_connection(path)
-    cursor = conn.cursor()
+    with db_connection(path) as conn:
+        cursor = conn.cursor()
 
-    # Create trading_days table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS trading_days (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id TEXT NOT NULL,
-            model TEXT NOT NULL,
-            date TEXT NOT NULL,
-            starting_cash REAL NOT NULL,
-            ending_cash REAL NOT NULL,
-            profit REAL NOT NULL,
-            return_pct REAL NOT NULL,
-            portfolio_value REAL NOT NULL,
-            reasoning_summary TEXT,
-            reasoning_full TEXT,
-            completed_at TEXT,
-            session_duration_seconds REAL,
-            UNIQUE(job_id, model, date)
-        )
-    """)
+        # Create trading_days table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS trading_days (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_id TEXT NOT NULL,
+                model TEXT NOT NULL,
+                date TEXT NOT NULL,
+                starting_cash REAL NOT NULL,
+                ending_cash REAL NOT NULL,
+                profit REAL NOT NULL,
+                return_pct REAL NOT NULL,
+                portfolio_value REAL NOT NULL,
+                reasoning_summary TEXT,
+                reasoning_full TEXT,
+                completed_at TEXT,
+                session_duration_seconds REAL,
+                UNIQUE(job_id, model, date)
+            )
+        """)
 
-    # Create holdings table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS holdings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            trading_day_id INTEGER NOT NULL,
-            symbol TEXT NOT NULL,
-            quantity INTEGER NOT NULL,
-            FOREIGN KEY (trading_day_id) REFERENCES trading_days(id) ON DELETE CASCADE
-        )
-    """)
+        # Create holdings table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS holdings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trading_day_id INTEGER NOT NULL,
+                symbol TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                FOREIGN KEY (trading_day_id) REFERENCES trading_days(id) ON DELETE CASCADE
+            )
+        """)
 
-    conn.commit()
-    conn.close()
+        conn.commit()
 
     yield path
 
@@ -58,48 +58,47 @@ def temp_db():
 def test_position_continuity_across_jobs(temp_db):
     """Test that position queries see history from previous jobs."""
     # Insert trading_day from job 1
-    conn = get_db_connection(temp_db)
-    cursor = conn.cursor()
+    with db_connection(temp_db) as conn:
+        cursor = conn.cursor()
 
-    cursor.execute("""
-        INSERT INTO trading_days (
-            job_id, model, date, starting_cash, ending_cash,
-            profit, return_pct, portfolio_value, completed_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        "job-1-uuid",
-        "deepseek-chat-v3.1",
-        "2025-10-14",
-        10000.0,
-        5121.52,  # Negative cash from buying
-        0.0,
-        0.0,
-        14993.945,
-        "2025-11-07T01:52:53Z"
-    ))
-
-    trading_day_id = cursor.lastrowid
-
-    # Insert holdings from job 1
-    holdings = [
-        ("ADBE", 5),
-        ("AVGO", 5),
-        ("CRWD", 5),
-        ("GOOGL", 20),
-        ("META", 5),
-        ("MSFT", 5),
-        ("NVDA", 10)
-    ]
-
-    for symbol, quantity in holdings:
         cursor.execute("""
-            INSERT INTO holdings (trading_day_id, symbol, quantity)
-            VALUES (?, ?, ?)
-        """, (trading_day_id, symbol, quantity))
+            INSERT INTO trading_days (
+                job_id, model, date, starting_cash, ending_cash,
+                profit, return_pct, portfolio_value, completed_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            "job-1-uuid",
+            "deepseek-chat-v3.1",
+            "2025-10-14",
+            10000.0,
+            5121.52,  # Negative cash from buying
+            0.0,
+            0.0,
+            14993.945,
+            "2025-11-07T01:52:53Z"
+        ))
 
-    conn.commit()
-    conn.close()
+        trading_day_id = cursor.lastrowid
+
+        # Insert holdings from job 1
+        holdings = [
+            ("ADBE", 5),
+            ("AVGO", 5),
+            ("CRWD", 5),
+            ("GOOGL", 20),
+            ("META", 5),
+            ("MSFT", 5),
+            ("NVDA", 10)
+        ]
+
+        for symbol, quantity in holdings:
+            cursor.execute("""
+                INSERT INTO holdings (trading_day_id, symbol, quantity)
+                VALUES (?, ?, ?)
+            """, (trading_day_id, symbol, quantity))
+
+        conn.commit()
 
     # Mock get_db_connection to return our test db
     import agent_tools.tool_trade as trade_module
@@ -162,48 +161,47 @@ def test_position_returns_initial_state_for_first_day(temp_db):
 
 def test_position_uses_most_recent_prior_date(temp_db):
     """Test that position query uses the most recent date before current."""
-    conn = get_db_connection(temp_db)
-    cursor = conn.cursor()
+    with db_connection(temp_db) as conn:
+        cursor = conn.cursor()
 
-    # Insert two trading days
-    cursor.execute("""
-        INSERT INTO trading_days (
-            job_id, model, date, starting_cash, ending_cash,
-            profit, return_pct, portfolio_value, completed_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        "job-1",
-        "model-a",
-        "2025-10-13",
-        10000.0,
-        9500.0,
-        -500.0,
-        -5.0,
-        9500.0,
-        "2025-11-07T01:00:00Z"
-    ))
+        # Insert two trading days
+        cursor.execute("""
+            INSERT INTO trading_days (
+                job_id, model, date, starting_cash, ending_cash,
+                profit, return_pct, portfolio_value, completed_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            "job-1",
+            "model-a",
+            "2025-10-13",
+            10000.0,
+            9500.0,
+            -500.0,
+            -5.0,
+            9500.0,
+            "2025-11-07T01:00:00Z"
+        ))
 
-    cursor.execute("""
-        INSERT INTO trading_days (
-            job_id, model, date, starting_cash, ending_cash,
-            profit, return_pct, portfolio_value, completed_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        "job-2",
-        "model-a",
-        "2025-10-14",
-        9500.0,
-        12000.0,
-        2500.0,
-        26.3,
-        12000.0,
-        "2025-11-07T02:00:00Z"
-    ))
+        cursor.execute("""
+            INSERT INTO trading_days (
+                job_id, model, date, starting_cash, ending_cash,
+                profit, return_pct, portfolio_value, completed_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            "job-2",
+            "model-a",
+            "2025-10-14",
+            9500.0,
+            12000.0,
+            2500.0,
+            26.3,
+            12000.0,
+            "2025-11-07T02:00:00Z"
+        ))
 
-    conn.commit()
-    conn.close()
+        conn.commit()
 
     # Mock get_db_connection to return our test db
     import agent_tools.tool_trade as trade_module

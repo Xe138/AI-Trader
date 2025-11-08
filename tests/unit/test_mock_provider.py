@@ -72,3 +72,15 @@ def test_mock_chat_model_different_dates():
     response2 = model2.invoke(msg)
 
     assert response1.content != response2.content
+
+
+def test_mock_provider_string_representation():
+    """Test __str__ and __repr__ methods"""
+    provider = MockAIProvider()
+
+    str_repr = str(provider)
+    repr_repr = repr(provider)
+
+    assert "MockAIProvider" in str_repr
+    assert "development" in str_repr
+    assert str_repr == repr_repr

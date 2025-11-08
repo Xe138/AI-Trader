@@ -31,8 +31,8 @@ class TestDatabaseHelpers:
         """Test creating a new trading day record."""
         # Insert job first
         db.connection.execute(
-            "INSERT INTO jobs (job_id, status) VALUES (?, ?)",
-            ("test-job", "running")
+            "INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("test-job", "configs/test.json", "running", '["2025-01-15"]', '["test-model"]', "2025-01-15T00:00:00Z")
         )
 
         trading_day_id = db.create_trading_day(
@@ -61,8 +61,8 @@ class TestDatabaseHelpers:
         """Test retrieving previous trading day."""
         # Setup: Create job and two trading days
         db.connection.execute(
-            "INSERT INTO jobs (job_id, status) VALUES (?, ?)",
-            ("test-job", "running")
+            "INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("test-job", "configs/test.json", "running", '["2025-01-15"]', '["test-model"]', "2025-01-15T00:00:00Z")
         )
 
         day1_id = db.create_trading_day(
@@ -103,8 +103,8 @@ class TestDatabaseHelpers:
     def test_get_previous_trading_day_with_weekend_gap(self, db):
         """Test retrieving previous trading day across weekend."""
         db.connection.execute(
-            "INSERT INTO jobs (job_id, status) VALUES (?, ?)",
-            ("test-job", "running")
+            "INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("test-job", "configs/test.json", "running", '["2025-01-15"]', '["test-model"]', "2025-01-15T00:00:00Z")
         )
 
         # Friday
@@ -171,8 +171,8 @@ class TestDatabaseHelpers:
     def test_get_ending_holdings(self, db):
         """Test retrieving ending holdings for a trading day."""
         db.connection.execute(
-            "INSERT INTO jobs (job_id, status) VALUES (?, ?)",
-            ("test-job", "running")
+            "INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("test-job", "configs/test.json", "running", '["2025-01-15"]', '["test-model"]', "2025-01-15T00:00:00Z")
         )
 
         trading_day_id = db.create_trading_day(
@@ -201,8 +201,8 @@ class TestDatabaseHelpers:
     def test_get_starting_holdings_first_day(self, db):
         """Test starting holdings for first trading day (should be empty)."""
         db.connection.execute(
-            "INSERT INTO jobs (job_id, status) VALUES (?, ?)",
-            ("test-job", "running")
+            "INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("test-job", "configs/test.json", "running", '["2025-01-15"]', '["test-model"]', "2025-01-15T00:00:00Z")
         )
 
         trading_day_id = db.create_trading_day(
@@ -224,8 +224,8 @@ class TestDatabaseHelpers:
     def test_get_starting_holdings_from_previous_day(self, db):
         """Test starting holdings derived from previous day's ending."""
         db.connection.execute(
-            "INSERT INTO jobs (job_id, status) VALUES (?, ?)",
-            ("test-job", "running")
+            "INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("test-job", "configs/test.json", "running", '["2025-01-15"]', '["test-model"]', "2025-01-15T00:00:00Z")
         )
 
         # Day 1
@@ -318,8 +318,8 @@ class TestDatabaseHelpers:
     def test_create_action(self, db):
         """Test creating an action record."""
         db.connection.execute(
-            "INSERT INTO jobs (job_id, status) VALUES (?, ?)",
-            ("test-job", "running")
+            "INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("test-job", "configs/test.json", "running", '["2025-01-15"]', '["test-model"]', "2025-01-15T00:00:00Z")
         )
 
         trading_day_id = db.create_trading_day(
@@ -355,8 +355,8 @@ class TestDatabaseHelpers:
     def test_get_actions(self, db):
         """Test retrieving all actions for a trading day."""
         db.connection.execute(
-            "INSERT INTO jobs (job_id, status) VALUES (?, ?)",
-            ("test-job", "running")
+            "INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("test-job", "configs/test.json", "running", '["2025-01-15"]', '["test-model"]', "2025-01-15T00:00:00Z")
         )
 
         trading_day_id = db.create_trading_day(

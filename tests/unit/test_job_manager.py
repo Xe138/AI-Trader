@@ -15,6 +15,7 @@ Tests verify:
 import pytest
 import json
 from datetime import datetime, timedelta
+from api.database import db_connection
 
 
 @pytest.mark.unit
@@ -374,16 +375,15 @@ class TestJobCleanup:
         manager = JobManager(db_path=clean_db)
 
         # Create old job (manually set created_at)
-        conn = get_db_connection(clean_db)
-        cursor = conn.cursor()
+        with db_connection(clean_db) as conn:
+            cursor = conn.cursor()
 
-        old_date = (datetime.utcnow() - timedelta(days=35)).isoformat() + "Z"
-        cursor.execute("""
-            INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, ("old-job", "configs/test.json", "completed", '["2025-01-01"]', '["gpt-5"]', old_date))
-        conn.commit()
-        conn.close()
+            old_date = (datetime.utcnow() - timedelta(days=35)).isoformat() + "Z"
+            cursor.execute("""
+                INSERT INTO jobs (job_id, config_path, status, date_range, models, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, ("old-job", "configs/test.json", "completed", '["2025-01-01"]', '["gpt-5"]', old_date))
+            conn.commit()
 
         # Create recent job
         recent_result = manager.create_job("configs/test.json", ["2025-01-16"], ["gpt-5"])

@@ -78,3 +78,48 @@ class TestReasoningSummarizer:
         summary = await summarizer.generate_summary([])
 
         assert summary == "No trading activity recorded."
+
+    @pytest.mark.asyncio
+    async def test_format_reasoning_with_trades(self):
+        """Test formatting reasoning log with trade executions."""
+        mock_model = AsyncMock()
+        summarizer = ReasoningSummarizer(model=mock_model)
+
+        reasoning_log = [
+            {"role": "assistant", "content": "Analyzing market conditions"},
+            {"role": "tool", "name": "buy", "content": "Bought 10 AAPL shares"},
+            {"role": "tool", "name": "sell", "content": "Sold 5 MSFT shares"},
+            {"role": "assistant", "content": "Trade complete"}
+        ]
+
+        formatted = summarizer._format_reasoning_for_summary(reasoning_log)
+
+        # Should highlight trades at the top
+        assert "TRADES EXECUTED" in formatted
+        assert "BUY" in formatted
+        assert "SELL" in formatted
+        assert "AAPL" in formatted
+        assert "MSFT" in formatted
+
+    @pytest.mark.asyncio
+    async def test_generate_summary_with_non_string_response(self):
+        """Test handling AI response that doesn't have content attribute."""
+        # Mock AI model that returns a non-standard object
+        mock_model = AsyncMock()
+
+        # Create a custom object without 'content' attribute
+        class CustomResponse:
+            def __str__(self):
+                return "Summary via str()"
+
+        mock_model.ainvoke.return_value = CustomResponse()
+
+        summarizer = ReasoningSummarizer(model=mock_model)
+
+        reasoning_log = [
+            {"role": "assistant", "content": "Trading activity"}
+        ]
+
+        summary = await summarizer.generate_summary(reasoning_log)
+
+        assert summary == "Summary via str()"

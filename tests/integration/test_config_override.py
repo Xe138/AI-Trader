@@ -52,7 +52,7 @@ def test_config_override_models_only(test_configs):
     # Run merge
     result = subprocess.run(
         [
-            "python", "-c",
+            "python3", "-c",
             f"import sys; sys.path.insert(0, '.'); "
             f"from tools.config_merger import DEFAULT_CONFIG_PATH, CUSTOM_CONFIG_PATH, OUTPUT_CONFIG_PATH, merge_and_validate; "
             f"import tools.config_merger; "
@@ -102,7 +102,7 @@ def test_config_validation_fails_gracefully(test_configs):
     # Run merge (should fail)
     result = subprocess.run(
         [
-            "python", "-c",
+            "python3", "-c",
             f"import sys; sys.path.insert(0, '.'); "
             f"from tools.config_merger import merge_and_validate; "
             f"import tools.config_merger; "

@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from api.job_manager import JobManager
 from api.model_day_executor import ModelDayExecutor
-from api.database import get_db_connection
+from api.database import get_db_connection, db_connection
 
 
 pytestmark = pytest.mark.integration
@@ -19,87 +19,86 @@ def temp_env(tmp_path):
     db_path = str(tmp_path / "test_jobs.db")
 
     # Initialize database
-    conn = get_db_connection(db_path)
-    cursor = conn.cursor()
+    with db_connection(db_path) as conn:
+        cursor = conn.cursor()
 
-    # Create schema
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS jobs (
-            job_id TEXT PRIMARY KEY,
-            config_path TEXT NOT NULL,
-            status TEXT NOT NULL,
-            date_range TEXT NOT NULL,
-            models TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            started_at TEXT,
-            updated_at TEXT,
-            completed_at TEXT,
-            total_duration_seconds REAL,
-            error TEXT,
-            warnings TEXT
-        )
-    """)
+        # Create schema
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS jobs (
+                job_id TEXT PRIMARY KEY,
+                config_path TEXT NOT NULL,
+                status TEXT NOT NULL,
+                date_range TEXT NOT NULL,
+                models TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                started_at TEXT,
+                updated_at TEXT,
+                completed_at TEXT,
+                total_duration_seconds REAL,
+                error TEXT,
+                warnings TEXT
+            )
+        """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS job_details (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id TEXT NOT NULL,
-            date TEXT NOT NULL,
-            model TEXT NOT NULL,
-            status TEXT NOT NULL,
-            started_at TEXT,
-            completed_at TEXT,
-            duration_seconds REAL,
-            error TEXT,
-            FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE,
-            UNIQUE(job_id, date, model)
-        )
-    """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS job_details (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_id TEXT NOT NULL,
+                date TEXT NOT NULL,
+                model TEXT NOT NULL,
+                status TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT,
+                duration_seconds REAL,
+                error TEXT,
+                FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE,
+                UNIQUE(job_id, date, model)
+            )
+        """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS trading_days (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id TEXT NOT NULL,
-            model TEXT NOT NULL,
-            date TEXT NOT NULL,
-            starting_cash REAL NOT NULL,
-            ending_cash REAL NOT NULL,
-            profit REAL NOT NULL,
-            return_pct REAL NOT NULL,
-            portfolio_value REAL NOT NULL,
-            reasoning_summary TEXT,
-            reasoning_full TEXT,
-            completed_at TEXT,
-            session_duration_seconds REAL,
-            UNIQUE(job_id, model, date)
-        )
-    """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS trading_days (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_id TEXT NOT NULL,
+                model TEXT NOT NULL,
+                date TEXT NOT NULL,
+                starting_cash REAL NOT NULL,
+                ending_cash REAL NOT NULL,
+                profit REAL NOT NULL,
+                return_pct REAL NOT NULL,
+                portfolio_value REAL NOT NULL,
+                reasoning_summary TEXT,
+                reasoning_full TEXT,
+                completed_at TEXT,
+                session_duration_seconds REAL,
+                UNIQUE(job_id, model, date)
+            )
+        """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS holdings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            trading_day_id INTEGER NOT NULL,
-            symbol TEXT NOT NULL,
-            quantity INTEGER NOT NULL,
-            FOREIGN KEY (trading_day_id) REFERENCES trading_days(id) ON DELETE CASCADE
-        )
-    """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS holdings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trading_day_id INTEGER NOT NULL,
+                symbol TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                FOREIGN KEY (trading_day_id) REFERENCES trading_days(id) ON DELETE CASCADE
+            )
+        """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS actions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            trading_day_id INTEGER NOT NULL,
-            action_type TEXT NOT NULL,
-            symbol TEXT NOT NULL,
-            quantity INTEGER NOT NULL,
-            price REAL NOT NULL,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (trading_day_id) REFERENCES trading_days(id) ON DELETE CASCADE
-        )
-    """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS actions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trading_day_id INTEGER NOT NULL,
+                action_type TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                price REAL NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (trading_day_id) REFERENCES trading_days(id) ON DELETE CASCADE
+            )
+        """)
 
-    conn.commit()
-    conn.close()
+        conn.commit()
 
     # Create mock config
     config_path = str(tmp_path / "test_config.json")
@@ -146,29 +145,28 @@ def test_duplicate_simulation_is_skipped(temp_env):
     job_id_1 = result_1["job_id"]
 
     # Simulate completion by manually inserting trading_day record
-    conn = get_db_connection(temp_env["db_path"])
-    cursor = conn.cursor()
+    with db_connection(temp_env["db_path"]) as conn:
+        cursor = conn.cursor()
 
-    cursor.execute("""
-        INSERT INTO trading_days (
-            job_id, model, date, starting_cash, ending_cash,
-            profit, return_pct, portfolio_value, completed_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        job_id_1,
-        "test-model",
-        "2025-10-15",
-        10000.0,
-        9500.0,
-        -500.0,
-        -5.0,
-        9500.0,
-        "2025-11-07T01:00:00Z"
-    ))
+        cursor.execute("""
+            INSERT INTO trading_days (
+                job_id, model, date, starting_cash, ending_cash,
+                profit, return_pct, portfolio_value, completed_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            job_id_1,
+            "test-model",
+            "2025-10-15",
+            10000.0,
+            9500.0,
+            -500.0,
+            -5.0,
+            9500.0,
+            "2025-11-07T01:00:00Z"
+        ))
 
-    conn.commit()
-    conn.close()
+        conn.commit()
 
     # Mark job_detail as completed
     manager.update_job_detail_status(
