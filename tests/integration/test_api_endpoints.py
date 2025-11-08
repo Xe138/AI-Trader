@@ -250,13 +250,11 @@ class TestResultsEndpoint:
         })
         job_id = create_response.json()["job_id"]
 
-        # Query results
+        # Query results - no data exists yet, should return 404
         response = api_client.get(f"/results?job_id={job_id}")
 
-        assert response.status_code == 200
-        data = response.json()
-        # Should return empty list initially (no completed executions yet)
-        assert isinstance(data["results"], list)
+        # No data exists, should return 404
+        assert response.status_code == 404
 
     def test_results_filters_by_date(self, api_client):
         """Should filter results by date."""
